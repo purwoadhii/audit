@@ -47,7 +47,7 @@ Langkah:
    cd jejak-audit
    ```
 
-4. Salin `.env.example` menjadi `.env` (`copy .env.example .env` di Windows). Isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` untuk akun admin pertama. `DATABASE_URL` sudah cocok untuk XAMPP bawaan (user `root` tanpa kata sandi). Kalau user root MySQL Anda memakai kata sandi, tulis sebagai `mysql://root:KATASANDI@localhost:3306/jejak_audit`.
+4. Salin `.env.example` menjadi `.env` (`copy .env.example .env` di Command Prompt, atau `cp .env.example .env` di Git Bash). Isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` untuk akun admin pertama. `DATABASE_URL` sudah cocok untuk XAMPP bawaan (user `root` tanpa kata sandi). Kalau user root MySQL Anda memakai kata sandi, tulis sebagai `mysql://root:KATASANDI@localhost:3306/jejak_audit`.
 5. Pasang dan jalankan:
 
    ```bash
