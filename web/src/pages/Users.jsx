@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ROLES, fmtDateTime } from '../util.js';
 import { useSettings } from '../settings.jsx';
-import { ErrorBox, Loading, Sheet, useLoad, useToast } from '../components/ui.jsx';
+import { ErrorBox, Loading, Req, ReqNote, Sheet, useLoad, useToast } from '../components/ui.jsx';
 
 const ROLE_HINT = {
   infraadmin: 'Developer. Semua hak System Admin, ditambah halaman Sistem, mode perbaikan, dan batas percobaan login.',
@@ -73,12 +73,13 @@ function UserForm({ user, onClose, onSaved }) {
   return (
     <Sheet title={isNew ? 'Pengguna baru' : user.name} onClose={onClose}>
       <form className="form" onSubmit={submit}>
-        <label>Nama<input id="u-name" required value={f.name} onChange={set('name')} /></label>
-        <label>Username<input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.</span></label>
-        <label>Email<input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
-        <label>Peran<select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{ROLE_HINT[f.role]}</span></label>
-        <label>Unit<input id="u-unit" list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">Wajib untuk auditee, harus sama persis dengan unit di audit.</span></label>
-        <label className="full">{isNew ? 'Kata sandi awal' : 'Atur ulang kata sandi'}<input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? 'Minimal 8 karakter' : 'Kosongkan bila tidak diubah'} /></label>
+        <ReqNote />
+        <label><span>Nama <Req /></span><input id="u-name" required value={f.name} onChange={set('name')} /></label>
+        <label><span>Username <Req /></span><input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.</span></label>
+        <label><span>Email <Req /></span><input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
+        <label><span>Peran <Req /></span><select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{ROLE_HINT[f.role]}</span></label>
+        <label><span>Unit {f.role === 'auditee' && <Req />}</span><input id="u-unit" required={f.role === 'auditee'} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">Wajib untuk auditee, harus sama persis dengan unit di audit.</span></label>
+        <label className="full"><span>{isNew ? <>Kata sandi awal <Req /></> : 'Atur ulang kata sandi'}</span><input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? 'Minimal 8 karakter' : 'Kosongkan bila tidak diubah'} /></label>
         {!isNew && user.id !== me.id && (
           <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><input id="u-active" type="checkbox" style={{ width: 'auto' }} checked={f.active} onChange={set('active')} />Akun aktif</label>
         )}

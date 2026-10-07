@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { AUDITEE_STATUS, FINDING_STATUS, RISKS, canEdit, fmtDateTime } from '../util.js';
-import { ConfirmDelete, ErrorBox, Loading, RiskPill, Sheet, StatusPill, useLoad, useToast } from './ui.jsx';
+import { ConfirmDelete, Req, ReqNote, ErrorBox, Loading, RiskPill, Sheet, StatusPill, useLoad, useToast } from './ui.jsx';
 import Attachments from './Attachments.jsx';
 
 const ELEMENTS = [
@@ -99,9 +99,10 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      <label className="full">Judul temuan<input id="f-title" required value={f.title} onChange={set('title')} /></label>
-      <label>Audit<select id="f-audit" required value={auditId} onChange={set('audit_id')}>{audits.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.title}</option>)}</select></label>
-      <label>Tingkat risiko<select id="f-risk" value={f.risk} onChange={set('risk')}>{RISKS.map((r) => <option key={r}>{r}</option>)}</select></label>
+      <ReqNote />
+      <label className="full"><span>Judul temuan <Req /></span><input id="f-title" required value={f.title} onChange={set('title')} /></label>
+      <label><span>Audit <Req /></span><select id="f-audit" required value={auditId} onChange={set('audit_id')}>{audits.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.title}</option>)}</select></label>
+      <label><span>Tingkat risiko <Req /></span><select id="f-risk" value={f.risk} onChange={set('risk')}>{RISKS.map((r) => <option key={r}>{r}</option>)}</select></label>
       <fieldset className="fs">
         <legend>Unsur temuan</legend>
         {ELEMENTS.map(([k, label, hint]) => (
@@ -110,7 +111,7 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
       </fieldset>
       <label>Penanggung jawab (PIC)<select id="f-owner" value={f.owner_id} onChange={set('owner_id')}><option value="">Belum ditentukan</option>{users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.unit ? ` · ${u.unit}` : ''}</option>)}</select></label>
       <label>Batas waktu<input id="f-due" type="date" value={f.due_date} onChange={set('due_date')} /></label>
-      <label>Status tindak lanjut<select id="f-status" value={f.status} onChange={set('status')}>{FINDING_STATUS.map((s) => <option key={s}>{s}</option>)}</select></label>
+      <label><span>Status tindak lanjut <Req /></span><select id="f-status" value={f.status} onChange={set('status')}>{FINDING_STATUS.map((s) => <option key={s}>{s}</option>)}</select></label>
       <span />
       <label className="full">Tanggapan auditee<textarea id="f-response" value={f.response} onChange={set('response')} /></label>
       {error && <div className="error-text full" role="alert">{error}</div>}

@@ -326,3 +326,9 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
 .bg-preview .right i { display:block; height:10px; border-radius:5px; background:var(--line); }
 .bg-preview .right i.btnlike { height:16px; background:var(--navy-800); }
 .upload-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+/* Penanda kolom wajib */
+.req { color:var(--high); font-weight:800; margin-left:2px; }
+.form-note { margin:0; font-size:12px; color:var(--muted); }
+/* Isian tidak ikut tebal seperti labelnya, dan contoh isian (placeholder) tampil pudar agar tidak dikira sudah terisi */
+.form label input, .form label select, .form label textarea, label.field input { font-weight:500; color:var(--ink); }
+::placeholder { color:#93A5AE; font-weight:400; opacity:1; }

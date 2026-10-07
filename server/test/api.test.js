@@ -107,6 +107,7 @@ test('admin membuat pengguna untuk setiap peran', async () => {
   ctx.otherId = await mk('Sari', 'sari@contoh.id', 'auditee', 'Divisi Keuangan');
   assert.equal((await admin.post('/api/users', { name: 'X', username: 'x1', email: 'budi@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
   assert.equal((await admin.post('/api/users', { name: 'X', username: 'budi', email: 'x@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
+  assert.equal((await admin.post('/api/users', { name: 'X', username: 'xx', email: 'x@contoh.id', role: 'auditee', password: 'katasandi123' })).status, 400, 'auditee wajib punya unit');
   assert.equal((await admin.post('/api/users', { name: 'X', username: 'a b', email: 'x@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
   await auditor.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
   await auditee.post('/api/auth/login', { email: 'budi@contoh.id', password: 'katasandi123' });

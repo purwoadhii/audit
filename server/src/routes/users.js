@@ -46,6 +46,7 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
+  if (role === 'auditee' && !unit) throw badRequest('Unit wajib diisi untuk auditee.');
   const username = cleanUsername(req.body?.username);
   await assertFree('email', email);
   await assertFree('username', username);
@@ -83,6 +84,9 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
     add('password_hash', await bcrypt.hash(String(b.password), 10));
   }
   if (id === req.user.id && b.role && b.role !== req.user.role) throw badRequest('Anda tidak bisa mengubah peran akun sendiri.');
+  const finalRole = b.role ?? target.role;
+  const finalUnit = b.unit !== undefined ? b.unit?.trim() : target.unit;
+  if (finalRole === 'auditee' && !finalUnit) throw badRequest('Unit wajib diisi untuk auditee.');
   if (!sets.length) throw badRequest('Tidak ada perubahan.');
   await query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
   // Akun yang dinonaktifkan atau kata sandinya diatur ulang harus masuk lagi.

@@ -98,3 +98,7 @@ export function useLoad(fn, deps) {
   }, [...deps, tick]);
   return { ...state, reload: () => setTick((t) => t + 1), setData: (d) => setState((s) => ({ ...s, data: typeof d === 'function' ? d(s.data) : d })) };
 }
+
+// Tanda kolom wajib. Pembaca layar sudah tahu dari atribut required pada input.
+export const Req = () => <span className="req" aria-hidden="true">*</span>;
+export const ReqNote = () => <p className="form-note full">Kolom bertanda <Req /> wajib diisi.</p>;
