@@ -22,6 +22,10 @@ export const config = {
     password: env.ADMIN_PASSWORD || '',
     name: env.ADMIN_NAME || 'Administrator',
     username: env.ADMIN_USERNAME || 'admin',
+    // Akun user pendamping untuk pemilik akun admin, supaya bisa ikut mengerjakan audit.
+    // Kosongkan ADMIN_USER_ROLE bila tidak perlu.
+    userRole: env.ADMIN_USER_ROLE ?? 'auditor',
+    userUsername: env.ADMIN_USER_USERNAME || '',
   },
   // Akun developer di atas System Admin, untuk pemeriksaan dan perbaikan sistem.
   infra: {

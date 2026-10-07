@@ -32,6 +32,7 @@ export async function migrate() {
     await conn.end();
   }
   await ensureAdmin();
+  await ensureAdminUser();
   await ensureInfraAdmin();
 }
 
@@ -49,6 +50,28 @@ async function ensureAdmin() {
     [config.admin.name, config.admin.username, config.admin.email, hash],
   );
   console.log(`Admin pertama dibuat: ${config.admin.username} (${config.admin.email})`);
+}
+
+// Akun admin hanya untuk pengaturan, jadi pemiliknya juga dibuatkan akun user terpisah dengan
+// password yang sama. Username memakai akhiran .user dan email memakai alias +user, misalnya
+// oti.twingate+user@gmail.com, yang tetap masuk ke kotak masuk yang sama.
+export function adminUserIdentity(admin = config.admin) {
+  const username = (admin.userUsername || `${admin.username}.user`).toLowerCase();
+  const [local, domain] = admin.email.toLowerCase().split('@');
+  return { username, email: `${local}+user@${domain}` };
+}
+
+async function ensureAdminUser() {
+  const { email, password, name, userRole } = config.admin;
+  if (!email || !password || !['auditor', 'auditee', 'manajemen'].includes(userRole)) return;
+  const id = adminUserIdentity();
+  const [rows] = await pool.query('SELECT id FROM users WHERE username = ? OR email = ?', [id.username, id.email]);
+  if (rows.length) return;
+  await pool.query(
+    'INSERT INTO users (name, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+    [name, id.username, id.email, await bcrypt.hash(password, 10), userRole],
+  );
+  console.log(`Akun user untuk admin dibuat: ${id.username} (${id.email})`);
 }
 
 // Akun Infra Admin (developer) dibuat dari INFRA_USERNAME/INFRA_PASSWORD bila username itu belum ada.

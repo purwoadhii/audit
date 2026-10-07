@@ -77,6 +77,11 @@ test('login admin dan menolak kata sandi salah', async () => {
   assert.equal(r.data.role, 'admin');
   assert.equal(r.data.username, 'admin');
   assert.equal((await client().get('/api/audits')).status, 401);
+  // Akun user pendamping admin: password sama, username .user, email alias +user.
+  const twin = await client().post('/api/auth/login', { username: 'admin.user', password: 'rahasia-admin-1' });
+  assert.equal(twin.status, 200);
+  assert.equal(twin.data.role, 'auditor');
+  assert.equal(twin.data.email, 'admin+user@contoh.id');
 });
 
 test('login dengan username dan opsi ingat saya', async () => {
