@@ -18,6 +18,8 @@ process.env.INFRA_PASSWORD = 'rahasia-infra-1';
 const { pool } = await import('../src/db.js');
 const { migrate } = await import('../src/migrate.js');
 const { createApp } = await import('../src/app.js');
+const { stopExtraction } = await import('../src/extract.js');
+const fx = await import('./fixtures.js');
 
 let server;
 let base;
@@ -60,6 +62,7 @@ before(async () => {
 });
 
 after(async () => {
+  await stopExtraction();
   server.close();
   await pool.end();
 });
@@ -378,4 +381,116 @@ test('penyimpanan file: lokal dan S3', async () => {
   assert.equal(usage.driver, 's3');
   // Kembali ke lokal; file lama tetap dibaca dari tempat asalnya.
   assert.equal((await admin.put('/api/admin/storage', { driver: 'local' })).status, 200);
+});
+
+// Tunggu pembacaan teks di belakang layar selesai.
+async function waitText(c, id) {
+  for (let i = 0; i < 100; i++) {
+    const r = await c.get(`/api/attachments/${id}/text`);
+    if (r.data.status !== 'pending') return r.data;
+    await new Promise((ok) => setTimeout(ok, 100));
+  }
+  throw new Error('Teks file tidak selesai dibaca');
+}
+
+async function upload(c, url, buf, name, type) {
+  const fd = new FormData();
+  fd.append('file', new Blob([buf], { type }), name);
+  const r = await c.post(url, fd);
+  assert.equal(r.status, 201, JSON.stringify(r.data));
+  return r.data.id;
+}
+
+test('teks file dan OCR bisa dibaca', async () => {
+  const url = `/api/findings/${ctx.findingId}/attachments`;
+  const pdfId = await upload(auditee, url, fx.pdf({ text: 'Faktur pembelian INV-2026-001' }), 'faktur.pdf', 'application/pdf');
+  const img = fx.imageWithText(['KWITANSI PEMBAYARAN', 'Nomor KW-778']);
+  const pngId = await upload(auditee, url, img.buf, 'kwitansi.png', 'image/png');
+  const scan = fx.imageWithText(['SURAT PERINTAH KERJA', 'Nomor SPK-0912'], 'image/jpeg');
+  const scanId = await upload(auditee, url, fx.pdf({ jpeg: scan }), 'spk-scan.pdf', 'application/pdf');
+  const xlsxId = await upload(auditee, url, await fx.xlsx([['Vendor', 'Nilai'], ['PT Maju Jaya', 150000]]), 'vendor.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+  const p = await waitText(auditee, pdfId);
+  assert.equal(p.status, 'done');
+  assert.match(p.text, /INV-2026-001/);
+  const o = await waitText(auditee, pngId);
+  assert.equal(o.status, 'ocr');
+  assert.match(o.text, /KWITANSI/);
+  const s = await waitText(auditee, scanId);
+  assert.equal(s.status, 'ocr', 'PDF hasil scan dibaca dengan OCR');
+  assert.match(s.text, /SPK-0912/);
+  assert.match((await waitText(auditee, xlsxId)).text, /PT Maju Jaya\t150000/);
+  assert.equal((await other.get(`/api/attachments/${pdfId}/text`)).status, 404, 'teks ikut hak akses file');
+  ctx.files = { pdfId, pngId, scanId };
+});
+
+test('asisten AI memakai penyedia berikutnya saat batas tercapai', async () => {
+  // Penyedia AI tiruan yang kompatibel OpenAI: Gemini kena batas, Groq menjawab dengan memanggil alat.
+  const http = await import('node:http');
+  const calls = [];
+  const fake = http.createServer(async (req, res) => {
+    let body = '';
+    for await (const c of req) body += c;
+    const data = JSON.parse(body);
+    const provider = req.url.split('/')[1];
+    calls.push({ provider, auth: req.headers.authorization, data });
+    res.setHeader('content-type', 'application/json');
+    if (provider === 'gemini') { res.statusCode = 429; res.setHeader('retry-after', '120'); return res.end(JSON.stringify({ error: { message: 'Quota exceeded' } })); }
+    const tool = data.messages.findLast((m) => m.role === 'tool');
+    if (!tool && data.tools) {
+      return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'call_abc-123_long', type: 'function', function: { name: 'cari', arguments: JSON.stringify({ kata_kunci: 'KW-778', jenis: 'file' }) } }] } }], usage: { prompt_tokens: 50, completion_tokens: 10 } }));
+    }
+    const found = JSON.parse(tool.content);
+    res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `Ditemukan ${found.jumlah} file: [${found.hasil[0]?.nama}](${found.hasil[0]?.tautan})` } }], usage: { prompt_tokens: 80, completion_tokens: 20 } }));
+  }).listen(0);
+  const fakeUrl = `http://127.0.0.1:${fake.address().port}`;
+  try {
+    assert.equal((await auditee.get('/api/ai/status')).data.available, false, 'belum diatur');
+    assert.equal((await auditor.get('/api/admin/ai')).status, 403);
+    const providers = {
+      gemini: { key: 'kunci-gemini', base_url: `${fakeUrl}/gemini` },
+      groq: { key: 'kunci-groq-1234', base_url: `${fakeUrl}/groq` },
+      openrouter: { enabled: false },
+    };
+    const saved = await admin.put('/api/admin/ai', { enabled: true, roles: ['auditor', 'auditee'], providers });
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    assert.deepEqual(saved.data.order, ['gemini', 'groq', 'openrouter', 'mistral', 'cerebras']);
+    assert.equal(saved.data.providers.groq.key_hint, '…1234');
+    assert.equal(JSON.stringify(saved.data).includes('kunci-groq'), false, 'API key tidak dikirim ke browser');
+    const [[row]] = await pool.query("SELECT v FROM settings WHERE k = 'ai'");
+    assert.equal(row.v.includes('kunci-groq'), false, 'API key tersimpan terenkripsi');
+
+    assert.equal((await auditee.get('/api/ai/status')).data.available, true);
+    const ans = await auditee.post('/api/ai/chat', { messages: [{ role: 'user', content: 'Cari kwitansi KW-778' }] });
+    assert.equal(ans.status, 200, JSON.stringify(ans.data));
+    assert.equal(ans.data.provider, 'groq');
+    assert.equal(ans.data.fallbacks[0].provider, 'gemini');
+    assert.equal(ans.data.fallbacks[0].status, 429);
+    assert.match(ans.data.reply, /Ditemukan 1 file: \[kwitansi\.png\]\(\/temuan\?id=/);
+    assert.equal(calls.find((c) => c.provider === 'groq').auth, 'Bearer kunci-groq-1234');
+    const toolMsg = calls.at(-1).data.messages.find((m) => m.tool_calls);
+    assert.match(toolMsg.tool_calls[0].id, /^[a-zA-Z0-9]{9}$/, 'id alat bisa dipakai semua penyedia');
+
+    // Pertanyaan berikutnya langsung ke Groq karena Gemini sedang istirahat.
+    calls.length = 0;
+    await auditee.post('/api/ai/chat', { messages: [{ role: 'user', content: 'Cari lagi' }] });
+    assert.equal(calls[0].provider, 'groq');
+
+    // Hak akses: auditee unit lain tidak menemukan file itu; admin tidak memakai asisten.
+    const otherAns = await other.post('/api/ai/chat', { messages: [{ role: 'user', content: 'Cari kwitansi KW-778' }] });
+    assert.match(otherAns.data.reply, /Ditemukan 0 file/);
+    assert.equal((await admin.post('/api/ai/chat', { messages: [{ role: 'user', content: 'halo' }] })).status, 403);
+
+    const infra = client();
+    await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
+    const st = (await infra.get('/api/admin/ai/status')).data;
+    const gem = st.providers.find((p) => p.id === 'gemini');
+    assert.equal(gem.today.limited, 1);
+    assert.ok(gem.cooldown_until, 'Gemini diistirahatkan');
+    assert.equal(st.providers.find((p) => p.id === 'groq').today.ok, 6);
+    assert.ok(st.extraction.files.ocr >= 2);
+    assert.equal((await admin.get('/api/admin/ai/status')).status, 403);
+  } finally {
+    fake.close();
+  }
 });

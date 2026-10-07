@@ -19,6 +19,10 @@ import Logins from './pages/Logins.jsx';
 import Sessions from './pages/Sessions.jsx';
 import System from './pages/System.jsx';
 import { StorageSettings, StorageStatus } from './pages/Storage.jsx';
+import { AiSettings, AiStatus, AiChat } from './pages/Ai.jsx';
+import { useEffect, useState } from 'react';
+import { api } from './api.js';
+import { Loading } from './components/ui.jsx';
 
 // Menu Aktivitas: log aktivitas untuk admin, auditor, dan manajemen; riwayat login hanya untuk admin
 // karena memuat alamat IP dan perangkat setiap pengguna.
@@ -49,6 +53,7 @@ function SysAdminArea() {
         <NavLink to="/sysAdmin/template">Template</NavLink>
         <NavLink to="/sysAdmin/pengaturan">Pengaturan</NavLink>
         <NavLink to="/sysAdmin/penyimpanan">Penyimpanan file</NavLink>
+        <NavLink to="/sysAdmin/ai">Asisten AI</NavLink>
         <NavLink to="/sysAdmin/sesi">Sesi aktif</NavLink>
       </nav>
       <Routes>
@@ -56,6 +61,7 @@ function SysAdminArea() {
         <Route path="template" element={<Templates />} />
         <Route path="pengaturan" element={<Settings />} />
         <Route path="penyimpanan" element={<StorageSettings />} />
+        <Route path="ai" element={<AiSettings />} />
         <Route path="sesi" element={<Sessions />} />
         <Route path="*" element={<Navigate to="/sysAdmin/pengguna" replace />} />
       </Routes>
@@ -70,11 +76,13 @@ function InfraAdminArea() {
       <nav className="subtabs" aria-label="Infra Admin">
         <NavLink to="/infraAdmin/sistem">Sistem</NavLink>
         <NavLink to="/infraAdmin/penyimpanan">Penyimpanan file</NavLink>
+        <NavLink to="/infraAdmin/ai">Asisten AI</NavLink>
         <NavLink to="/infraAdmin/keamanan">Keamanan dan perbaikan</NavLink>
       </nav>
       <Routes>
         <Route path="sistem" element={<System />} />
         <Route path="penyimpanan" element={<StorageStatus />} />
+        <Route path="ai" element={<AiStatus />} />
         <Route path="keamanan" element={<Settings infra />} />
         <Route path="*" element={<Navigate to="/infraAdmin/sistem" replace />} />
       </Routes>
@@ -82,9 +90,22 @@ function InfraAdminArea() {
   );
 }
 
+// Menu Asisten AI muncul bila admin sudah mengaktifkannya untuk peran pengguna ini.
+function useAiAvailable(user, works) {
+  const [st, setSt] = useState({ id: null, ok: false });
+  const id = works ? user?.id : null;
+  useEffect(() => {
+    if (!id) return;
+    api.get('/ai/status').then((r) => setSt({ id, ok: r.available })).catch(() => setSt({ id, ok: false }));
+  }, [id]);
+  if (!id) return false;
+  return st.id === id ? st.ok : null; // null = sedang diperiksa
+}
+
 export default function App() {
   const { user, logout } = useAuth();
   const { settings } = useSettings();
+  const ai = useAiAvailable(user, Boolean(user) && !checkAdmin(user));
   if (user === undefined) return <div className="empty"><b>Memuat…</b></div>;
   if (!user) return <Login />;
   const isAdmin = checkAdmin(user);
@@ -115,6 +136,7 @@ export default function App() {
                 <NavLink to="/audit">Audit</NavLink>
                 <NavLink to="/temuan">Temuan</NavLink>
                 <NavLink to="/tindak-lanjut">Tindak Lanjut</NavLink>
+                {ai === true && <NavLink to="/asisten">Asisten AI</NavLink>}
               </>
             )}
             {seesActivity && <NavLink to="/aktivitas">Aktivitas</NavLink>}
@@ -133,6 +155,7 @@ export default function App() {
               <Route path="/audit/:id/laporan" element={<Report />} />
               <Route path="/temuan" element={<Findings />} />
               <Route path="/tindak-lanjut" element={<Board />} />
+              {ai !== false && <Route path="/asisten" element={ai ? <AiChat /> : <Loading />} />}
             </>
           ) : <Route path="/" element={<Navigate to="/sysAdmin" replace />} />}
           <Route path="/akun" element={<Account />} />

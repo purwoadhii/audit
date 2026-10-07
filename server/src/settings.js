@@ -49,6 +49,8 @@ export const SETTINGS = {
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
+  // Dokumen (System Admin)
+  ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
   // Keamanan login (System Admin)
   session_idle_minutes: { def: 120, who: 'admin', label: 'Batas tidak aktif', check: int(5, 1440) },
   remember_max_days: { def: 7, who: 'admin', label: 'Batas Ingat saya', check: int(1, 30) },

@@ -14,6 +14,7 @@ const THEME_COLOR = {
 const SECTIONS = [
   { title: 'Tampilan', keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
   { title: 'Data master', keys: ['units', 'audit_types'] },
+  { title: 'Dokumen', keys: ['ocr_enabled'] },
   { title: 'Keamanan login', keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
 
@@ -30,6 +31,7 @@ const HINT = {
   remember_max_days: 'Dengan "Ingat saya", sesi bertahan sampai browser ditutup, paling lama sekian hari.',
   max_login_attempts: 'Percobaan gagal per username dan alamat IP dalam 15 menit sebelum login dikunci.',
   maintenance: 'Saat aktif, hanya Infra Admin yang bisa masuk. Pengguna lain melihat pesan di bawah.',
+  ocr_enabled: 'Teks gambar dan PDF hasil scan dibaca otomatis saat diunggah, supaya isinya bisa dicari lewat Asisten AI. Word, Excel, PowerPoint, dan PDF biasa selalu dibaca.',
   app_tagline: 'Tampil di bawah nama aplikasi dan di bagian bawah kartu login.',
 };
 

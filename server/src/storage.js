@@ -5,6 +5,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, Head
 import { query } from './db.js';
 import { config } from './config.js';
 import { badRequest } from './errors.js';
+import { sealSecret, openSecret } from './secret.js';
 
 // Tempat menyimpan file bukti:
 // - local: folder di server aplikasi. Bawaannya UPLOAD_DIR, dan System Admin bisa mengarahkannya ke folder lain
@@ -15,26 +16,9 @@ import { badRequest } from './errors.js';
 const KEY = 'storage';
 const DEFAULT = { driver: 'local', local_dir: '', s3: { endpoint: '', region: 'us-east-1', bucket: '', access_key: '', prefix: 'audit/', path_style: true }, secret: '' };
 
-// Secret key S3 disimpan terenkripsi di database dengan kunci turunan JWT_SECRET.
-const cipherKey = () => crypto.createHash('sha256').update(`storage:${config.jwtSecret}`).digest();
-function encrypt(text) {
-  if (!text) return '';
-  const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', cipherKey(), iv);
-  const enc = Buffer.concat([c.update(text, 'utf8'), c.final()]);
-  return [iv, c.getAuthTag(), enc].map((b) => b.toString('base64')).join('.');
-}
-function decrypt(blob) {
-  if (!blob) return '';
-  try {
-    const [iv, tag, enc] = blob.split('.').map((x) => Buffer.from(x, 'base64'));
-    const d = crypto.createDecipheriv('aes-256-gcm', cipherKey(), iv);
-    d.setAuthTag(tag);
-    return Buffer.concat([d.update(enc), d.final()]).toString('utf8');
-  } catch {
-    return null; // JWT_SECRET berubah: secret harus diisi ulang
-  }
-}
+// Secret key S3 disimpan terenkripsi (lihat secret.js).
+const encrypt = (text) => sealSecret(text, 'storage');
+const decrypt = (blob) => openSecret(blob, 'storage');
 
 let cache = null;
 const health = { last_check: null, ok: null, message: '', last_error: null };

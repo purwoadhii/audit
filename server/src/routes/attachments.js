@@ -9,6 +9,7 @@ import { badRequest, notFound, forbidden, intId } from '../errors.js';
 import { loadFinding } from './findings.js';
 import { loadAudit } from './audits.js';
 import { storeUpload, openStored, removeStored } from '../storage.js';
+import { queueExtraction } from '../extract.js';
 
 fs.mkdirSync(config.uploadDir, { recursive: true });
 
@@ -47,7 +48,9 @@ async function saveRecord(req, file, auditId, findingId) {
     `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, storage, storage_dir, uploaded_by)
      VALUES (?,?,?,?,?,?,?,?,?)`,
     [auditId, findingId, filename, file.mimetype, file.size, file.filename, storage, dir, req.user.id]);
-  const { rows } = await query('SELECT id, filename, mime, size, created_at FROM attachments WHERE id = ?', [insertId]);
+  const { rows } = await query('SELECT id, filename, mime, size, text_status, created_at FROM attachments WHERE id = ?', [insertId]);
+  // Teks dan OCR dibaca di belakang layar supaya isi file bisa dicari.
+  queueExtraction(insertId);
   await logActivity({ query }, req.user.id, 'upload', 'attachment', insertId, { filename, auditId, findingId });
   return { ...rows[0], uploaded_by: req.user.id, uploaded_by_name: req.user.name };
 }
@@ -92,6 +95,13 @@ async function loadAttachment(user, id) {
   else await loadAudit(user, att.audit_id);
   return att;
 }
+
+// Teks hasil pembacaan file (termasuk OCR).
+r.get('/:id/text', async (req, res) => {
+  const att = await loadAttachment(req.user, intId(req.params.id));
+  const { rows } = await query('SELECT text_status, text_content FROM attachments WHERE id = ?', [att.id]);
+  res.json({ id: att.id, filename: att.filename, status: rows[0].text_status, text: rows[0].text_content || '' });
+});
 
 r.get('/:id', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));

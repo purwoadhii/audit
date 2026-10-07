@@ -7,6 +7,8 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { config } from '../config.js';
 import { recentErrors } from '../errorlog.js';
 import { getSettings } from '../settings.js';
+import { publicAiConfig, saveAiConfig, testProvider, aiHealth, PROVIDERS } from '../ai.js';
+import { extractionState, requeueAll } from '../extract.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
@@ -125,6 +127,48 @@ r.get('/storage/status', requireRole('infraadmin'), async (req, res) => {
     max_upload_mb: config.maxUploadMb,
     login_background: Boolean(settings.login_background),
   });
+});
+
+// ---- Asisten AI (diatur System Admin, dipantau Infra Admin) ----
+r.get('/ai', requireRole('admin'), async (_req, res) => {
+  res.json(await publicAiConfig());
+});
+
+r.put('/ai', requireRole('admin'), async (req, res) => {
+  await saveAiConfig(req.user, req.body || {});
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['ai'] });
+  res.json(await publicAiConfig());
+});
+
+r.post('/ai/test', requireRole('admin'), async (req, res) => {
+  res.json(await testProvider(String(req.body?.provider || '')));
+});
+
+r.get('/ai/status', requireRole('infraadmin'), async (_req, res) => {
+  const cfg = await publicAiConfig();
+  const { rows } = await query(
+    `SELECT provider, SUM(ok) AS ok, SUM(1 - ok) AS failed, SUM(CASE WHEN status = 429 THEN 1 ELSE 0 END) AS limited,
+            COALESCE(SUM(tokens_in), 0) AS tokens_in, COALESCE(SUM(tokens_out), 0) AS tokens_out, MAX(created_at) AS last_used
+       FROM ai_usage WHERE created_at >= CURRENT_DATE GROUP BY provider`,
+  );
+  const today = Object.fromEntries(rows.map((x) => [x.provider, { ok: Number(x.ok), failed: Number(x.failed), limited: Number(x.limited), tokens_in: Number(x.tokens_in), tokens_out: Number(x.tokens_out), last_used: x.last_used }]));
+  const health = aiHealth();
+  const { rows: texts } = await query('SELECT text_status AS status, COUNT(*) AS n FROM attachments GROUP BY text_status');
+  res.json({
+    enabled: cfg.enabled,
+    providers: cfg.order.map((id) => ({
+      id, label: PROVIDERS[id].label, enabled: cfg.providers[id].enabled, key_set: cfg.providers[id].key_set, model: cfg.providers[id].model,
+      today: today[id] || { ok: 0, failed: 0, limited: 0, tokens_in: 0, tokens_out: 0, last_used: null }, ...(health[id] || {}),
+    })),
+    extraction: { ...extractionState(), files: Object.fromEntries(texts.map((x) => [x.status, Number(x.n)])) },
+  });
+});
+
+// Baca ulang file yang belum terbaca, misalnya setelah OCR dinyalakan.
+r.post('/ocr/reprocess', requireRole('admin'), async (req, res) => {
+  const queued = await requeueAll(['none', 'failed', 'pending']);
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { action: 'ocr_reprocess', queued });
+  res.json({ queued });
 });
 
 r.get('/errors', requireRole('infraadmin'), (_req, res) => {

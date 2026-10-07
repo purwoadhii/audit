@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { FINDING_STATUS, RISKS, canEdit, fmtDate } from '../util.js';
@@ -9,7 +10,13 @@ export default function Findings() {
   const { user } = useAuth();
   const [filter, setFilter] = useState({ q: '', status: '', risk: '', audit: '', overdue: false });
   const { data, error, loading, reload } = useLoad(() => api.get('/findings'), []);
-  const [sheet, setSheet] = useState(null);
+  // ?id= dari tautan Asisten AI langsung membuka temuan itu.
+  const [params, setParams] = useSearchParams();
+  const [sheet, setSheetState] = useState(() => (params.get('id') ? { id: Number(params.get('id')) } : null));
+  const setSheet = (v) => {
+    setSheetState(v);
+    if (!v && params.get('id')) setParams({}, { replace: true });
+  };
   const set = (k) => (e) => setFilter({ ...filter, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
   const audits = useMemo(() => {

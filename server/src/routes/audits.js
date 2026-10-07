@@ -124,7 +124,7 @@ r.get('/:id', async (req, res) => {
      FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id
      WHERE f.audit_id = ? AND ${fs.sql} ORDER BY f.code`, [id, ...fs.params])).rows;
   const attachments = req.user.role === 'auditee' ? [] : (await query(
-    `SELECT t.id, t.filename, t.mime, t.size, t.created_at, t.uploaded_by, u.name AS uploaded_by_name
+    `SELECT t.id, t.filename, t.mime, t.size, t.text_status, t.created_at, t.uploaded_by, u.name AS uploaded_by_name
      FROM attachments t LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.audit_id = ? AND t.finding_id IS NULL ORDER BY t.id`, [id])).rows;
   res.json({ ...audit, steps, findings, attachments });
 });

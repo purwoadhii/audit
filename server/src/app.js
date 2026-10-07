@@ -14,6 +14,7 @@ import attachmentRoutes, { findingUploads, auditUploads } from './routes/attachm
 import dashboardRoutes from './routes/dashboard.js';
 import settingsRoutes from './routes/settings.js';
 import adminRoutes from './routes/admin.js';
+import aiRoutes from './routes/ai.js';
 import { recordError } from './errorlog.js';
 
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -55,6 +56,7 @@ export function createApp() {
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/ai', aiRoutes);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Alamat API tidak ditemukan.')));
 
   if (fs.existsSync(webDist)) {

@@ -50,7 +50,7 @@ r.get('/:id', async (req, res) => {
     `SELECT l.id, l.text, l.status, l.created_at, u.name AS user_name FROM finding_logs l
      LEFT JOIN users u ON u.id = l.user_id WHERE l.finding_id = ? ORDER BY l.created_at DESC, l.id DESC`, [id])).rows;
   const attachments = (await query(
-    `SELECT t.id, t.filename, t.mime, t.size, t.created_at, t.uploaded_by, u.name AS uploaded_by_name FROM attachments t
+    `SELECT t.id, t.filename, t.mime, t.size, t.text_status, t.created_at, t.uploaded_by, u.name AS uploaded_by_name FROM attachments t
      LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.finding_id = ? ORDER BY t.id`, [id])).rows;
   res.json({ ...finding, logs, attachments });
 });

@@ -339,3 +339,33 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
 .chip button:hover { background:rgba(0,0,0,.08); }
 .form .group { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--muted); min-width:0; }
 .form .group select { font-weight:500; color:var(--ink); }
+
+/* ---- Asisten AI ---- */
+.check-row { flex-direction:row !important; align-items:center; gap:8px; }
+.check-row input { width:auto; }
+.ai-providers { display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:12px; margin-top:12px; }
+.ai-head { display:flex; align-items:center; gap:12px; }
+.ai-rank { width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; font-weight:700; flex:none; }
+.ai-name { flex:1; display:flex; flex-direction:column; line-height:1.3; }
+.ai-move { display:flex; gap:4px; }
+.ai-provider details summary { cursor:pointer; }
+.ai-chat { max-width:860px; margin:0 auto; }
+.ai-log { min-height:340px; max-height:calc(100vh - 330px); overflow:auto; display:flex; flex-direction:column; gap:12px; }
+.ai-empty p { margin:0 0 12px; color:var(--muted); }
+.ai-msg { display:flex; flex-direction:column; max-width:85%; }
+.ai-msg.user { align-self:flex-end; align-items:flex-end; }
+.ai-bubble { padding:10px 14px; border-radius:14px; background:var(--sunk); white-space:pre-wrap; overflow-wrap:anywhere; }
+.ai-bubble p { margin:0 0 6px; white-space:pre-wrap; }
+.ai-bubble p:last-child { margin-bottom:0; }
+.ai-msg.user .ai-bubble { background:var(--accent); color:var(--accent-ink); }
+.ai-msg.error .ai-bubble { background:var(--bad-soft, #FCE8E6); color:var(--bad, #B3261E); }
+.ai-meta { margin-top:4px; font-size:12px; }
+.ai-input { display:flex; gap:8px; margin-top:12px; align-items:flex-end; }
+.ai-input textarea { flex:1; resize:vertical; }
+.text-badge { font-size:11px; padding:1px 7px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-weight:600; }
+.text-view { white-space:pre-wrap; font-size:13px; background:var(--sunk); padding:12px; border-radius:8px; max-height:60vh; overflow:auto; overflow-wrap:anywhere; }
+@media (max-width: 720px) {
+  .ai-providers { grid-template-columns:1fr; }
+  .ai-msg { max-width:100%; }
+  .ai-log { max-height:none; }
+}
