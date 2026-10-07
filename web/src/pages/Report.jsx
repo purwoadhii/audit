@@ -26,7 +26,8 @@ export default function Report() {
           <b>Auditee</b><span>{a.unit}</span>
           <b>Jenis audit</b><span>{a.type}</span>
           <b>Ketua tim</b><span>{a.lead_name || '—'}</span>
-          <b>Anggota tim</b><span>{a.team || '—'}</span>
+          <b>Anggota tim</b><span>{(a.members || []).map((m) => m.name).join(', ') || '—'}</span>
+          <b>Anggota eksternal</b><span>{a.team || '—'}</span>
           <b>Periode</b><span>{fmtDate(a.start_date)} s.d. {fmtDate(a.end_date)}</span>
           <b>Status</b><span>{a.status}</span>
         </div>

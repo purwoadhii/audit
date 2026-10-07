@@ -39,11 +39,39 @@ function auditFields(b, partial, types) {
   return out;
 }
 
+// Anggota tim dari pengguna terdaftar, ditempelkan ke setiap audit sebagai members: [{ id, name }].
+async function attachMembers(audits) {
+  if (!audits.length) return audits;
+  const { rows } = await query(
+    `SELECT m.audit_id, u.id, u.name FROM audit_members m JOIN users u ON u.id = m.user_id
+      WHERE m.audit_id IN (${audits.map(() => '?').join(',')}) ORDER BY u.name`,
+    audits.map((a) => a.id),
+  );
+  for (const a of audits) a.members = rows.filter((m) => m.audit_id === a.id).map(({ id, name }) => ({ id, name }));
+  return audits;
+}
+
+// Memeriksa daftar id anggota: harus pengguna aktif yang terdaftar.
+async function memberIds(value) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw badRequest('Anggota tim harus berupa daftar.');
+  const ids = [...new Set(value.map((v) => intId(v)))];
+  if (!ids.length) return ids;
+  const { rows } = await query(`SELECT id FROM users WHERE active = TRUE AND id IN (${ids.map(() => '?').join(',')})`, ids);
+  if (rows.length !== ids.length) throw badRequest('Ada anggota tim yang tidak terdaftar atau tidak aktif.');
+  return ids;
+}
+
+async function saveMembers(db, auditId, ids) {
+  await db.query('DELETE FROM audit_members WHERE audit_id = ?', [auditId]);
+  for (const uid of ids) await db.query('INSERT INTO audit_members (audit_id, user_id) VALUES (?,?)', [auditId, uid]);
+}
+
 async function loadAudit(user, id) {
   const scope = auditScope(user, 'a');
   const { rows } = await query(`${LIST_SQL} WHERE a.id = ? AND ${scope.sql}`, [id, ...scope.params]);
   if (!rows[0]) throw notFound('Audit tidak ditemukan.');
-  return rows[0];
+  return (await attachMembers(rows))[0];
 }
 
 r.get('/', async (req, res) => {
@@ -54,12 +82,13 @@ r.get('/', async (req, res) => {
               a.start_date IS NULL, a.start_date DESC, a.id DESC`,
     scope.params,
   );
-  res.json(rows);
+  res.json(await attachMembers(rows));
 });
 
 r.post('/', editors, async (req, res) => {
   const f = auditFields(req.body || {}, false, (await getSettings()).audit_types);
   const templateId = req.body?.template_id ? intId(req.body.template_id) : null;
+  const members = await memberIds(req.body?.member_ids);
   const id = await tx(async (c) => {
     const code = await nextCode(c, 'AUD');
     const { insertId } = await c.query(
@@ -68,6 +97,7 @@ r.post('/', editors, async (req, res) => {
       [code, f.title, f.unit, f.type, f.status || 'Perencanaan', f.lead_id ?? null, f.team ?? null, f.scope ?? null,
         f.start_date ?? null, f.end_date ?? null, req.user.id],
     );
+    if (members?.length) await saveMembers(c, insertId, members);
     if (templateId) {
       const t = await c.query('SELECT steps FROM templates WHERE id = ?', [templateId]);
       const steps = t.rows[0] ? parseTemplate(t.rows[0]).steps : [];
@@ -103,14 +133,18 @@ r.patch('/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
   const { rows: cur } = await query('SELECT type FROM audits WHERE id = ?', [id]);
   const f = auditFields(req.body || {}, true, [...(await getSettings()).audit_types, cur[0]?.type]);
+  if (!cur[0]) throw notFound('Audit tidak ditemukan.');
+  const members = await memberIds(req.body?.member_ids);
   const keys = Object.keys(f);
-  if (!keys.length) throw badRequest('Tidak ada perubahan.');
-  const { rowCount } = await query(
-    `UPDATE audits SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = NOW(3) WHERE id = ?`,
-    [...keys.map((k) => f[k]), id],
-  );
-  if (!rowCount) throw notFound('Audit tidak ditemukan.');
-  await logActivity({ query }, req.user.id, 'update', 'audit', id, { fields: keys });
+  if (!keys.length && members === undefined) throw badRequest('Tidak ada perubahan.');
+  await tx(async (c) => {
+    await c.query(
+      `UPDATE audits SET ${keys.map((k) => `${k} = ?, `).join('')}updated_at = NOW(3) WHERE id = ?`,
+      [...keys.map((k) => f[k]), id],
+    );
+    if (members !== undefined) await saveMembers(c, id, members);
+  });
+  await logActivity({ query }, req.user.id, 'update', 'audit', id, { fields: members !== undefined ? [...keys, 'member_ids'] : keys });
   res.json(await loadAudit(req.user, id));
 });
 

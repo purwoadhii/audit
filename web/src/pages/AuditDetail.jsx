@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { STEP_RESULTS, canEdit, fmtDate, slug } from '../util.js';
+import { STEP_RESULTS, canEdit, fmtDate, slug, teamText } from '../util.js';
 import { Empty, ErrorBox, Loading, RiskPill, StatusPill, useLoad, useToast } from '../components/ui.jsx';
 import AuditForm from '../components/AuditForm.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
@@ -63,7 +63,7 @@ export default function AuditDetail() {
           <div className="facts">
             <span>Auditee <b>{a.unit}</b></span>
             <span>Ketua tim <b>{a.lead_name || '—'}</b></span>
-            <span>Anggota <b>{a.team || '—'}</b></span>
+            <span>Anggota <b>{teamText(a)}</b></span>
             <span>Periode <b>{fmtDate(a.start_date)} – {fmtDate(a.end_date)}</b></span>
           </div>
           {a.scope && <p className="t-sub" style={{ margin: '8px 0 0', maxWidth: '70ch', whiteSpace: 'pre-wrap' }}>{a.scope}</p>}

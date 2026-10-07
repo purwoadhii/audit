@@ -293,3 +293,19 @@ test('gambar latar login', async () => {
   assert.equal((await admin.del('/api/settings/login-background')).status, 200);
   assert.equal((await client().get('/api/auth/settings')).data.login_background_url, '');
 });
+
+test('anggota tim dari pengguna terdaftar dan anggota eksternal', async () => {
+  const created = await auditor.post('/api/audits', {
+    title: 'Audit Tim', unit: 'Divisi Keuangan', type: 'Keuangan',
+    member_ids: [ctx.auditorId, ctx.auditeeId, ctx.auditorId], team: 'Andi (KAP Sejahtera), Rina (konsultan)',
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.deepEqual(created.data.members.map((m) => m.id).sort(), [ctx.auditorId, ctx.auditeeId].sort());
+  assert.equal(created.data.team, 'Andi (KAP Sejahtera), Rina (konsultan)');
+  assert.equal((await auditor.post('/api/audits', { title: 'X', unit: 'Y', type: 'Keuangan', member_ids: [99999] })).status, 400);
+  const upd = await auditor.patch(`/api/audits/${created.data.id}`, { member_ids: [ctx.auditorId] });
+  assert.deepEqual(upd.data.members.map((m) => m.id), [ctx.auditorId]);
+  const list = (await auditor.get('/api/audits')).data.find((a) => a.id === created.data.id);
+  assert.equal(list.members.length, 1);
+  assert.equal((await auditor.del(`/api/audits/${created.data.id}`)).status, 200);
+});

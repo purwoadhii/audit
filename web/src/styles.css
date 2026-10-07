@@ -332,3 +332,9 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
 /* Isian tidak ikut tebal seperti labelnya, dan contoh isian (placeholder) tampil pudar agar tidak dikira sudah terisi */
 .form label input, .form label select, .form label textarea, label.field input { font-weight:500; color:var(--ink); }
 ::placeholder { color:#93A5AE; font-weight:400; opacity:1; }
+/* Anggota tim terpilih */
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+.chip { display:inline-flex; align-items:center; gap:4px; background:var(--accent-soft); color:var(--accent); font-weight:600; font-size:12.5px; padding:3px 4px 3px 10px; border-radius:999px; }
+.chip button { border:0; background:none; color:inherit; font-size:15px; line-height:1; cursor:pointer; padding:0 5px; border-radius:50%; }
+.chip button:hover { background:rgba(0,0,0,.08); }
+.form .group { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--muted); min-width:0; }

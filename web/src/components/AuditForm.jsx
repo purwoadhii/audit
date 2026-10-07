@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { AUDIT_STATUS } from '../util.js';
+import { AUDIT_STATUS, ROLES } from '../util.js';
 import { useSettings } from '../settings.jsx';
 import { ConfirmDelete, Req, ReqNote, Sheet, useLoad, useToast } from './ui.jsx';
 
@@ -16,7 +16,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
   const [f, setF] = useState(() => ({
     title: audit?.title || '', unit: audit?.unit || '', type: audit?.type || settings.audit_types[0] || '',
-    lead_id: audit?.lead_id || '', team: audit?.team || '', start_date: audit?.start_date || today(),
+    lead_id: audit?.lead_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
     end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '',
   }));
   const [error, setError] = useState('');
@@ -53,6 +53,10 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   }
 
   const auditors = (users.data || []).filter((u) => u.active && (u.role === 'auditor' || u.role === 'admin'));
+  // Anggota tim bisa dipilih dari semua pengguna aktif (kecuali akun Infra Admin developer).
+  const people = (users.data || []).filter((u) => u.active && u.role !== 'infraadmin');
+  const chosen = f.member_ids.map((id) => people.find((u) => u.id === id) || (audit?.members || []).find((m) => m.id === id)).filter(Boolean);
+  const available = people.filter((u) => !f.member_ids.includes(u.id) && String(u.id) !== String(f.lead_id));
   return (
     <Sheet title={isNew ? 'Audit baru' : 'Ubah audit'} onClose={onClose}>
       <form className="form" onSubmit={submit}>
@@ -61,7 +65,23 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
         <label><span>Unit yang diaudit <Req /></span><input id="a-unit" required list="unit-list" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list">{settings.units.map((u) => <option key={u} value={u} />)}</datalist><span className="hint">Auditee di unit ini bisa melihat temuannya.</span></label>
         <label><span>Jenis audit <Req /></span><select id="a-type" required value={f.type} onChange={set('type')}><option value="">Pilih jenis</option>{types.map((t) => <option key={t}>{t}</option>)}</select></label>
         <label>Ketua tim<select id="a-lead" value={f.lead_id} onChange={set('lead_id')}><option value="">Pilih auditor</option>{auditors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
-        <label>Anggota tim<input id="a-team" value={f.team} onChange={set('team')} placeholder="Pisahkan dengan koma" /></label>
+        <div className="group full">
+          <label htmlFor="a-members">Anggota tim</label>
+          <select id="a-members" value="" onChange={(e) => e.target.value && setF({ ...f, member_ids: [...f.member_ids, Number(e.target.value)] })}>
+            <option value="">{available.length ? 'Pilih pengguna untuk ditambahkan' : 'Semua pengguna sudah dipilih'}</option>
+            {available.map((u) => <option key={u.id} value={u.id}>{u.name} · {ROLES[u.role]}{u.unit ? ` · ${u.unit}` : ''}</option>)}
+          </select>
+          {chosen.length > 0 && (
+            <span className="chips">
+              {chosen.map((u) => (
+                <span className="chip" key={u.id}>{u.name}
+                  <button type="button" aria-label={`Hapus ${u.name} dari tim`} onClick={() => setF({ ...f, member_ids: f.member_ids.filter((x) => x !== u.id) })}>×</button>
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
+        <label className="full">Anggota eksternal<input id="a-team" value={f.team} onChange={set('team')} placeholder="Contoh: Andi (KAP Sejahtera), Rina" /><span className="hint">Untuk anggota yang tidak punya akun. Pisahkan dengan koma.</span></label>
         <label>Mulai<input id="a-start" type="date" value={f.start_date || ''} onChange={set('start_date')} /></label>
         <label>Selesai<input id="a-end" type="date" value={f.end_date || ''} onChange={set('end_date')} /></label>
         <label><span>Status <Req /></span><select id="a-status" value={f.status} onChange={set('status')}>{AUDIT_STATUS.map((s) => <option key={s}>{s}</option>)}</select></label>

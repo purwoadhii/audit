@@ -26,6 +26,12 @@ export function fmtDateTime(s) {
   return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}, ${pad(d.getHours())}.${pad(d.getMinutes())}`;
 }
 
+// Anggota tim untuk ditampilkan: pengguna terdaftar lalu anggota eksternal.
+export function teamText(a) {
+  const names = [...(a.members || []).map((m) => m.name), ...(a.team ? [a.team] : [])];
+  return names.length ? names.join(', ') : '—';
+}
+
 export function fmtSize(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
