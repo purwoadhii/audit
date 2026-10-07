@@ -41,6 +41,7 @@ function client() {
     get: (u, o) => call('GET', u, undefined, o),
     post: (u, b) => call('POST', u, b),
     patch: (u, b) => call('PATCH', u, b),
+    put: (u, b) => call('PUT', u, b),
     del: (u) => call('DELETE', u),
   };
 }
@@ -308,4 +309,46 @@ test('anggota tim dari pengguna terdaftar dan anggota eksternal', async () => {
   const list = (await auditor.get('/api/audits')).data.find((a) => a.id === created.data.id);
   assert.equal(list.members.length, 1);
   assert.equal((await auditor.del(`/api/audits/${created.data.id}`)).status, 200);
+});
+
+test('penyimpanan file: lokal dan S3', async () => {
+  const cfg = await admin.get('/api/admin/storage');
+  assert.equal(cfg.data.driver, 'local');
+  assert.equal((await auditor.get('/api/admin/storage')).status, 403);
+  assert.equal((await admin.put('/api/admin/storage', { driver: 's3', s3: { bucket: 'x' } })).status, 400, 'access key wajib');
+  const infra = client();
+  await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
+  const st = await infra.get('/api/admin/storage/status?check=1');
+  assert.equal(st.data.health.ok, true);
+  assert.equal((await admin.get('/api/admin/storage/status')).status, 403);
+
+  const endpoint = process.env.TEST_S3_ENDPOINT;
+  if (!endpoint) return; // jalankan dengan TEST_S3_ENDPOINT (misalnya MinIO) untuk menguji S3
+  await fetch(`${endpoint}/bukti-tes`, { method: 'PUT' });
+  const s3 = { driver: 's3', s3: { endpoint, region: 'us-east-1', bucket: 'bukti-tes', access_key: 'tes', prefix: 'audit', path_style: true }, secret_key: 'rahasia-s3' };
+  const wrong = await admin.post('/api/admin/storage/test', { ...s3, s3: { ...s3.s3, bucket: 'tidak-ada' } });
+  assert.equal(wrong.data.ok, false);
+  const saved = await admin.put('/api/admin/storage', s3);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.secret_set, true);
+  assert.equal(saved.data.secret_key, undefined, 'secret tidak pernah dikirim ke browser');
+  assert.equal(saved.data.s3.prefix, 'audit/');
+
+  const fd = new FormData();
+  fd.append('file', new Blob(['isi bukti di S3'], { type: 'text/plain' }), 'bukti-s3.txt');
+  const up = await auditee.post(`/api/findings/${ctx.findingId}/attachments`, fd);
+  assert.equal(up.status, 201, JSON.stringify(up.data));
+  const [[row]] = await pool.query('SELECT storage, storage_name FROM attachments WHERE id = ?', [up.data.id]);
+  assert.equal(row.storage, 's3');
+  const listing = async () => (await fetch(`${endpoint}/bukti-tes`)).text();
+  assert.match(await listing(), new RegExp(`audit/${row.storage_name}`));
+  assert.equal(fs.existsSync(path.join(process.env.UPLOAD_DIR || './uploads', row.storage_name)), false, 'tidak ada salinan lokal');
+  const dl = await auditee.get(`/api/attachments/${up.data.id}`, { raw: true });
+  assert.equal(await dl.text(), 'isi bukti di S3');
+  assert.equal((await auditee.del(`/api/attachments/${up.data.id}`)).status, 200);
+  assert.doesNotMatch(await listing(), new RegExp(row.storage_name));
+  const usage = (await infra.get('/api/admin/storage/status')).data;
+  assert.equal(usage.driver, 's3');
+  // Kembali ke lokal; file lama tetap dibaca dari tempat asalnya.
+  assert.equal((await admin.put('/api/admin/storage', { driver: 'local' })).status, 200);
 });

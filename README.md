@@ -14,17 +14,19 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 
   | Peran | Hak akses |
   | --- | --- |
-  | Infra Admin | Developer. Semua hak System Admin, ditambah halaman Sistem (kondisi server, database, kesalahan terakhir), mode perbaikan, dan batas percobaan login |
-  | System Admin | Admin dari pihak klien. Mengelola pengguna, template, pengaturan tampilan, data master, riwayat login, dan sesi aktif |
+  | Infra Admin | Developer. Semua hak System Admin, ditambah menu Infra Admin |
+  | System Admin | Admin dari pihak klien. Menu System Admin dan riwayat login |
   | Auditor | Membuat audit, mengisi program kerja, mencatat dan menutup temuan |
   | Auditee | Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, mengunggah bukti |
   | Manajemen | Melihat semua audit, temuan, laporan, dan log aktivitas tanpa mengubah |
 
-- **Administrasi:**
-  - Pengaturan tampilan: nama aplikasi, keterangan, tema warna, dan teks halaman login.
-  - Data master: daftar unit dan jenis audit.
-  - Keamanan login: batas tidak aktif dan batas "Ingat saya".
+- **System Admin** (`/sysAdmin`), untuk admin dari pihak klien:
+  - Pengguna dan template.
+  - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login.
+  - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
+  - Penyimpanan file bukti: di server aplikasi (lokal/on-premise, bisa folder NAS yang di-mount) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
   - Sesi aktif yang bisa dipaksa keluar.
+- **Infra Admin** (`/infraAdmin`), untuk developer: kondisi server dan database, kesalahan server terakhir, status dan pemakaian penyimpanan file, batas percobaan login, dan mode perbaikan.
 - **Aktivitas:** log aktivitas, dan untuk admin juga riwayat login (berhasil dan gagal, dengan IP dan perangkat).
 - **Log aktivitas:** setiap pembuatan, perubahan, penghapusan, dan unggahan tercatat.
 - **Pengingat email (opsional):** setiap hari, PIC menerima daftar temuan yang terlambat atau jatuh tempo dalam 7 hari.
@@ -125,6 +127,8 @@ npm --prefix web run dev      # buka http://localhost:5173
 ```
 
 ### Tes
+
+Untuk ikut menguji penyimpanan S3, tambahkan `TEST_S3_ENDPOINT` yang menunjuk ke server S3 uji (misalnya MinIO).
 
 Tes API berjalan terhadap database MySQL/MariaDB sungguhan dan **menghapus semua tabelnya** setiap kali jalan. Buat database terpisah bernama `jejak_audit_test` di phpMyAdmin, lalu:
 

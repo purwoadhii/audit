@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { query } from '../db.js';
+import { query, logActivity } from '../db.js';
 import { requireRole, endSession } from '../auth.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
 import { config } from '../config.js';
 import { recentErrors } from '../errorlog.js';
+import { getSettings } from '../settings.js';
+import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
 const startedAt = new Date();
@@ -85,6 +87,43 @@ r.get('/system', requireRole('infraadmin'), async (_req, res) => {
     uploads: { dir: config.uploadDir, ...(await dirSize(config.uploadDir)), max_mb: config.maxUploadMb },
     config: { cookie_secure: config.cookieSecure, smtp: Boolean(config.smtp.host), reminder_hour: config.reminderHour, app_url: config.appUrl, jwt_secret_set: Boolean(process.env.JWT_SECRET) },
     errors: recentErrors().length,
+  });
+});
+
+// ---- Penyimpanan file (diatur System Admin, dipantau Infra Admin) ----
+r.get('/storage', requireRole('admin'), async (_req, res) => {
+  res.json(await publicStorageConfig());
+});
+
+// Uji pengaturan dari form tanpa menyimpannya.
+r.post('/storage/test', requireRole('admin'), async (req, res) => {
+  res.json(await testStorage(await buildStorageConfig(req.body)));
+});
+
+// Simpan hanya bila tes koneksi berhasil, supaya unggahan berikutnya tidak gagal.
+r.put('/storage', requireRole('admin'), async (req, res) => {
+  const cfg = await buildStorageConfig(req.body);
+  const test = await testStorage(cfg);
+  if (!test.ok) throw badRequest(`Pengaturan belum disimpan. ${test.message}`);
+  await saveStorageConfig(req.user, cfg);
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['storage'], driver: cfg.driver });
+  await checkHealth();
+  res.json(await publicStorageConfig());
+});
+
+r.get('/storage/status', requireRole('infraadmin'), async (req, res) => {
+  if (req.query.check === '1' || !storageHealth().last_check) await checkHealth();
+  const { rows } = await query('SELECT storage, COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes FROM attachments GROUP BY storage');
+  const cfg = await publicStorageConfig();
+  const settings = await getSettings();
+  res.json({
+    driver: cfg.driver,
+    target: cfg.driver === 's3' ? `${cfg.s3.endpoint || 'AWS S3'} / ${cfg.s3.bucket}/${cfg.s3.prefix}` : config.uploadDir,
+    secret_unreadable: cfg.secret_unreadable,
+    health: storageHealth(),
+    usage: rows.map((x) => ({ storage: x.storage, files: Number(x.files), bytes: Number(x.bytes) })),
+    max_upload_mb: config.maxUploadMb,
+    login_background: Boolean(settings.login_background),
   });
 });
 

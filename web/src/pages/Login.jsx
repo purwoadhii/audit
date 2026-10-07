@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import LoginArt from '../components/LoginArt.jsx';
@@ -20,10 +21,11 @@ function Icon({ children }) {
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const { settings, reload } = useSettings();
   // Ambil ulang pengaturan saat halaman login dibuka, misalnya setelah mode perbaikan dinyalakan.
   useEffect(() => { reload(); }, [reload]);
-  // Gambar latar dari Administrasi menggantikan ilustrasi bawaan.
+  // Gambar latar dari System Admin menggantikan ilustrasi bawaan.
   const bg = settings.login_background_url;
   const [username, setUsername] = useState(readSaved);
   const [password, setPassword] = useState('');
@@ -41,6 +43,8 @@ export default function Login() {
     setError('');
     try {
       await login(u, password, remember);
+      // Setelah masuk selalu mulai dari Ringkasan, supaya kondisi keseluruhan langsung terlihat.
+      navigate('/', { replace: true });
       try {
         if (remember) localStorage.setItem(SAVED_KEY, u);
         else localStorage.removeItem(SAVED_KEY);

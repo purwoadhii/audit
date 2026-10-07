@@ -14,7 +14,12 @@ const THEME_COLOR = {
 const SECTIONS = [
   { title: 'Tampilan', keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
   { title: 'Data master', keys: ['units', 'audit_types'] },
-  { title: 'Keamanan login', keys: ['session_idle_minutes', 'remember_max_days', 'max_login_attempts'] },
+  { title: 'Keamanan login', keys: ['session_idle_minutes', 'remember_max_days'] },
+];
+
+// Pengaturan teknis di halaman Infra Admin.
+const INFRA_SECTIONS = [
+  { title: 'Batas percobaan login', keys: ['max_login_attempts'] },
   { title: 'Mode perbaikan', keys: ['maintenance', 'maintenance_message'] },
 ];
 
@@ -181,12 +186,15 @@ function BackgroundSection({ onSaved }) {
   );
 }
 
-export default function Settings() {
+export default function Settings({ infra = false }) {
   const { reload: reloadApp } = useSettings();
   const { data, error, loading, reload } = useLoad(() => api.get('/settings'), []);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
   const saved = () => { reload(); reloadApp(); };
+  if (infra) {
+    return <div className="settings-grid">{INFRA_SECTIONS.map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}</div>;
+  }
   return (
     <div className="settings-grid">
       <Section {...SECTIONS[0]} data={data} onSaved={saved} />

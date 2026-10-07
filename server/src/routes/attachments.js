@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import multer from 'multer';
 import { query, logActivity } from '../db.js';
@@ -9,6 +8,7 @@ import { canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, intId } from '../errors.js';
 import { loadFinding } from './findings.js';
 import { loadAudit } from './audits.js';
+import { storeUpload, openStored, removeStored } from '../storage.js';
 
 fs.mkdirSync(config.uploadDir, { recursive: true });
 
@@ -40,16 +40,18 @@ function runUpload(req, res) {
 async function saveRecord(req, file, auditId, findingId) {
   // multer membaca nama asli sebagai latin1; ubah ke UTF-8 agar nama berbahasa apa pun tampil benar.
   const filename = Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 200);
+  const storage = await storeUpload(file);
+  file.storage = storage;
   const { insertId } = await query(
-    `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, uploaded_by)
-     VALUES (?,?,?,?,?,?,?)`,
-    [auditId, findingId, filename, file.mimetype, file.size, file.filename, req.user.id]);
+    `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, storage, uploaded_by)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [auditId, findingId, filename, file.mimetype, file.size, file.filename, storage, req.user.id]);
   const { rows } = await query('SELECT id, filename, mime, size, created_at FROM attachments WHERE id = ?', [insertId]);
   await logActivity({ query }, req.user.id, 'upload', 'attachment', insertId, { filename, auditId, findingId });
   return { ...rows[0], uploaded_by: req.user.id, uploaded_by_name: req.user.name };
 }
 
-const removeFile = (name) => fs.promises.unlink(path.join(config.uploadDir, name)).catch(() => {});
+const removeFile = (name, storage = 'local') => removeStored(storage, name);
 
 export const findingUploads = Router({ mergeParams: true });
 findingUploads.post('/', async (req, res) => {
@@ -59,7 +61,7 @@ findingUploads.post('/', async (req, res) => {
   try {
     res.status(201).json(await saveRecord(req, file, finding.audit_id, finding.id));
   } catch (err) {
-    await removeFile(file.filename);
+    await removeFile(file.filename, file.storage);
     throw err;
   }
 });
@@ -72,7 +74,7 @@ auditUploads.post('/', async (req, res) => {
   try {
     res.status(201).json(await saveRecord(req, file, audit.id, null));
   } catch (err) {
-    await removeFile(file.filename);
+    await removeFile(file.filename, file.storage);
     throw err;
   }
 });
@@ -92,20 +94,20 @@ async function loadAttachment(user, id) {
 
 r.get('/:id', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));
-  const file = path.join(config.uploadDir, att.storage_name);
-  if (!fs.existsSync(file)) throw notFound('File sudah tidak tersedia di server.');
+  const stream = await openStored(att);
+  if (!stream) throw notFound('File sudah tidak tersedia di penyimpanan.');
   const inline = /^(image\/|application\/pdf$)/.test(att.mime) && req.query.download !== '1';
   res.setHeader('Content-Type', att.mime);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(att.filename)}`);
-  fs.createReadStream(file).pipe(res);
+  stream.pipe(res);
 });
 
 r.delete('/:id', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));
   if (!canEditAudit(req.user) && att.uploaded_by !== req.user.id) throw forbidden();
   await query('DELETE FROM attachments WHERE id = ?', [att.id]);
-  await removeFile(att.storage_name);
+  await removeFile(att.storage_name, att.storage);
   await logActivity({ query }, req.user.id, 'delete', 'attachment', att.id, { filename: att.filename });
   res.json({ ok: true });
 });

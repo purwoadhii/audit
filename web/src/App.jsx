@@ -18,6 +18,7 @@ import Settings from './pages/Settings.jsx';
 import Logins from './pages/Logins.jsx';
 import Sessions from './pages/Sessions.jsx';
 import System from './pages/System.jsx';
+import { StorageSettings, StorageStatus } from './pages/Storage.jsx';
 
 // Menu Aktivitas: log aktivitas untuk admin, auditor, dan manajemen; riwayat login hanya untuk admin
 // karena memuat alamat IP dan perangkat setiap pengguna.
@@ -39,25 +40,43 @@ function ActivityArea({ admin }) {
   );
 }
 
-// Menu Administrasi: System Admin melihat semua kecuali Sistem, Infra Admin melihat semuanya.
-function AdminArea({ infra }) {
+// System Admin (/sysAdmin): admin dari pihak klien mengatur pengguna, template, tampilan, data, dan penyimpanan.
+function SysAdminArea() {
   return (
     <>
-      <nav className="subtabs" aria-label="Administrasi">
-        <NavLink to="/admin/pengguna">Pengguna</NavLink>
-        <NavLink to="/admin/template">Template</NavLink>
-        <NavLink to="/admin/pengaturan">Pengaturan</NavLink>
-        <NavLink to="/admin/sesi">Sesi aktif</NavLink>
-        {infra && <NavLink to="/admin/sistem">Sistem</NavLink>}
+      <nav className="subtabs" aria-label="System Admin">
+        <NavLink to="/sysAdmin/pengguna">Pengguna</NavLink>
+        <NavLink to="/sysAdmin/template">Template</NavLink>
+        <NavLink to="/sysAdmin/pengaturan">Pengaturan</NavLink>
+        <NavLink to="/sysAdmin/penyimpanan">Penyimpanan file</NavLink>
+        <NavLink to="/sysAdmin/sesi">Sesi aktif</NavLink>
       </nav>
       <Routes>
         <Route path="pengguna" element={<Users />} />
         <Route path="template" element={<Templates />} />
         <Route path="pengaturan" element={<Settings />} />
-        <Route path="riwayat-login" element={<Navigate to="/aktivitas/riwayat-login" replace />} />
+        <Route path="penyimpanan" element={<StorageSettings />} />
         <Route path="sesi" element={<Sessions />} />
-        {infra && <Route path="sistem" element={<System />} />}
-        <Route path="*" element={<Navigate to="/admin/pengguna" replace />} />
+        <Route path="*" element={<Navigate to="/sysAdmin/pengguna" replace />} />
+      </Routes>
+    </>
+  );
+}
+
+// Infra Admin (/infraAdmin): developer memantau server, database, penyimpanan, dan mode perbaikan.
+function InfraAdminArea() {
+  return (
+    <>
+      <nav className="subtabs" aria-label="Infra Admin">
+        <NavLink to="/infraAdmin/sistem">Sistem</NavLink>
+        <NavLink to="/infraAdmin/penyimpanan">Penyimpanan file</NavLink>
+        <NavLink to="/infraAdmin/keamanan">Keamanan dan perbaikan</NavLink>
+      </nav>
+      <Routes>
+        <Route path="sistem" element={<System />} />
+        <Route path="penyimpanan" element={<StorageStatus />} />
+        <Route path="keamanan" element={<Settings infra />} />
+        <Route path="*" element={<Navigate to="/infraAdmin/sistem" replace />} />
       </Routes>
     </>
   );
@@ -69,6 +88,7 @@ export default function App() {
   if (user === undefined) return <div className="empty"><b>Memuat…</b></div>;
   if (!user) return <Login />;
   const isAdmin = checkAdmin(user);
+  const isInfra = user.role === 'infraadmin';
   const seesActivity = isAdmin || ['auditor', 'manajemen'].includes(user.role);
   return (
     <>
@@ -92,7 +112,8 @@ export default function App() {
             <NavLink to="/temuan">Temuan</NavLink>
             <NavLink to="/tindak-lanjut">Tindak Lanjut</NavLink>
             {seesActivity && <NavLink to="/aktivitas">Aktivitas</NavLink>}
-            {isAdmin && <NavLink to="/admin">Administrasi</NavLink>}
+            {isAdmin && <NavLink to="/sysAdmin">System Admin</NavLink>}
+            {isInfra && <NavLink to="/infraAdmin">Infra Admin</NavLink>}
           </nav>
         </div>
       </div>
@@ -106,9 +127,12 @@ export default function App() {
           <Route path="/tindak-lanjut" element={<Board />} />
           <Route path="/akun" element={<Account />} />
           {seesActivity && <Route path="/aktivitas/*" element={<ActivityArea admin={isAdmin} />} />}
-          {isAdmin && <Route path="/admin/*" element={<AdminArea infra={user.role === 'infraadmin'} />} />}
-          <Route path="/pengguna" element={<Navigate to="/admin/pengguna" replace />} />
-          <Route path="/template" element={<Navigate to="/admin/template" replace />} />
+          {isAdmin && <Route path="/sysAdmin/*" element={<SysAdminArea />} />}
+          {isInfra && <Route path="/infraAdmin/*" element={<InfraAdminArea />} />}
+          {/* Alamat lama tetap bisa dibuka */}
+          {isAdmin && <Route path="/admin/sistem" element={<Navigate to="/infraAdmin/sistem" replace />} />}
+          {isAdmin && <Route path="/admin/riwayat-login" element={<Navigate to="/aktivitas/riwayat-login" replace />} />}
+          {isAdmin && <Route path="/admin/*" element={<Navigate to="/sysAdmin" replace />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
