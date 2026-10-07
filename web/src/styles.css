@@ -338,3 +338,4 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
 .chip button { border:0; background:none; color:inherit; font-size:15px; line-height:1; cursor:pointer; padding:0 5px; border-radius:50%; }
 .chip button:hover { background:rgba(0,0,0,.08); }
 .form .group { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--muted); min-width:0; }
+.form .group select { font-weight:500; color:var(--ink); }
