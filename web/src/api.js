@@ -25,7 +25,8 @@ async function request(method, url, body) {
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    if (res.status === 401 && !url.startsWith('/auth/login')) onUnauthorized();
+    // 401: sesi habis. 503: mode perbaikan. Keduanya kembali ke halaman login.
+    if ((res.status === 401 || res.status === 503) && !url.startsWith('/auth/')) onUnauthorized();
     throw new ApiError(res.status, data?.error || 'Terjadi kesalahan.');
   }
   return data;

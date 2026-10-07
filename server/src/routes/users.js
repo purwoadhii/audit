@@ -1,17 +1,22 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { query, logActivity, bools } from '../db.js';
-import { requireRole } from '../auth.js';
-import { badRequest, notFound, requireText, oneOf, intId } from '../errors.js';
+import { requireRole, isAdmin } from '../auth.js';
+import { badRequest, forbidden, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
 
 const r = Router();
-const PUBLIC = 'id, name, username, email, role, unit, active, created_at';
+const PUBLIC = 'id, name, username, email, role, unit, active, created_at, last_login_at';
 
 function cleanUsername(v) {
   const u = String(v || '').trim().toLowerCase();
   if (!/^[a-z0-9._-]{3,60}$/.test(u)) throw badRequest('Username 3-60 karakter: huruf kecil, angka, titik, minus, atau garis bawah.');
   return u;
+}
+
+// Akun Infra Admin hanya boleh dibuat atau diubah oleh Infra Admin.
+function guardInfra(me, role) {
+  if (role === 'infraadmin' && me.role !== 'infraadmin') throw forbidden('Akun Infra Admin hanya bisa diatur oleh Infra Admin.');
 }
 
 async function assertFree(field, value, exceptId = 0) {
@@ -21,7 +26,7 @@ async function assertFree(field, value, exceptId = 0) {
 
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
 r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
-  const cols = req.user.role === 'admin' ? PUBLIC : 'id, name, role, unit, active';
+  const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, active';
   const { rows } = await query(`SELECT ${cols} FROM users ORDER BY active DESC, name`);
   res.json(rows.map((u) => bools(u, 'active')));
 });
@@ -37,6 +42,7 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const email = requireText(req.body?.email, 'Email').toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest('Format email tidak valid.');
   const role = oneOf(req.body?.role, ROLES, 'Peran');
+  guardInfra(req.user, role);
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
@@ -53,6 +59,9 @@ r.post('/', requireRole('admin'), async (req, res) => {
 
 r.patch('/:id', requireRole('admin'), async (req, res) => {
   const id = intId(req.params.id);
+  const target = await loadUser(id);
+  guardInfra(req.user, target.role);
+  if (req.body?.role !== undefined) guardInfra(req.user, req.body.role);
   const sets = [];
   const params = [];
   const add = (col, val) => { params.push(val); sets.push(`${col} = ?`); };
@@ -73,10 +82,16 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
     if (String(b.password).length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
     add('password_hash', await bcrypt.hash(String(b.password), 10));
   }
-  if (id === req.user.id && b.role && b.role !== 'admin') throw badRequest('Anda tidak bisa menurunkan peran akun sendiri.');
+  if (id === req.user.id && b.role && b.role !== req.user.role) throw badRequest('Anda tidak bisa mengubah peran akun sendiri.');
   if (!sets.length) throw badRequest('Tidak ada perubahan.');
-  await loadUser(id);
   await query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+  // Akun yang dinonaktifkan atau kata sandinya diatur ulang harus masuk lagi.
+  if ((b.active !== undefined && !b.active) || b.password) {
+    await query(
+      "UPDATE sessions SET ended_at = CURRENT_TIMESTAMP(3), ended_reason = 'diubah_admin' WHERE user_id = ? AND ended_at IS NULL AND id <> ?",
+      [id, req.sessionId],
+    );
+  }
   await logActivity({ query }, req.user.id, 'update', 'user', id, { fields: Object.keys(b).filter((k) => k !== 'password') });
   res.json(await loadUser(id));
 });

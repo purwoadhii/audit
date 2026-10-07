@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { AUDIT_STATUS, AUDIT_TYPES } from '../util.js';
+import { AUDIT_STATUS } from '../util.js';
+import { useSettings } from '../settings.jsx';
 import { ConfirmDelete, Sheet, useLoad, useToast } from './ui.jsx';
 
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -8,10 +9,13 @@ const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000
 export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const isNew = !audit;
   const toast = useToast();
+  const { settings } = useSettings();
+  // Jenis lama tetap muncul walau sudah dihapus dari daftar di Pengaturan.
+  const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
   const [f, setF] = useState(() => ({
-    title: audit?.title || '', unit: audit?.unit || '', type: audit?.type || 'Keuangan',
+    title: audit?.title || '', unit: audit?.unit || '', type: audit?.type || settings.audit_types[0] || '',
     lead_id: audit?.lead_id || '', team: audit?.team || '', start_date: audit?.start_date || today(),
     end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '',
   }));
@@ -53,8 +57,8 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
     <Sheet title={isNew ? 'Audit baru' : 'Ubah audit'} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <label className="full">Judul audit<input id="a-title" required value={f.title} onChange={set('title')} placeholder="Audit Pengadaan Barang Semester II" /></label>
-        <label>Unit yang diaudit<input id="a-unit" required value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><span className="hint">Auditee di unit ini bisa melihat temuannya.</span></label>
-        <label>Jenis audit<select id="a-type" value={f.type} onChange={set('type')}>{AUDIT_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+        <label>Unit yang diaudit<input id="a-unit" required list="unit-list" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list">{settings.units.map((u) => <option key={u} value={u} />)}</datalist><span className="hint">Auditee di unit ini bisa melihat temuannya.</span></label>
+        <label>Jenis audit<select id="a-type" required value={f.type} onChange={set('type')}><option value="">Pilih jenis</option>{types.map((t) => <option key={t}>{t}</option>)}</select></label>
         <label>Ketua tim<select id="a-lead" value={f.lead_id} onChange={set('lead_id')}><option value="">Pilih auditor</option>{auditors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
         <label>Anggota tim<input id="a-team" value={f.team} onChange={set('team')} placeholder="Pisahkan dengan koma" /></label>
         <label>Mulai<input id="a-start" type="date" value={f.start_date || ''} onChange={set('start_date')} /></label>

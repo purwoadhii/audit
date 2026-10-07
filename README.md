@@ -9,16 +9,22 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 - **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan.
 - **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
 - **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
-- **Masuk:** dengan username atau email. "Ingat saya" menjaga sesi 30 hari; tanpa itu sesi berakhir saat browser ditutup (paling lama 12 jam).
+- **Masuk:** dengan username atau email. Sesi selalu berakhir saat browser ditutup. Tanpa "Ingat saya", pengguna juga otomatis keluar setelah tidak aktif (bawaan 120 menit). Dengan "Ingat saya", sesi bertahan selama browser terbuka, paling lama 7 hari.
 - **Pengguna dan peran:**
 
   | Peran | Hak akses |
   | --- | --- |
-  | Admin | Mengelola pengguna, template, dan semua data |
+  | Infra Admin | Developer. Semua hak System Admin, ditambah halaman Sistem (kondisi server, database, kesalahan terakhir), mode perbaikan, dan batas percobaan login |
+  | System Admin | Admin dari pihak klien. Mengelola pengguna, template, pengaturan tampilan, data master, riwayat login, dan sesi aktif |
   | Auditor | Membuat audit, mengisi program kerja, mencatat dan menutup temuan |
   | Auditee | Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, mengunggah bukti |
   | Manajemen | Melihat semua audit, temuan, laporan, dan log aktivitas tanpa mengubah |
 
+- **Administrasi:**
+  - Pengaturan tampilan: nama aplikasi, keterangan, tema warna, dan teks halaman login.
+  - Data master: daftar unit dan jenis audit.
+  - Keamanan login: batas tidak aktif dan batas "Ingat saya".
+  - Riwayat login (berhasil dan gagal, dengan IP dan perangkat) dan sesi aktif yang bisa dipaksa keluar.
 - **Log aktivitas:** setiap pembuatan, perubahan, penghapusan, dan unggahan tercatat.
 - **Pengingat email (opsional):** setiap hari, PIC menerima daftar temuan yang terlambat atau jatuh tempo dalam 7 hari.
 
@@ -135,7 +141,8 @@ Semua pengaturan ada di `.env` (lihat `.env.example`):
 | `DATABASE_URL` | Koneksi MySQL/MariaDB, misalnya `mysql://root:@localhost:3306/jejak_audit` (diisi otomatis oleh docker-compose) |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Kata sandi database untuk docker-compose |
 | `JWT_SECRET` | Rahasia sesi login, minimal 32 karakter, wajib di production |
-| `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun admin pertama, dibuat hanya bila belum ada pengguna. Username bawaan `admin` |
+| `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun System Admin pertama, dibuat hanya bila belum ada pengguna. Username bawaan `admin` |
+| `INFRA_USERNAME`, `INFRA_PASSWORD`, `INFRA_EMAIL` | Akun Infra Admin untuk developer, dibuat bila username itu belum ada |
 | `COOKIE_SECURE` | `true` bila diakses lewat HTTPS |
 | `MAX_UPLOAD_MB` | Ukuran maksimal file bukti (bawaan 20) |
 | `SMTP_*`, `REMINDER_HOUR` | Email pengingat harian, nonaktif bila `SMTP_HOST` kosong |

@@ -23,6 +23,13 @@ export const config = {
     name: env.ADMIN_NAME || 'Administrator',
     username: env.ADMIN_USERNAME || 'admin',
   },
+  // Akun developer di atas System Admin, untuk pemeriksaan dan perbaikan sistem.
+  infra: {
+    username: env.INFRA_USERNAME || '',
+    password: env.INFRA_PASSWORD || '',
+    email: env.INFRA_EMAIL || '',
+    name: env.INFRA_NAME || 'Infra Admin',
+  },
   smtp: {
     host: env.SMTP_HOST || '',
     port: Number(env.SMTP_PORT || 587),

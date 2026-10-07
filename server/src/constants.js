@@ -1,4 +1,4 @@
-export const ROLES = ['admin', 'auditor', 'auditee', 'manajemen'];
+export const ROLES = ['infraadmin', 'admin', 'auditor', 'auditee', 'manajemen'];
 export const AUDIT_STATUS = ['Perencanaan', 'Pelaksanaan', 'Pelaporan', 'Selesai'];
 export const FINDING_STATUS = ['Terbuka', 'Dalam proses', 'Menunggu verifikasi', 'Selesai'];
 export const RISKS = ['Tinggi', 'Sedang', 'Rendah'];

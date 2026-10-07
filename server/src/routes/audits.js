@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { query, tx, logActivity } from '../db.js';
 import { requireRole } from '../auth.js';
 import { badRequest, notFound, requireText, oneOf, dateOrNull, intId } from '../errors.js';
-import { AUDIT_STATUS, AUDIT_TYPES, STEP_RESULTS } from '../constants.js';
+import { AUDIT_STATUS, STEP_RESULTS } from '../constants.js';
+import { getSettings } from '../settings.js';
 import { auditScope, findingScope } from '../access.js';
 import { nextCode } from '../codes.js';
 import { parseTemplate } from './templates.js';
@@ -21,12 +22,13 @@ const LIST_SQL = `
 
 const STEP_COLS = 'id, position, text, result, note, updated_at';
 
-function auditFields(b, partial) {
+// types: jenis audit yang diizinkan (dari pengaturan), ditambah jenis lama audit itu saat diubah.
+function auditFields(b, partial, types) {
   const out = {};
   const has = (k) => b[k] !== undefined;
   if (!partial || has('title')) out.title = requireText(b.title, 'Judul audit');
   if (!partial || has('unit')) out.unit = requireText(b.unit, 'Unit yang diaudit');
-  if (!partial || has('type')) out.type = oneOf(b.type, AUDIT_TYPES, 'Jenis audit');
+  if (!partial || has('type')) out.type = oneOf(b.type, types, 'Jenis audit');
   if (has('status')) out.status = oneOf(b.status, AUDIT_STATUS, 'Status');
   if (has('lead_id')) out.lead_id = b.lead_id ? intId(b.lead_id) : null;
   if (has('team')) out.team = String(b.team || '').trim() || null;
@@ -56,7 +58,7 @@ r.get('/', async (req, res) => {
 });
 
 r.post('/', editors, async (req, res) => {
-  const f = auditFields(req.body || {}, false);
+  const f = auditFields(req.body || {}, false, (await getSettings()).audit_types);
   const templateId = req.body?.template_id ? intId(req.body.template_id) : null;
   const id = await tx(async (c) => {
     const code = await nextCode(c, 'AUD');
@@ -99,7 +101,8 @@ r.get('/:id', async (req, res) => {
 
 r.patch('/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
-  const f = auditFields(req.body || {}, true);
+  const { rows: cur } = await query('SELECT type FROM audits WHERE id = ?', [id]);
+  const f = auditFields(req.body || {}, true, [...(await getSettings()).audit_types, cur[0]?.type]);
   const keys = Object.keys(f);
   if (!keys.length) throw badRequest('Tidak ada perubahan.');
   const { rowCount } = await query(

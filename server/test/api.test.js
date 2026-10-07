@@ -12,6 +12,8 @@ process.env.DATABASE_URL = dbUrl;
 process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'jejak-up-'));
 process.env.ADMIN_EMAIL = 'admin@contoh.id';
 process.env.ADMIN_PASSWORD = 'rahasia-admin-1';
+process.env.INFRA_USERNAME = 'infra';
+process.env.INFRA_PASSWORD = 'rahasia-infra-1';
 
 const { pool } = await import('../src/db.js');
 const { migrate } = await import('../src/migrate.js');
@@ -83,12 +85,14 @@ test('login dengan username dan opsi ingat saya', async () => {
     body: JSON.stringify({ username: 'Admin', password: 'rahasia-admin-1' }),
   });
   assert.equal(plain.status, 200);
-  assert.doesNotMatch(plain.headers.get('set-cookie'), /Max-Age|Expires/i, 'tanpa ingat saya, cookie hanya untuk sesi browser');
+  assert.doesNotMatch(plain.headers.get('set-cookie'), /Max-Age|Expires/i, 'cookie hanya untuk sesi browser');
   const kept = await fetch(base + '/api/auth/login', {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak' },
     body: JSON.stringify({ username: 'admin', password: 'rahasia-admin-1', remember: true }),
   });
-  assert.match(kept.headers.get('set-cookie'), /Max-Age=2592000/);
+  assert.doesNotMatch(kept.headers.get('set-cookie'), /Max-Age|Expires/i, 'ingat saya pun berakhir saat browser ditutup');
+  const [rows] = await pool.query('SELECT remember, ROUND(TIMESTAMPDIFF(SECOND, created_at, expires_at) / 3600) AS h FROM sessions ORDER BY created_at DESC, remember DESC LIMIT 2');
+  assert.deepEqual(rows.map((x) => [Boolean(x.remember), Number(x.h)]).sort(), [[false, 2], [true, 168]]);
   assert.equal((await c.post('/api/auth/login', { username: 'admin', password: 'salah' })).status, 401);
 });
 
@@ -207,4 +211,67 @@ test('permintaan tanpa header aplikasi ditolak', async () => {
 test('menghapus audit ikut menghapus temuannya', async () => {
   assert.equal((await auditor.del(`/api/audits/${ctx.audit2}`)).status, 200);
   assert.equal((await auditor.get(`/api/findings/${ctx.finding2}`)).status, 404);
+});
+
+test('riwayat login dan sesi aktif', async () => {
+  const logins = await admin.get('/api/admin/logins?status=gagal');
+  assert.equal(logins.status, 200);
+  assert.ok(logins.data.some((x) => x.login === 'admin' && x.reason === 'password_salah'));
+  assert.equal((await auditor.get('/api/admin/logins')).status, 403);
+  const mine = await auditor.get('/api/auth/my-logins');
+  assert.ok(mine.data.length >= 1 && mine.data[0].success);
+
+  const extra = client();
+  await extra.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
+  const sessions = (await admin.get('/api/admin/sessions')).data;
+  const victim = sessions.filter((x) => x.username === 'radipta').at(-1);
+  assert.ok(sessions.find((x) => x.current));
+  assert.equal((await admin.del(`/api/admin/sessions/${victim.id}`)).status, 200);
+  const results = [await extra.get('/api/audits'), await auditor.get('/api/audits')];
+  assert.equal(results.filter((x) => x.status === 401).length, 1, 'hanya sesi yang diakhiri yang keluar');
+  await auditor.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
+  assert.equal((await extra.post('/api/auth/logout', {})).status, 200);
+  assert.equal((await extra.get('/api/audits')).status, 401);
+});
+
+test('pengaturan tampilan dan data master', async () => {
+  const pub = await client().get('/api/auth/settings');
+  assert.equal(pub.data.app_name, 'Audit Management');
+  assert.equal(pub.data.units, undefined, 'data master tidak dibuka tanpa login');
+  assert.equal((await admin.patch('/api/settings', { app_name: 'Audit OTI', theme: 'biru', units: ['Divisi Pengadaan', ' ', 'Divisi Keuangan'], audit_types: ['Keuangan', 'Khusus'] })).status, 200);
+  assert.equal((await client().get('/api/auth/settings')).data.app_name, 'Audit OTI');
+  const asAuditor = await auditor.get('/api/settings');
+  assert.deepEqual(asAuditor.data.values.units, ['Divisi Pengadaan', 'Divisi Keuangan']);
+  assert.equal(asAuditor.data.meta, undefined);
+  assert.equal((await auditor.patch('/api/settings', { app_name: 'X' })).status, 403);
+  assert.equal((await admin.patch('/api/settings', { theme: 'pink' })).status, 400);
+  assert.equal((await admin.patch('/api/settings', { maintenance: true })).status, 400, 'mode perbaikan khusus Infra Admin');
+  // Jenis audit mengikuti pengaturan.
+  assert.equal((await auditor.post('/api/audits', { title: 'Khusus', unit: 'Divisi Keuangan', type: 'Khusus' })).status, 201);
+  assert.equal((await auditor.post('/api/audits', { title: 'Lama', unit: 'Divisi Keuangan', type: 'Investigasi' })).status, 400);
+});
+
+test('infra admin di atas system admin', async () => {
+  const infra = client();
+  assert.equal((await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' })).data.role, 'infraadmin');
+  assert.equal((await infra.get('/api/users')).status, 200, 'infra punya semua hak admin');
+  assert.equal((await admin.get('/api/admin/system')).status, 403);
+  const sys = await infra.get('/api/admin/system');
+  assert.equal(sys.status, 200);
+  assert.ok(sys.data.database.migrations.some((m) => m.name === '004_settings_logins.sql'));
+  assert.equal((await infra.get('/api/admin/errors')).status, 200);
+
+  const infraId = (await admin.get('/api/users')).data.find((u) => u.role === 'infraadmin').id;
+  assert.equal((await admin.patch(`/api/users/${infraId}`, { active: false })).status, 403);
+  assert.equal((await admin.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 403);
+  assert.equal((await infra.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 201);
+
+  // Mode perbaikan: hanya Infra Admin yang tetap bisa masuk.
+  assert.equal((await infra.patch('/api/settings', { maintenance: true })).status, 200);
+  assert.equal((await auditor.get('/api/audits')).status, 503);
+  assert.equal((await client().post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 503);
+  assert.equal((await infra.get('/api/audits')).status, 200);
+  assert.equal((await client().get('/api/auth/settings')).data.maintenance, true);
+  assert.equal((await infra.patch('/api/settings', { maintenance: false })).status, 200);
+  assert.equal((await auditor.get('/api/audits')).status, 200);
 });

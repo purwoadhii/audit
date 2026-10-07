@@ -1,0 +1,95 @@
+import { Router } from 'express';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { query } from '../db.js';
+import { requireRole, endSession } from '../auth.js';
+import { badRequest, forbidden, notFound } from '../errors.js';
+import { config } from '../config.js';
+import { recentErrors } from '../errorlog.js';
+
+const r = Router();
+const startedAt = new Date();
+
+// Riwayat login: semua percobaan masuk, bisa disaring per status, pengguna, atau kata kunci.
+r.get('/logins', requireRole('admin'), async (req, res) => {
+  const where = [];
+  const params = [];
+  if (req.query.status === 'berhasil') where.push('h.success = TRUE');
+  if (req.query.status === 'gagal') where.push('h.success = FALSE');
+  if (req.query.user_id) { where.push('h.user_id = ?'); params.push(Number(req.query.user_id)); }
+  if (req.query.q) {
+    where.push('(h.login LIKE ? OR h.ip LIKE ? OR u.name LIKE ?)');
+    const q = `%${String(req.query.q).slice(0, 100)}%`;
+    params.push(q, q, q);
+  }
+  const limit = Math.max(1, Math.min(Math.trunc(Number(req.query.limit)) || 200, 1000));
+  const { rows } = await query(
+    `SELECT h.id, h.user_id, u.name AS user_name, u.role, h.login, h.success, h.reason, h.ip, h.user_agent, h.created_at
+       FROM login_history h LEFT JOIN users u ON u.id = h.user_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY h.id DESC LIMIT ${limit}`,
+    params,
+  );
+  res.json(rows.map((x) => ({ ...x, success: Boolean(Number(x.success)) })));
+});
+
+// Sesi yang masih aktif di semua perangkat.
+r.get('/sessions', requireRole('admin'), async (req, res) => {
+  const { rows } = await query(
+    `SELECT s.id, s.user_id, u.name AS user_name, u.username, u.role, s.remember, s.ip, s.user_agent,
+            s.created_at, s.last_seen_at, s.expires_at
+       FROM sessions s JOIN users u ON u.id = s.user_id
+      WHERE s.ended_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP(3)
+      ORDER BY s.last_seen_at DESC`,
+  );
+  res.json(rows.map((x) => ({ ...x, remember: Boolean(Number(x.remember)), current: x.id === req.sessionId })));
+});
+
+r.delete('/sessions/:id', requireRole('admin'), async (req, res) => {
+  const id = String(req.params.id);
+  if (!/^[0-9a-f]{32}$/.test(id)) throw notFound();
+  const { rows } = await query('SELECT s.id, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?', [id]);
+  if (!rows[0]) throw notFound();
+  if (rows[0].role === 'infraadmin' && req.user.role !== 'infraadmin') throw forbidden('Sesi Infra Admin hanya bisa diakhiri oleh Infra Admin.');
+  if (id === req.sessionId) throw badRequest('Gunakan tombol Keluar untuk mengakhiri sesi Anda sendiri.');
+  await endSession(id, 'dipaksa_keluar');
+  res.json({ ok: true });
+});
+
+async function dirSize(dir) {
+  let files = 0;
+  let bytes = 0;
+  try {
+    for (const name of await fs.readdir(dir)) {
+      const st = await fs.stat(path.join(dir, name));
+      if (st.isFile()) { files += 1; bytes += st.size; }
+    }
+  } catch { /* folder belum ada */ }
+  return { files, bytes };
+}
+
+// Kondisi teknis aplikasi, hanya untuk Infra Admin.
+r.get('/system', requireRole('infraadmin'), async (_req, res) => {
+  const [{ rows: ver }, { rows: tables }, { rows: migrations }] = await Promise.all([
+    query('SELECT VERSION() AS v, DATABASE() AS db, NOW() AS db_time'),
+    query(
+      `SELECT TABLE_NAME AS name, TABLE_ROWS AS approx_rows, DATA_LENGTH + INDEX_LENGTH AS bytes
+         FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`,
+    ),
+    query('SELECT name, applied_at FROM schema_migrations ORDER BY name'),
+  ]);
+  const pkg = JSON.parse(await fs.readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  const mem = process.memoryUsage();
+  res.json({
+    app: { version: pkg.version, node: process.version, env: process.env.NODE_ENV || 'development', started_at: startedAt, uptime_s: Math.round(process.uptime()), memory_mb: Math.round(mem.rss / 1048576), platform: `${process.platform} ${process.arch}` },
+    database: { version: ver[0].v, name: ver[0].db, time: ver[0].db_time, tables, migrations },
+    uploads: { dir: config.uploadDir, ...(await dirSize(config.uploadDir)), max_mb: config.maxUploadMb },
+    config: { cookie_secure: config.cookieSecure, smtp: Boolean(config.smtp.host), reminder_hour: config.reminderHour, app_url: config.appUrl, jwt_secret_set: Boolean(process.env.JWT_SECRET) },
+    errors: recentErrors().length,
+  });
+});
+
+r.get('/errors', requireRole('infraadmin'), (_req, res) => {
+  res.json(recentErrors());
+});
+
+export default r;

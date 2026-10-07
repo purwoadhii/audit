@@ -48,14 +48,14 @@ export function Sheet({ title, onClose, children, actions }) {
 }
 
 // Tombol hapus dua langkah: klik pertama meminta konfirmasi di tempat.
-export function ConfirmDelete({ label = 'Hapus', question, onConfirm }) {
+export function ConfirmDelete({ label = 'Hapus', question, onConfirm, yes = 'Ya, hapus' }) {
   const [asking, setAsking] = useState(false);
   if (!asking) return <button type="button" className="btn danger" onClick={() => setAsking(true)}>{label}</button>;
   return (
     <div className="confirm">
       <span>{question}</span>
       <button type="button" className="btn" onClick={() => setAsking(false)}>Batal</button>
-      <button type="button" className="btn primary danger-fill" onClick={onConfirm}>Ya, hapus</button>
+      <button type="button" className="btn primary danger-fill" onClick={onConfirm}>{yes}</button>
     </div>
   );
 }

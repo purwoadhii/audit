@@ -12,6 +12,9 @@ import auditRoutes from './routes/audits.js';
 import findingRoutes from './routes/findings.js';
 import attachmentRoutes, { findingUploads, auditUploads } from './routes/attachments.js';
 import dashboardRoutes from './routes/dashboard.js';
+import settingsRoutes from './routes/settings.js';
+import adminRoutes from './routes/admin.js';
+import { recordError } from './errorlog.js';
 
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 
@@ -50,6 +53,8 @@ export function createApp() {
   app.use('/api/findings', findingRoutes);
   app.use('/api/attachments', attachmentRoutes);
   app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/admin', adminRoutes);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Alamat API tidak ditemukan.')));
 
   if (fs.existsSync(webDist)) {
@@ -58,12 +63,13 @@ export function createApp() {
   }
 
   // eslint-disable-next-line no-unused-vars
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Data JSON tidak valid.' });
     if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Data terkait tidak ditemukan.' });
     if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Data yang sama sudah ada.' });
     console.error(err);
+    recordError(req, err);
     res.status(500).json({ error: 'Terjadi kesalahan di server.' });
   });
   return app;

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 import { pool } from './db.js';
@@ -15,10 +15,16 @@ export async function migrate() {
     await conn.query('CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(190) PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
     const [done] = await conn.query('SELECT name FROM schema_migrations');
     const applied = new Set(done.map((r) => r.name));
-    const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
+    // File .sql dijalankan apa adanya; file .js mengekspor up(conn) untuk perubahan yang butuh logika.
+    const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql') || f.endsWith('.js')).sort();
     for (const file of files) {
       if (applied.has(file)) continue;
-      await conn.query(await fs.readFile(path.join(dir, file), 'utf8'));
+      if (file.endsWith('.js')) {
+        const { up } = await import(pathToFileURL(path.join(dir, file)).href);
+        await up(conn);
+      } else {
+        await conn.query(await fs.readFile(path.join(dir, file), 'utf8'));
+      }
       await conn.query('INSERT INTO schema_migrations (name) VALUES (?)', [file]);
       console.log(`Migrasi diterapkan: ${file}`);
     }
@@ -26,6 +32,7 @@ export async function migrate() {
     await conn.end();
   }
   await ensureAdmin();
+  await ensureInfraAdmin();
 }
 
 // Membuat akun admin pertama dari ADMIN_EMAIL/ADMIN_PASSWORD bila belum ada pengguna sama sekali.
@@ -42,6 +49,19 @@ async function ensureAdmin() {
     [config.admin.name, config.admin.username, config.admin.email, hash],
   );
   console.log(`Admin pertama dibuat: ${config.admin.username} (${config.admin.email})`);
+}
+
+// Akun Infra Admin (developer) dibuat dari INFRA_USERNAME/INFRA_PASSWORD bila username itu belum ada.
+async function ensureInfraAdmin() {
+  const { username, password, email, name } = config.infra;
+  if (!username || !password) return;
+  const [rows] = await pool.query('SELECT id FROM users WHERE username = ?', [username.toLowerCase()]);
+  if (rows.length) return;
+  await pool.query(
+    "INSERT INTO users (name, username, email, password_hash, role) VALUES (?, LOWER(?), LOWER(?), ?, 'infraadmin')",
+    [name, username, email || `${username}@infra.local`, await bcrypt.hash(password, 10)],
+  );
+  console.log(`Infra Admin dibuat: ${username}`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

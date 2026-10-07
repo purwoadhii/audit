@@ -3,9 +3,9 @@ export const FINDING_STATUS = ['Terbuka', 'Dalam proses', 'Menunggu verifikasi',
 export const AUDITEE_STATUS = ['Dalam proses', 'Menunggu verifikasi'];
 export const RISKS = ['Tinggi', 'Sedang', 'Rendah'];
 export const STEP_RESULTS = ['Belum diuji', 'Sesuai', 'Tidak sesuai', 'Tidak berlaku'];
-export const AUDIT_TYPES = ['Keuangan', 'Operasional', 'Kepatuhan', 'Teknologi Informasi', 'Pengadaan', 'Investigasi'];
 export const ROLES = {
-  admin: 'Admin',
+  infraadmin: 'Infra Admin',
+  admin: 'System Admin',
   auditor: 'Auditor',
   auditee: 'Auditee',
   manajemen: 'Manajemen',
@@ -33,4 +33,23 @@ export function fmtSize(n) {
 }
 
 export const slug = (v) => String(v ?? '').replace(/\s+/g, '-');
-export const canEdit = (user) => user?.role === 'admin' || user?.role === 'auditor';
+export const isAdmin = (user) => user?.role === 'admin' || user?.role === 'infraadmin';
+export const canEdit = (user) => isAdmin(user) || user?.role === 'auditor';
+
+// Ringkas user agent menjadi "Chrome · Windows" untuk riwayat login dan sesi.
+export function device(ua) {
+  if (!ua) return '—';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Lainnya';
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS'
+    : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return os ? `${browser} · ${os}` : browser;
+}
+
+export const LOGIN_REASON = {
+  password_salah: 'Password salah',
+  akun_tidak_ada: 'Akun tidak ditemukan',
+  akun_nonaktif: 'Akun nonaktif',
+  terlalu_banyak: 'Terlalu banyak percobaan',
+  perbaikan: 'Mode perbaikan',
+};

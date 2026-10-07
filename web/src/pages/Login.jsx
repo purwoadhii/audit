@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth.jsx';
+import { useSettings } from '../settings.jsx';
 import LoginArt from '../components/LoginArt.jsx';
+import { LogoIcon } from '../components/Icons.jsx';
 
 const SAVED_KEY = 'am_username';
 
@@ -18,6 +20,9 @@ function Icon({ children }) {
 
 export default function Login() {
   const { login } = useAuth();
+  const { settings, reload } = useSettings();
+  // Ambil ulang pengaturan saat halaman login dibuka, misalnya setelah mode perbaikan dinyalakan.
+  useEffect(() => { reload(); }, [reload]);
   const [username, setUsername] = useState(readSaved);
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => Boolean(readSaved()));
@@ -41,6 +46,7 @@ export default function Login() {
     } catch (err) {
       setError(err.message);
       setBusy(false);
+      if (err.status === 503) reload();
     }
   }
 
@@ -49,8 +55,8 @@ export default function Login() {
       <section className="lp-hero" aria-hidden="true">
         <div className="lp-art"><LoginArt /></div>
         <div className="lp-hero-text">
-          <h2>Audit lebih rapi, temuan lebih terkendali</h2>
-          <p>Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.</p>
+          {settings.login_hero_title && <h2>{settings.login_hero_title}</h2>}
+          {settings.login_hero_text && <p>{settings.login_hero_text}</p>}
           <div className="lp-pills">
             <span>Perencanaan Audit</span>
             <span>Kertas Kerja</span>
@@ -63,18 +69,13 @@ export default function Login() {
         <div className="lp-card">
           <div className="lp-inner">
             <div className="lp-brand">
-              <div className="lp-brand-icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="5" y="4" width="14" height="17" rx="2" />
-                  <path d="M9 2.5h6v3H9z" />
-                  <path d="M8.5 13l2.5 2.5 4.5-5" />
-                </svg>
-              </div>
-              <div className="lp-brand-name">Audit Management</div>
+              <div className="lp-brand-icon"><LogoIcon size={24} /></div>
+              <div className="lp-brand-name">{settings.app_name}</div>
             </div>
 
-            <h1>Selamat datang</h1>
-            <p className="lp-lead">Masukkan username dan password akun Anda.</p>
+            <h1>{settings.login_title}</h1>
+            {settings.login_subtitle && <p className="lp-lead">{settings.login_subtitle}</p>}
+            {settings.maintenance && <div className="lp-maint" role="status">{settings.maintenance_message}</div>}
 
             <form onSubmit={submit} noValidate>
               <label className="lp-label" htmlFor="username">Username</label>
@@ -100,13 +101,13 @@ export default function Login() {
                 <label className="lp-remember"><input id="remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Ingat saya</label>
                 <button type="button" className="lp-link" onClick={() => setForgot(!forgot)} aria-expanded={forgot}>Forgot password?</button>
               </div>
-              {forgot && <div className="lp-note" role="status">Hubungi admin aplikasi untuk mengatur ulang password Anda.</div>}
+              {forgot && <div className="lp-note" role="status">{settings.forgot_password_text}</div>}
 
               <button type="submit" className="lp-btn" disabled={busy}>{busy ? 'Memeriksa…' : 'Sign In'}</button>
             </form>
 
             <hr />
-            <p className="lp-foot">Sistem Manajemen Audit Internal</p>
+            <p className="lp-foot">{settings.app_tagline || settings.app_name}</p>
           </div>
         </div>
       </main>
