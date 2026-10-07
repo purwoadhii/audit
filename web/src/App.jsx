@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { NavLink, Navigate, Route, Routes, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, Link } from 'react-router-dom';
 import { useAuth } from './auth.jsx';
 import { useSettings } from './settings.jsx';
 import { ROLES, isAdmin as checkAdmin } from './util.js';
@@ -83,29 +82,6 @@ function InfraAdminArea() {
   );
 }
 
-// Tombol pindah mode untuk akun admin yang juga bekerja, misalnya sebagai auditor.
-function ModeSwitch() {
-  const { user, switchMode } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
-  if (!user.work_role) return null;
-  const toWork = user.mode !== 'kerja';
-  async function go() {
-    setBusy(true);
-    try {
-      await switchMode(toWork ? 'kerja' : 'admin');
-      navigate('/', { replace: true });
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <button className="btn ghost mode-btn" onClick={go} disabled={busy} title="Pindah mode untuk akun ini">
-      Pindah ke {toWork ? ROLES[user.work_role] : ROLES[user.admin_role]}
-    </button>
-  );
-}
-
 export default function App() {
   const { user, logout } = useAuth();
   const { settings } = useSettings();
@@ -127,8 +103,7 @@ export default function App() {
               <div><h1>{settings.app_name}</h1>{settings.app_tagline && <small>{settings.app_tagline}</small>}</div>
             </Link>
             <div className="usermenu">
-              <div className="who">{user.name}<span>{ROLES[user.role]}{user.unit && !isAdmin ? ` · ${user.unit}` : ''}</span></div>
-              <ModeSwitch />
+              <div className="who">{user.name}<span>{ROLES[user.role]}{user.unit ? ` · ${user.unit}` : ''}</span></div>
               <Link className="btn ghost" to="/akun">Akun</Link>
               <button className="btn" onClick={logout}>Keluar</button>
             </div>

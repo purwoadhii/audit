@@ -21,12 +21,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  // Akun admin yang punya peran kerja bisa berpindah ke mode kerja dan kembali ke mode admin.
-  const switchMode = useCallback(async (mode) => {
-    setUser(await api.post('/auth/mode', { mode }));
-  }, []);
-
-  return <AuthContext.Provider value={{ user, login, logout, switchMode }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

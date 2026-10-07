@@ -5,7 +5,6 @@ import bcrypt from 'bcryptjs';
 import { query } from '../db.js';
 import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent } from '../auth.js';
 import { HttpError, badRequest, requireText } from '../errors.js';
-import { logActivity } from '../db.js';
 import { getSettings, publicSettings } from '../settings.js';
 
 const r = Router();
@@ -68,15 +67,8 @@ r.post('/login', async (req, res) => {
   await issueSession(req, res, user, Boolean(req.body?.remember));
   await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [user.id]);
   await recordLogin(req, login, user, true, null);
-  const admin = user.role === 'admin' || user.role === 'infraadmin';
-  res.json(me({ ...user, admin_role: admin ? user.role : null, work_role: admin ? user.work_role : null, mode: admin ? 'admin' : null }));
+  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit });
 });
-
-// Data akun yang dikirim ke browser.
-function me(u) {
-  const { id, name, username, email, role, unit, admin_role, work_role, mode } = u;
-  return { id, name, username, email, role, unit, admin_role, work_role, mode };
-}
 
 r.post('/logout', async (req, res) => {
   const payload = readToken(req);
@@ -86,18 +78,8 @@ r.post('/logout', async (req, res) => {
 });
 
 r.get('/me', requireAuth, (req, res) => {
-  res.json(me(req.user));
-});
-
-// Pindah antara mode admin dan mode kerja untuk akun admin yang punya peran kerja. Berlaku untuk sesi ini saja.
-r.post('/mode', requireAuth, async (req, res) => {
-  const mode = req.body?.mode;
-  if (!['admin', 'kerja'].includes(mode)) throw badRequest('Mode tidak valid.');
-  if (!req.user.admin_role || !req.user.work_role) throw badRequest('Akun ini tidak punya mode kerja.');
-  await query('UPDATE sessions SET work_mode = ? WHERE id = ?', [mode === 'kerja', req.sessionId]);
-  await logActivity({ query }, req.user.id, 'mode', 'user', req.user.id, { mode, role: mode === 'kerja' ? req.user.work_role : req.user.admin_role });
-  const role = mode === 'kerja' ? req.user.work_role : req.user.admin_role;
-  res.json(me({ ...req.user, role, mode }));
+  const { id, name, username, email, role, unit } = req.user;
+  res.json({ id, name, username, email, role, unit });
 });
 
 // Riwayat login dan sesi aktif milik pengguna sendiri.

@@ -7,7 +7,7 @@ import { ErrorBox, Loading, Req, ReqNote, Sheet, useLoad, useToast } from '../co
 
 const ROLE_HINT = {
   infraadmin: 'Developer. Semua hak System Admin, ditambah halaman Sistem, mode perbaikan, dan batas percobaan login.',
-  admin: 'Admin dari pihak klien. Mengelola pengguna, template, pengaturan, penyimpanan, dan riwayat login.',
+  admin: 'Admin dari pihak klien. Mengelola pengguna, template, pengaturan tampilan, data master, riwayat login, dan semua data.',
   auditor: 'Membuat audit, mengisi program kerja, dan mencatat temuan.',
   auditee: 'Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, dan mengunggah bukti.',
   manajemen: 'Melihat semua audit, temuan, dan laporan tanpa mengubah.',
@@ -30,7 +30,7 @@ export default function Users() {
           <tbody>
             {data.map((u) => (
               <tr key={u.id} className={canOpen(u) ? 'click' : ''} onClick={() => canOpen(u) && setEditing(u)}>
-                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}{u.work_role && <span className="t-sub"> + {ROLES[u.work_role]}</span>}</td><td>{u.unit || '—'}</td>
+                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.unit || '—'}</td>
                 <td className="num t-sub">{u.last_login_at ? fmtDateTime(u.last_login_at) : 'Belum pernah'}</td>
                 <td>{u.active ? <span className="pill s-Selesai">Aktif</span> : <span className="pill">Nonaktif</span>}</td>
               </tr>
@@ -49,9 +49,8 @@ function UserForm({ user, onClose, onSaved }) {
   const isNew = !user;
   const { settings } = useSettings();
   const roleOptions = Object.entries(ROLES).filter(([k]) => k !== 'infraadmin' || me.role === 'infraadmin');
-  const [f, setF] = useState({ name: user?.name || '', username: user?.username || '', email: user?.email || '', role: user?.role || 'auditor', work_role: user?.work_role || '', unit: user?.unit || '', password: '', active: user?.active ?? true });
+  const [f, setF] = useState({ name: user?.name || '', username: user?.username || '', email: user?.email || '', role: user?.role || 'auditor', unit: user?.unit || '', password: '', active: user?.active ?? true });
   const [error, setError] = useState('');
-  const needsUnit = f.role === 'auditee' || (['admin', 'infraadmin'].includes(f.role) && f.work_role === 'auditee');
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
   async function submit(e) {
@@ -79,16 +78,7 @@ function UserForm({ user, onClose, onSaved }) {
         <label><span>Username <Req /></span><input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.</span></label>
         <label><span>Email <Req /></span><input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
         <label><span>Peran <Req /></span><select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{ROLE_HINT[f.role]}</span></label>
-        {['admin', 'infraadmin'].includes(f.role) && (
-          <label><span>Juga bekerja sebagai</span>
-            <select id="u-work" value={f.work_role} onChange={set('work_role')}>
-              <option value="">Tidak, hanya admin</option>
-              {['auditor', 'auditee', 'manajemen'].map((k) => <option key={k} value={k}>{ROLES[k]}</option>)}
-            </select>
-            <span className="hint">Dengan username dan password yang sama, akun ini bisa pindah ke mode kerja dari tombol di menu atas.</span>
-          </label>
-        )}
-        <label><span>Unit {needsUnit && <Req />}</span><input id="u-unit" required={needsUnit} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">Wajib untuk auditee, harus sama persis dengan unit di audit.</span></label>
+        <label><span>Unit {f.role === 'auditee' && <Req />}</span><input id="u-unit" required={f.role === 'auditee'} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">Wajib untuk auditee, harus sama persis dengan unit di audit.</span></label>
         <label className="full"><span>{isNew ? <>Kata sandi awal <Req /></> : 'Atur ulang kata sandi'}</span><input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? 'Minimal 8 karakter' : 'Kosongkan bila tidak diubah'} /></label>
         {!isNew && user.id !== me.id && (
           <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><input id="u-active" type="checkbox" style={{ width: 'auto' }} checked={f.active} onChange={set('active')} />Akun aktif</label>
