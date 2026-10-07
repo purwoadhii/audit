@@ -64,7 +64,7 @@ Langkah:
 
 6. Buka http://localhost:3000 dan masuk dengan username `admin` (atau `ADMIN_EMAIL`) dan `ADMIN_PASSWORD` dari `.env`.
 
-Setelah aplikasi jalan, semua tabel (`users`, `audits`, `audit_steps`, `findings`, `finding_logs`, `attachments`, `activity_log`, `templates`) bisa dilihat di phpMyAdmin pada database `jejak_audit`. File bukti yang diunggah disimpan di folder `server/uploads`.
+Setelah aplikasi jalan, semua tabel (antara lain `users`, `audits`, `findings`, `settings`, `login_history`, dan `sessions`) bisa dilihat di phpMyAdmin pada database `jejak_audit`. File bukti yang diunggah disimpan di folder `server/uploads`.
 
 Untuk memperbarui ke versi terbaru: `git pull`, lalu `npm run setup` dan `npm start` lagi.
 
