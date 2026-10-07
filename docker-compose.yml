@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jejak_audit
+      POSTGRES_USER: jejak
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di file .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jejak -d jejak_audit"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://jejak:${DB_PASSWORD}@db:5432/jejak_audit
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - uploads:/data/uploads
+
+volumes:
+  db-data:
+  uploads:
