@@ -5,7 +5,11 @@ import { useSettings } from '../settings.jsx';
 import { ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
 
 const THEME_LABEL = { teal: 'Teal', biru: 'Biru', hijau: 'Hijau', ungu: 'Ungu', merah: 'Merah', oranye: 'Oranye' };
-const THEME_COLOR = { teal: '#2BB39A', biru: '#4C8DF0', hijau: '#4CB86A', ungu: '#8B78E6', merah: '#E5675B', oranye: '#EE9440' };
+// Contoh warna: bilah atas dan aksen tiap tema.
+const THEME_COLOR = {
+  teal: ['#102A3C', '#2BB39A'], biru: ['#102447', '#4C8DF0'], hijau: ['#112D20', '#4CB86A'],
+  ungu: ['#241B47', '#8B78E6'], merah: ['#3A161A', '#E5675B'], oranye: ['#3A240F', '#EE9440'],
+};
 
 const SECTIONS = [
   { title: 'Tampilan', keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
@@ -35,7 +39,7 @@ function Field({ k, meta, value, onChange, themes, locked }) {
         <div className="swatches" role="group" aria-label="Tema warna">
           {themes.map((t) => (
             <button type="button" key={t} className="swatch" aria-pressed={value === t} onClick={() => onChange(t)} disabled={locked}>
-              <i style={{ background: THEME_COLOR[t] }} />{THEME_LABEL[t] || t}
+              <i style={{ background: `linear-gradient(90deg, ${THEME_COLOR[t][0]} 50%, ${THEME_COLOR[t][1]} 50%)` }} />{THEME_LABEL[t] || t}
             </button>
           ))}
         </div>
