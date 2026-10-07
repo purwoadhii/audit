@@ -1,6 +1,6 @@
 /* Jejak Audit: header + tab bar, satu panel kerja; data di tabel/papan, edit di panel samping */
 :root {
-  --bg:#F4F5F1; --surface:#FFFFFF; --sunk:#ECEEE9; --ink:#18211D; --muted:#5B6660; --line:#DCE0DA;
+  --bg:#BEC3F2; --surface:#FFFFFF; --sunk:#ECEEE9; --ink:#18211D; --muted:#47504B; --line:#DCE0DA;
   --accent:#1E6B52; --accent-ink:#FFFFFF; --accent-soft:#E2EEE8;
   --high:#B23A30; --high-soft:#F7E2DF; --med:#9A620A; --med-soft:#FAEED5; --low:#365C8A; --low-soft:#E1E9F3; --ok:#2C7643; --ok-soft:#E1F0E5;
   --shadow:0 1px 2px rgba(20,30,25,.06),0 8px 24px rgba(20,30,25,.08);
@@ -8,15 +8,6 @@
   --f-body:"Manrope","Segoe UI",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:#111614; --surface:#181F1C; --sunk:#1F2724; --ink:#E5EBE7; --muted:#98A39D; --line:#2B3430;
-    --accent:#5DBF98; --accent-ink:#0D1411; --accent-soft:#1B3128;
-    --high:#EE7B70; --high-soft:#3A1F1C; --med:#E6B14F; --med-soft:#372B14; --low:#8DB2E0; --low-soft:#1B2738; --ok:#6FCA8A; --ok-soft:#183020;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
-    color-scheme: dark;
-  }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
