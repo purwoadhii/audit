@@ -121,6 +121,66 @@ function Section({ title, keys, data, onSaved }) {
   );
 }
 
+// Unggah gambar latar halaman login. Pratinjau memakai tata letak login yang sama.
+function BackgroundSection({ onSaved }) {
+  const { settings } = useSettings();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const url = settings.login_background_url;
+
+  async function upload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return setError('Ukuran gambar maksimal 5 MB.');
+    setBusy(true);
+    setError('');
+    try {
+      await api.upload('/settings/login-background', file);
+      toast('Gambar latar login diperbarui');
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError('');
+    try {
+      await api.del('/settings/login-background');
+      toast('Kembali ke ilustrasi bawaan');
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="panel form" aria-label="Gambar latar login">
+      <h3 className="full" style={{ margin: 0 }}>Gambar latar login</h3>
+      <div className="full bg-preview" aria-label="Pratinjau halaman login">
+        <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Ilustrasi bawaan'}</div>
+        <div className="right"><i style={{ width: '45%' }} /><i /><i /><i className="btnlike" /></div>
+      </div>
+      <div className="full upload-row">
+        <label className="btn primary" style={{ cursor: busy ? 'wait' : 'pointer' }}>
+          {busy ? 'Mengunggah…' : url ? 'Ganti gambar' : 'Unggah gambar'}
+          <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={upload} />
+        </label>
+        {url && <button type="button" className="btn" disabled={busy} onClick={remove}>Pakai ilustrasi bawaan</button>}
+        <span className="hint">JPG, PNG, atau WebP, maksimal 5 MB. Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.</span>
+      </div>
+      {error && <div className="error-text full" role="alert">{error}</div>}
+    </section>
+  );
+}
+
 export default function Settings() {
   const { reload: reloadApp } = useSettings();
   const { data, error, loading, reload } = useLoad(() => api.get('/settings'), []);
@@ -129,7 +189,9 @@ export default function Settings() {
   const saved = () => { reload(); reloadApp(); };
   return (
     <div className="settings-grid">
-      {SECTIONS.map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}
+      <Section {...SECTIONS[0]} data={data} onSaved={saved} />
+      <BackgroundSection onSaved={saved} />
+      {SECTIONS.slice(1).map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}
     </div>
   );
 }

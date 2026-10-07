@@ -313,3 +313,16 @@ tbody tr.click:hover td { background:var(--sunk); }
 pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); margin:4px 0 0; }
 @media (max-width:560px) { .dl { grid-template-columns:1fr; } }
 .lbl { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+/* Gambar latar login dari Administrasi: foto memenuhi panel, teks tetap terbaca di atas gradasi gelap */
+.lp-hero.has-photo { background-size:cover; background-position:center; justify-content:flex-end; }
+.lp-hero.has-photo::before { mask-image:none; -webkit-mask-image:none; background-image:linear-gradient(180deg, rgba(0,0,0,0) 35%, color-mix(in srgb, var(--navy-900) 85%, transparent) 100%); background-size:auto; }
+.lp-hero.has-photo .lp-hero-text { margin-bottom:clamp(8px,4vh,40px); }
+.lp-hero.has-photo .lp-hero-text p { color:#dbe6eb; }
+@media (max-width: 960px) { .lp-hero.has-photo { min-height:260px; } }
+/* Pratinjau gambar latar di Pengaturan */
+.bg-preview { display:grid; grid-template-columns:1.15fr 1fr; height:180px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:var(--navy-900); }
+.bg-preview .left { background:linear-gradient(160deg, var(--navy-700), var(--navy-900)); background-size:cover; background-position:center; display:grid; place-items:center; color:#a9bfc9; font-size:12px; font-weight:600; }
+.bg-preview .right { background:var(--card); display:flex; flex-direction:column; justify-content:center; gap:8px; padding:16px 22px; }
+.bg-preview .right i { display:block; height:10px; border-radius:5px; background:var(--line); }
+.bg-preview .right i.btnlike { height:16px; background:var(--navy-800); }
+.upload-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }

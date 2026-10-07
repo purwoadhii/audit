@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import path from 'node:path';
+import { brandingDir, mimeFor } from '../branding.js';
 import bcrypt from 'bcryptjs';
 import { query } from '../db.js';
 import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent } from '../auth.js';
@@ -21,6 +23,18 @@ async function recordLogin(req, login, user, success, reason) {
 // Nama aplikasi, teks login, tema, dan status perbaikan untuk halaman login (tanpa perlu masuk).
 r.get('/settings', async (_req, res) => {
   res.json(await publicSettings());
+});
+
+// Gambar latar login dibuka tanpa login karena tampil di halaman login.
+r.get('/login-background', async (_req, res) => {
+  const name = (await getSettings()).login_background;
+  if (!name) throw new HttpError(404, 'Belum ada gambar latar.');
+  res.setHeader('Content-Type', mimeFor(name));
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.sendFile(path.join(brandingDir, name), (err) => {
+    if (err && !res.headersSent) res.status(404).json({ error: 'Gambar tidak ditemukan.' });
+  });
 });
 
 r.post('/login', async (req, res) => {

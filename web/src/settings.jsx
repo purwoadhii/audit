@@ -11,6 +11,7 @@ const DEFAULTS = {
   login_hero_title: 'Audit lebih rapi, temuan lebih terkendali',
   login_hero_text: 'Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.',
   forgot_password_text: 'Hubungi admin aplikasi untuk mengatur ulang password Anda.',
+  login_background_url: '',
   maintenance: false,
   maintenance_message: '',
   units: [],

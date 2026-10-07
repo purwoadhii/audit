@@ -44,6 +44,8 @@ export const SETTINGS = {
   login_hero_title: { def: 'Audit lebih rapi, temuan lebih terkendali', who: 'admin', label: 'Judul panel kiri', check: optText(80), pub: true },
   login_hero_text: { def: 'Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.', who: 'admin', label: 'Teks panel kiri', check: optText(200), pub: true },
   forgot_password_text: { def: 'Hubungi admin aplikasi untuk mengatur ulang password Anda.', who: 'admin', label: 'Pesan lupa password', check: optText(200), pub: true },
+  // Gambar latar login: nama file di folder branding. Diatur lewat endpoint unggah, bukan PATCH.
+  login_background: { def: '', who: 'internal', label: 'Gambar latar login', check: optText(100) },
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
@@ -75,7 +77,19 @@ export const clearSettingsCache = () => { cache = null; };
 
 export async function publicSettings() {
   const all = await getSettings();
-  return Object.fromEntries(Object.entries(SETTINGS).filter(([, s]) => s.pub).map(([k]) => [k, all[k]]));
+  const out = Object.fromEntries(Object.entries(SETTINGS).filter(([, s]) => s.pub).map(([k]) => [k, all[k]]));
+  // Nama file berubah setiap unggah, jadi bisa dipakai sebagai penanda versi untuk cache browser.
+  out.login_background_url = all.login_background ? `/api/auth/login-background?v=${encodeURIComponent(all.login_background)}` : '';
+  return out;
+}
+
+// Menyimpan pengaturan internal tanpa pemeriksaan hak (dipanggil dari route yang sudah memeriksa).
+export async function saveInternal(user, k, v) {
+  await query(
+    'INSERT INTO settings (k, v, updated_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = VALUES(v), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP(3)',
+    [k, JSON.stringify(v), user.id],
+  );
+  clearSettingsCache();
 }
 
 // Memeriksa dan menyimpan perubahan. Kunci yang tidak dikenal atau di luar hak peran ditolak.
@@ -83,7 +97,7 @@ export async function saveSettings(user, body) {
   const changes = {};
   for (const [k, v] of Object.entries(body || {})) {
     const s = SETTINGS[k];
-    if (!s) throw badRequest(`Pengaturan ${k} tidak dikenal.`);
+    if (!s || s.who === 'internal') throw badRequest(`Pengaturan ${k} tidak dikenal.`);
     if (s.who === 'infraadmin' && user.role !== 'infraadmin') throw badRequest(`${s.label} hanya bisa diubah Infra Admin.`);
     changes[k] = s.check(v, s.label);
   }

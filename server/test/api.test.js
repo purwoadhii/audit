@@ -275,3 +275,20 @@ test('infra admin di atas system admin', async () => {
   assert.equal((await infra.patch('/api/settings', { maintenance: false })).status, 200);
   assert.equal((await auditor.get('/api/audits')).status, 200);
 });
+
+test('gambar latar login', async () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const form = (buf, name, type) => { const fd = new FormData(); fd.append('file', new Blob([buf], { type }), name); return fd; };
+  assert.equal((await client().get('/api/auth/login-background', { raw: true })).status, 404);
+  assert.equal((await auditor.post('/api/settings/login-background', form(png, 'a.png', 'image/png'))).status, 403);
+  assert.equal((await admin.post('/api/settings/login-background', form(Buffer.from('<svg onload=alert(1)>'), 'x.png', 'image/png'))).status, 400);
+  const up = await admin.post('/api/settings/login-background', form(png, 'latar.png', 'image/png'));
+  assert.equal(up.status, 200);
+  assert.match(up.data.login_background_url, /^\/api\/auth\/login-background\?v=login-bg-[0-9a-f]{16}\.png$/);
+  const img = await client().get(up.data.login_background_url, { raw: true });
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get('content-type'), 'image/png');
+  assert.equal((await admin.patch('/api/settings', { login_background: '../../etc/passwd' })).status, 400);
+  assert.equal((await admin.del('/api/settings/login-background')).status, 200);
+  assert.equal((await client().get('/api/auth/settings')).data.login_background_url, '');
+});

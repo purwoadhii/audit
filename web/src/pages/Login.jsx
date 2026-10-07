@@ -23,6 +23,8 @@ export default function Login() {
   const { settings, reload } = useSettings();
   // Ambil ulang pengaturan saat halaman login dibuka, misalnya setelah mode perbaikan dinyalakan.
   useEffect(() => { reload(); }, [reload]);
+  // Gambar latar dari Administrasi menggantikan ilustrasi bawaan.
+  const bg = settings.login_background_url;
   const [username, setUsername] = useState(readSaved);
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => Boolean(readSaved()));
@@ -52,8 +54,12 @@ export default function Login() {
 
   return (
     <div className="lp">
-      <section className="lp-hero" aria-hidden="true">
-        <div className="lp-art"><LoginArt /></div>
+      <section
+        className={`lp-hero${bg ? ' has-photo' : ''}`}
+        aria-hidden="true"
+        style={bg ? { backgroundImage: `url("${bg}")` } : undefined}
+      >
+        {!bg && <div className="lp-art"><LoginArt /></div>}
         <div className="lp-hero-text">
           {settings.login_hero_title && <h2>{settings.login_hero_title}</h2>}
           {settings.login_hero_text && <p>{settings.login_hero_text}</p>}
