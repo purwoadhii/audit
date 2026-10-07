@@ -44,8 +44,8 @@ export async function requireAuth(req, _res, next) {
     const payload = readToken(req);
     if (!payload?.sid) throw new HttpError(401, req.cookies?.[COOKIE] ? 'Sesi berakhir. Silakan masuk lagi.' : 'Silakan masuk terlebih dahulu.');
     const { rows } = await query(
-      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.active,
-              s.id AS sid, s.remember, s.expires_at, s.ended_at, s.last_seen_at
+      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.active, u.work_role,
+              s.id AS sid, s.remember, s.work_mode, s.expires_at, s.ended_at, s.last_seen_at
          FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND u.id = ?`,
       [payload.sid, payload.sub],
     );
@@ -63,7 +63,12 @@ export async function requireAuth(req, _res, next) {
       const params = row.remember ? [row.sid] : [new Date(Date.now() + s.session_idle_minutes * 60000), row.sid];
       await query(`UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP(3)${extend} WHERE id = ?`, params);
     }
-    const { sid, remember, expires_at: _e, ended_at: _x, last_seen_at: _l, ...user } = row;
+    const { sid, remember, work_mode, expires_at: _e, ended_at: _x, last_seen_at: _l, ...user } = row;
+    // Mode kerja: akun admin bertindak sepenuhnya dengan peran kerjanya, tanpa hak admin.
+    user.admin_role = isAdmin(user) ? user.role : null;
+    if (!user.admin_role) user.work_role = null;
+    user.mode = user.admin_role && user.work_role && Number(work_mode) ? 'kerja' : user.admin_role ? 'admin' : null;
+    if (user.mode === 'kerja') user.role = user.work_role;
     req.user = user;
     req.sessionId = sid;
     next();

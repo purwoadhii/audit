@@ -3,10 +3,17 @@ import bcrypt from 'bcryptjs';
 import { query, logActivity, bools } from '../db.js';
 import { requireRole, isAdmin } from '../auth.js';
 import { badRequest, forbidden, notFound, requireText, oneOf, intId } from '../errors.js';
-import { ROLES } from '../constants.js';
+import { ROLES, WORK_ROLES } from '../constants.js';
 
 const r = Router();
-const PUBLIC = 'id, name, username, email, role, unit, active, created_at, last_login_at';
+const PUBLIC = 'id, name, username, email, role, work_role, unit, active, created_at, last_login_at';
+const ADMIN_ROLES = ['admin', 'infraadmin'];
+
+// Peran kerja hanya untuk akun admin; kosong berarti akun itu hanya untuk pengaturan.
+function cleanWorkRole(v, role) {
+  if (!ADMIN_ROLES.includes(role) || !v) return null;
+  return oneOf(v, WORK_ROLES, 'Peran kerja');
+}
 
 function cleanUsername(v) {
   const u = String(v || '').trim().toLowerCase();
@@ -26,7 +33,7 @@ async function assertFree(field, value, exceptId = 0) {
 
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
 r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
-  const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, active';
+  const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, work_role, unit, active';
   const { rows } = await query(`SELECT ${cols} FROM users ORDER BY active DESC, name`);
   res.json(rows.map((u) => bools(u, 'active')));
 });
@@ -46,13 +53,14 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
-  if (role === 'auditee' && !unit) throw badRequest('Unit wajib diisi untuk auditee.');
+  const workRole = cleanWorkRole(req.body?.work_role, role);
+  if ((role === 'auditee' || workRole === 'auditee') && !unit) throw badRequest('Unit wajib diisi untuk auditee.');
   const username = cleanUsername(req.body?.username);
   await assertFree('email', email);
   await assertFree('username', username);
   const { insertId } = await query(
-    'INSERT INTO users (name, username, email, password_hash, role, unit) VALUES (?,?,?,?,?,?)',
-    [name, username, email, await bcrypt.hash(password, 10), role, unit],
+    'INSERT INTO users (name, username, email, password_hash, role, work_role, unit) VALUES (?,?,?,?,?,?,?)',
+    [name, username, email, await bcrypt.hash(password, 10), role, workRole, unit],
   );
   await logActivity({ query }, req.user.id, 'create', 'user', insertId, { email, role });
   res.status(201).json(await loadUser(insertId));
@@ -85,10 +93,14 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   }
   if (id === req.user.id && b.role && b.role !== req.user.role) throw badRequest('Anda tidak bisa mengubah peran akun sendiri.');
   const finalRole = b.role ?? target.role;
+  const finalWork = b.work_role !== undefined || b.role !== undefined ? cleanWorkRole(b.work_role ?? target.work_role, finalRole) : target.work_role;
+  if (finalWork !== target.work_role) add('work_role', finalWork);
   const finalUnit = b.unit !== undefined ? b.unit?.trim() : target.unit;
-  if (finalRole === 'auditee' && !finalUnit) throw badRequest('Unit wajib diisi untuk auditee.');
+  if ((finalRole === 'auditee' || finalWork === 'auditee') && !finalUnit) throw badRequest('Unit wajib diisi untuk auditee.');
   if (!sets.length) throw badRequest('Tidak ada perubahan.');
   await query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+  // Peran kerja dihapus atau diganti: sesi yang sedang di mode kerja kembali ke mode admin.
+  if (finalWork !== target.work_role) await query('UPDATE sessions SET work_mode = 0 WHERE user_id = ?', [id]);
   // Akun yang dinonaktifkan atau kata sandinya diatur ulang harus masuk lagi.
   if ((b.active !== undefined && !b.active) || b.password) {
     await query(

@@ -52,7 +52,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
     }
   }
 
-  const auditors = (users.data || []).filter((u) => u.active && (u.role === 'auditor' || u.role === 'admin'));
+  const auditors = (users.data || []).filter((u) => u.active && (u.role === 'auditor' || u.work_role === 'auditor'));
   // Anggota tim bisa dipilih dari semua pengguna aktif (kecuali akun Infra Admin developer).
   const people = (users.data || []).filter((u) => u.active && u.role !== 'infraadmin');
   const chosen = f.member_ids.map((id) => people.find((u) => u.id === id) || (audit?.members || []).find((m) => m.id === id)).filter(Boolean);
