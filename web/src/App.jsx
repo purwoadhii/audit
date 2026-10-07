@@ -19,6 +19,26 @@ import Logins from './pages/Logins.jsx';
 import Sessions from './pages/Sessions.jsx';
 import System from './pages/System.jsx';
 
+// Menu Aktivitas: log aktivitas untuk admin, auditor, dan manajemen; riwayat login hanya untuk admin
+// karena memuat alamat IP dan perangkat setiap pengguna.
+function ActivityArea({ admin }) {
+  return (
+    <>
+      {admin && (
+        <nav className="subtabs" aria-label="Aktivitas">
+          <NavLink to="/aktivitas" end>Log aktivitas</NavLink>
+          <NavLink to="/aktivitas/riwayat-login">Riwayat login</NavLink>
+        </nav>
+      )}
+      <Routes>
+        <Route index element={<Activity />} />
+        {admin && <Route path="riwayat-login" element={<Logins />} />}
+        <Route path="*" element={<Navigate to="/aktivitas" replace />} />
+      </Routes>
+    </>
+  );
+}
+
 // Menu Administrasi: System Admin melihat semua kecuali Sistem, Infra Admin melihat semuanya.
 function AdminArea({ infra }) {
   return (
@@ -27,7 +47,6 @@ function AdminArea({ infra }) {
         <NavLink to="/admin/pengguna">Pengguna</NavLink>
         <NavLink to="/admin/template">Template</NavLink>
         <NavLink to="/admin/pengaturan">Pengaturan</NavLink>
-        <NavLink to="/admin/riwayat-login">Riwayat login</NavLink>
         <NavLink to="/admin/sesi">Sesi aktif</NavLink>
         {infra && <NavLink to="/admin/sistem">Sistem</NavLink>}
       </nav>
@@ -35,7 +54,7 @@ function AdminArea({ infra }) {
         <Route path="pengguna" element={<Users />} />
         <Route path="template" element={<Templates />} />
         <Route path="pengaturan" element={<Settings />} />
-        <Route path="riwayat-login" element={<Logins />} />
+        <Route path="riwayat-login" element={<Navigate to="/aktivitas/riwayat-login" replace />} />
         <Route path="sesi" element={<Sessions />} />
         {infra && <Route path="sistem" element={<System />} />}
         <Route path="*" element={<Navigate to="/admin/pengguna" replace />} />
@@ -86,7 +105,7 @@ export default function App() {
           <Route path="/temuan" element={<Findings />} />
           <Route path="/tindak-lanjut" element={<Board />} />
           <Route path="/akun" element={<Account />} />
-          {seesActivity && <Route path="/aktivitas" element={<Activity />} />}
+          {seesActivity && <Route path="/aktivitas/*" element={<ActivityArea admin={isAdmin} />} />}
           {isAdmin && <Route path="/admin/*" element={<AdminArea infra={user.role === 'infraadmin'} />} />}
           <Route path="/pengguna" element={<Navigate to="/admin/pengguna" replace />} />
           <Route path="/template" element={<Navigate to="/admin/template" replace />} />

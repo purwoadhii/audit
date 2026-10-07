@@ -24,7 +24,8 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   - Pengaturan tampilan: nama aplikasi, keterangan, tema warna, dan teks halaman login.
   - Data master: daftar unit dan jenis audit.
   - Keamanan login: batas tidak aktif dan batas "Ingat saya".
-  - Riwayat login (berhasil dan gagal, dengan IP dan perangkat) dan sesi aktif yang bisa dipaksa keluar.
+  - Sesi aktif yang bisa dipaksa keluar.
+- **Aktivitas:** log aktivitas, dan untuk admin juga riwayat login (berhasil dan gagal, dengan IP dan perangkat).
 - **Log aktivitas:** setiap pembuatan, perubahan, penghapusan, dan unggahan tercatat.
 - **Pengingat email (opsional):** setiap hari, PIC menerima daftar temuan yang terlambat atau jatuh tempo dalam 7 hari.
 

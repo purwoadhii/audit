@@ -3,7 +3,7 @@ import { fmtDateTime } from '../util.js';
 import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 
 const ACTION = { create: 'membuat', update: 'mengubah', delete: 'menghapus', upload: 'mengunggah' };
-const ENTITY = { audit: 'audit', finding: 'temuan', user: 'pengguna', attachment: 'file bukti' };
+const ENTITY = { audit: 'audit', finding: 'temuan', user: 'pengguna', attachment: 'file bukti', setting: 'pengaturan' };
 
 function describe(l) {
   const d = l.detail || {};
