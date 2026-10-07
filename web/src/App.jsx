@@ -90,6 +90,8 @@ export default function App() {
   const isAdmin = checkAdmin(user);
   const isInfra = user.role === 'infraadmin';
   const seesActivity = isAdmin || ['auditor', 'manajemen'].includes(user.role);
+  // Akun admin hanya untuk pengaturan; pekerjaan audit dilakukan dengan akun pengguna biasa.
+  const works = !isAdmin;
   return (
     <>
       <div className="appbar">
@@ -107,10 +109,14 @@ export default function App() {
             </div>
           </header>
           <nav className="tabs">
-            <NavLink to="/" end>Ringkasan</NavLink>
-            <NavLink to="/audit">Audit</NavLink>
-            <NavLink to="/temuan">Temuan</NavLink>
-            <NavLink to="/tindak-lanjut">Tindak Lanjut</NavLink>
+            {works && (
+              <>
+                <NavLink to="/" end>Ringkasan</NavLink>
+                <NavLink to="/audit">Audit</NavLink>
+                <NavLink to="/temuan">Temuan</NavLink>
+                <NavLink to="/tindak-lanjut">Tindak Lanjut</NavLink>
+              </>
+            )}
             {seesActivity && <NavLink to="/aktivitas">Aktivitas</NavLink>}
             {isAdmin && <NavLink to="/sysAdmin">System Admin</NavLink>}
             {isInfra && <NavLink to="/infraAdmin">Infra Admin</NavLink>}
@@ -119,12 +125,16 @@ export default function App() {
       </div>
       <main className="wrap">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/audit" element={<Audits />} />
-          <Route path="/audit/:id" element={<AuditDetail />} />
-          <Route path="/audit/:id/laporan" element={<Report />} />
-          <Route path="/temuan" element={<Findings />} />
-          <Route path="/tindak-lanjut" element={<Board />} />
+          {works ? (
+            <>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/audit" element={<Audits />} />
+              <Route path="/audit/:id" element={<AuditDetail />} />
+              <Route path="/audit/:id/laporan" element={<Report />} />
+              <Route path="/temuan" element={<Findings />} />
+              <Route path="/tindak-lanjut" element={<Board />} />
+            </>
+          ) : <Route path="/" element={<Navigate to="/sysAdmin" replace />} />}
           <Route path="/akun" element={<Account />} />
           {seesActivity && <Route path="/aktivitas/*" element={<ActivityArea admin={isAdmin} />} />}
           {isAdmin && <Route path="/sysAdmin/*" element={<SysAdminArea />} />}
