@@ -106,7 +106,7 @@ export default function Login() {
             </form>
 
             <hr />
-            <p className="lp-foot">Jejak Audit · Sistem Manajemen Audit Internal</p>
+            <p className="lp-foot">Sistem Manajemen Audit Internal</p>
           </div>
         </div>
       </main>

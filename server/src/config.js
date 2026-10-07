@@ -28,7 +28,7 @@ export const config = {
     port: Number(env.SMTP_PORT || 587),
     user: env.SMTP_USER || '',
     pass: env.SMTP_PASS || '',
-    from: env.SMTP_FROM || 'Jejak Audit <no-reply@localhost>',
+    from: env.SMTP_FROM || 'Audit Management <no-reply@localhost>',
   },
   reminderHour: Number(env.REMINDER_HOUR || 8),
 };

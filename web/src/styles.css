@@ -1,4 +1,4 @@
-/* Jejak Audit: header + tab bar, satu panel kerja; data di tabel/papan, edit di panel samping */
+/* Audit Management: header + tab bar, satu panel kerja; data di tabel/papan, edit di panel samping */
 :root {
   --bg:#BEC3F2; --surface:#FFFFFF; --sunk:#ECEEE9; --ink:#18211D; --muted:#47504B; --line:#DCE0DA;
   --accent:#1E6B52; --accent-ink:#FFFFFF; --accent-soft:#E2EEE8;

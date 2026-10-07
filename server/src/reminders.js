@@ -29,7 +29,7 @@ export async function sendReminders() {
       from: config.smtp.from,
       to: email,
       subject: `Pengingat tindak lanjut audit: ${items.length} temuan`,
-      text: `Halo ${name},\n\nTemuan berikut perlu ditindaklanjuti:\n${lines.join('\n')}\n\nBuka ${config.appUrl} untuk memperbarui progres.\n\nJejak Audit`,
+      text: `Halo ${name},\n\nTemuan berikut perlu ditindaklanjuti:\n${lines.join('\n')}\n\nBuka ${config.appUrl} untuk memperbarui progres.\n\nAudit Management`,
     });
     sent++;
   }

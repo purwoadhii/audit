@@ -23,8 +23,8 @@ export default function App() {
     <div className="wrap">
       <header className="top">
         <Link to="/" className="brand">
-          <div className="brand-mark">JA</div>
-          <div><h1>Jejak Audit</h1><small>Manajemen audit internal</small></div>
+          <div className="brand-mark">AM</div>
+          <div><h1>Audit Management</h1><small>Manajemen audit internal</small></div>
         </Link>
         <div className="usermenu">
           <div className="who">{user.name}<span>{ROLES[user.role]}{user.unit ? ` · ${user.unit}` : ''}</span></div>
