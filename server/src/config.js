@@ -1,10 +1,17 @@
 import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// Baca file .env di folder utama proyek bila ada (untuk menjalankan di lokal).
+// Variabel yang sudah diset di sistem tetap diutamakan.
+const envFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env');
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
 const env = process.env;
 
 export const config = {
   port: Number(env.PORT || 3000),
-  databaseUrl: env.DATABASE_URL || 'postgres://jejak:jejak@localhost:5432/jejak_audit',
+  databaseUrl: env.DATABASE_URL || 'mysql://root:@localhost:3306/jejak_audit',
   jwtSecret: env.JWT_SECRET || '',
   uploadDir: path.resolve(env.UPLOAD_DIR || './uploads'),
   maxUploadMb: Number(env.MAX_UPLOAD_MB || 20),

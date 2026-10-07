@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query, tx, logActivity } from '../db.js';
+import { query, tx, logActivity, bools } from '../db.js';
 import { canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId } from '../errors.js';
 import { FINDING_STATUS, RISKS, AUDITEE_STATUS } from '../constants.js';
@@ -8,6 +8,7 @@ import { nextCode } from '../codes.js';
 
 const r = Router();
 const TEXT_FIELDS = ['condition', 'criteria', 'cause', 'effect', 'recommendation', 'response'];
+const col = (k) => `\`${k}\``; // `condition` adalah kata kunci MySQL
 
 const BASE = `
   SELECT f.*, a.code AS audit_code, a.title AS audit_title, a.unit AS audit_unit,
@@ -15,30 +16,31 @@ const BASE = `
   FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id`;
 
 export async function loadFinding(user, id) {
-  const scope = findingScope(user, 'f', 'a', 2);
-  const { rows } = await query(`${BASE} WHERE f.id = $1 AND ${scope.sql}`, [id, ...scope.params]);
+  const scope = findingScope(user, 'f', 'a');
+  const { rows } = await query(`${BASE} WHERE f.id = ? AND ${scope.sql}`, [id, ...scope.params]);
   if (!rows[0]) throw notFound('Temuan tidak ditemukan.');
-  return rows[0];
+  return bools(rows[0], 'overdue');
 }
 
 r.get('/', async (req, res) => {
-  const scope = findingScope(req.user, 'f', 'a', 1);
+  const scope = findingScope(req.user, 'f', 'a');
   const params = [...scope.params];
   const where = [scope.sql];
   const q = req.query;
-  const add = (sql, val) => { params.push(val); where.push(sql.replace('?', `$${params.length}`)); };
+  const add = (sql, ...vals) => { params.push(...vals); where.push(sql); };
   if (q.status && FINDING_STATUS.includes(q.status)) add('f.status = ?', q.status);
   if (q.risk && RISKS.includes(q.risk)) add('f.risk = ?', q.risk);
   if (q.audit_id) add('f.audit_id = ?', intId(q.audit_id));
   if (q.mine === '1') add('f.owner_id = ?', req.user.id);
   if (q.overdue === '1') where.push("f.status <> 'Selesai' AND f.due_date < CURRENT_DATE");
-  if (q.q) add("(f.title || ' ' || f.code || ' ' || f.condition || ' ' || coalesce(u.name,'')) ILIKE ?", `%${String(q.q).replace(/[%_\\]/g, '\\$&')}%`);
+  if (q.q) add("CONCAT_WS(' ', f.title, f.code, f.`condition`, u.name) LIKE ?", `%${String(q.q).replace(/[%_\\]/g, '\\$&')}%`);
   const { rows } = await query(
     `${BASE} WHERE ${where.join(' AND ')}
-     ORDER BY (f.status = 'Selesai'), CASE f.risk WHEN 'Tinggi' THEN 0 WHEN 'Sedang' THEN 1 ELSE 2 END, f.due_date NULLS LAST, f.id`,
+     ORDER BY (f.status = 'Selesai'), CASE f.risk WHEN 'Tinggi' THEN 0 WHEN 'Sedang' THEN 1 ELSE 2 END,
+              f.due_date IS NULL, f.due_date, f.id`,
     params,
   );
-  res.json(rows);
+  res.json(rows.map((f) => bools(f, 'overdue')));
 });
 
 r.get('/:id', async (req, res) => {
@@ -46,10 +48,10 @@ r.get('/:id', async (req, res) => {
   const finding = await loadFinding(req.user, id);
   const logs = (await query(
     `SELECT l.id, l.text, l.status, l.created_at, u.name AS user_name FROM finding_logs l
-     LEFT JOIN users u ON u.id = l.user_id WHERE l.finding_id = $1 ORDER BY l.created_at DESC, l.id DESC`, [id])).rows;
+     LEFT JOIN users u ON u.id = l.user_id WHERE l.finding_id = ? ORDER BY l.created_at DESC, l.id DESC`, [id])).rows;
   const attachments = (await query(
     `SELECT t.id, t.filename, t.mime, t.size, t.created_at, t.uploaded_by, u.name AS uploaded_by_name FROM attachments t
-     LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.finding_id = $1 ORDER BY t.id`, [id])).rows;
+     LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.finding_id = ? ORDER BY t.id`, [id])).rows;
   res.json({ ...finding, logs, attachments });
 });
 
@@ -65,22 +67,22 @@ r.post('/', async (req, res) => {
   const stepId = b.step_id ? intId(b.step_id) : null;
   const texts = TEXT_FIELDS.map((k) => String(b[k] || '').trim());
   const id = await tx(async (c) => {
-    const a = await c.query('SELECT 1 FROM audits WHERE id = $1', [auditId]);
+    const a = await c.query('SELECT 1 FROM audits WHERE id = ?', [auditId]);
     if (!a.rowCount) throw badRequest('Audit tidak ditemukan.');
     if (stepId) {
-      const s = await c.query('SELECT 1 FROM audit_steps WHERE id = $1 AND audit_id = $2', [stepId, auditId]);
+      const s = await c.query('SELECT 1 FROM audit_steps WHERE id = ? AND audit_id = ?', [stepId, auditId]);
       if (!s.rowCount) throw badRequest('Langkah tidak ada di audit ini.');
     }
-    const code = await nextCode(c, 'findings', 'TMN');
-    const { rows } = await c.query(
+    const code = await nextCode(c, 'TMN');
+    const { insertId } = await c.query(
       `INSERT INTO findings (code, audit_id, step_id, title, risk, status, due_date, owner_id,
-         condition, criteria, cause, effect, recommendation, response, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
+         ${TEXT_FIELDS.map(col).join(', ')}, created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [code, auditId, stepId, title, risk, status, due, ownerId, ...texts, req.user.id],
     );
-    await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES ($1,$2,$3,$4)', [rows[0].id, req.user.id, 'Temuan dicatat', status]);
-    await logActivity(c, req.user.id, 'create', 'finding', rows[0].id, { code, title });
-    return rows[0].id;
+    await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)', [insertId, req.user.id, 'Temuan dicatat', status]);
+    await logActivity(c, req.user.id, 'create', 'finding', insertId, { code, title });
+    return insertId;
   });
   res.status(201).json(await loadFinding(req.user, id));
 });
@@ -111,11 +113,11 @@ r.patch('/:id', async (req, res) => {
   if (!keys.length) return res.json(current);
   await tx(async (c) => {
     await c.query(
-      `UPDATE findings SET ${keys.map((k, i) => `${k} = $${i + 1}`).join(', ')}, updated_at = now() WHERE id = $${keys.length + 1}`,
+      `UPDATE findings SET ${keys.map((k) => `${col(k)} = ?`).join(', ')}, updated_at = NOW(3) WHERE id = ?`,
       [...keys.map((k) => f[k]), id],
     );
     if (f.status && f.status !== current.status) {
-      await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES ($1,$2,$3,$4)',
+      await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
         [id, req.user.id, `Status diubah dari ${current.status} ke ${f.status}`, f.status]);
     }
     await logActivity(c, req.user.id, 'update', 'finding', id, { fields: keys });
@@ -126,8 +128,9 @@ r.patch('/:id', async (req, res) => {
 r.delete('/:id', async (req, res) => {
   if (!canEditAudit(req.user)) throw forbidden();
   const id = intId(req.params.id);
-  const { rows } = await query('DELETE FROM findings WHERE id = $1 RETURNING code', [id]);
+  const { rows } = await query('SELECT code FROM findings WHERE id = ?', [id]);
   if (!rows[0]) throw notFound('Temuan tidak ditemukan.');
+  await query('DELETE FROM findings WHERE id = ?', [id]);
   await logActivity({ query }, req.user.id, 'delete', 'finding', id, { code: rows[0].code });
   res.json({ ok: true });
 });
@@ -137,9 +140,10 @@ r.post('/:id/logs', async (req, res) => {
   const finding = await loadFinding(req.user, id);
   if (req.user.role === 'manajemen') throw forbidden();
   const text = requireText(req.body?.text, 'Catatan');
-  const { rows } = await query(
-    'INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES ($1,$2,$3,$4) RETURNING id, text, status, created_at',
+  const { insertId } = await query(
+    'INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
     [id, req.user.id, text, finding.status]);
+  const { rows } = await query('SELECT id, text, status, created_at FROM finding_logs WHERE id = ?', [insertId]);
   res.status(201).json({ ...rows[0], user_name: req.user.name });
 });
 

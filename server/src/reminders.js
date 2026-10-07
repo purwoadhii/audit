@@ -15,7 +15,7 @@ export async function sendReminders() {
   const { rows } = await query(
     `SELECT u.email, u.name, f.code, f.title, f.due_date, f.status, (f.due_date < CURRENT_DATE) AS overdue
      FROM findings f JOIN users u ON u.id = f.owner_id
-     WHERE u.active AND f.status NOT IN ('Selesai','Menunggu verifikasi') AND f.due_date <= CURRENT_DATE + 7
+     WHERE u.active AND f.status NOT IN ('Selesai','Menunggu verifikasi') AND f.due_date <= CURRENT_DATE + INTERVAL 7 DAY
      ORDER BY u.email, f.due_date`);
   const byUser = new Map();
   for (const row of rows) {

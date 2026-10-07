@@ -20,7 +20,7 @@ r.post('/login', async (req, res) => {
   if (rec && now - rec.first < WINDOW_MS && rec.count >= MAX_ATTEMPTS) {
     throw new HttpError(429, 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.');
   }
-  const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
+  const { rows } = await query('SELECT * FROM users WHERE email = ?', [email]);
   const user = rows[0];
   const ok = user && user.active && (await bcrypt.compare(password, user.password_hash));
   if (!ok) {
@@ -48,9 +48,9 @@ r.post('/password', requireAuth, async (req, res) => {
   const current = requireText(req.body?.current, 'Kata sandi lama');
   const next = requireText(req.body?.next, 'Kata sandi baru');
   if (next.length < 8) throw badRequest('Kata sandi baru minimal 8 karakter.');
-  const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+  const { rows } = await query('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
   if (!(await bcrypt.compare(current, rows[0].password_hash))) throw badRequest('Kata sandi lama salah.');
-  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [await bcrypt.hash(next, 10), req.user.id]);
+  await query('UPDATE users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(next, 10), req.user.id]);
   res.json({ ok: true });
 });
 

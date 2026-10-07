@@ -1,12 +1,12 @@
-// Nomor urut per tahun, misalnya AUD-2026-001. Dipanggil di dalam transaksi
-// yang sudah mengunci tabel agar dua pengguna tidak mendapat nomor yang sama.
-export async function nextCode(client, table, prefix) {
+// Nomor urut per tahun, misalnya AUD-2026-001. Penghitung dinaikkan secara atomik
+// di tabel counters, jadi dua pengguna tidak pernah mendapat nomor yang sama.
+export async function nextCode(client, prefix) {
   const year = new Date().getFullYear();
-  await client.query(`LOCK TABLE ${table} IN SHARE ROW EXCLUSIVE MODE`);
-  const { rows } = await client.query(
-    `SELECT code FROM ${table} WHERE code LIKE $1 ORDER BY code DESC LIMIT 1`,
-    [`${prefix}-${year}-%`],
+  await client.query(
+    `INSERT INTO counters (prefix, year, value) VALUES (?, ?, LAST_INSERT_ID(1))
+     ON DUPLICATE KEY UPDATE value = LAST_INSERT_ID(value + 1)`,
+    [prefix, year],
   );
-  const last = rows[0] ? Number(rows[0].code.split('-').pop()) : 0;
-  return `${prefix}-${year}-${String(last + 1).padStart(3, '0')}`;
+  const { rows } = await client.query('SELECT LAST_INSERT_ID() AS n');
+  return `${prefix}-${year}-${String(rows[0].n).padStart(3, '0')}`;
 }

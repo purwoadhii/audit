@@ -1,17 +1,19 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: mariadb:10.11
     restart: unless-stopped
     environment:
-      POSTGRES_DB: jejak_audit
-      POSTGRES_USER: jejak
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di file .env}
+      MARIADB_DATABASE: jejak_audit
+      MARIADB_USER: jejak
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di file .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Isi DB_ROOT_PASSWORD di file .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jejak -d jejak_audit"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
-      retries: 10
+      retries: 20
 
   app:
     build: .
@@ -21,11 +23,23 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
-      DATABASE_URL: postgres://jejak:${DB_PASSWORD}@db:5432/jejak_audit
+      DATABASE_URL: mysql://jejak:${DB_PASSWORD}@db:3306/jejak_audit
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - uploads:/data/uploads
+
+  # phpMyAdmin opsional: docker compose --profile tools up -d, lalu buka http://IP-SERVER:8080
+  phpmyadmin:
+    image: phpmyadmin:5
+    profiles: ["tools"]
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+    ports:
+      - "${PMA_PORT:-8080}:80"
 
 volumes:
   db-data:

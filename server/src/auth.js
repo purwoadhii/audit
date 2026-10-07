@@ -31,7 +31,7 @@ export async function requireAuth(req, _res, next) {
     } catch {
       throw new HttpError(401, 'Sesi berakhir. Silakan masuk lagi.');
     }
-    const { rows } = await query('SELECT id, name, email, role, unit, active FROM users WHERE id = $1', [payload.sub]);
+    const { rows } = await query('SELECT id, name, email, role, unit, active FROM users WHERE id = ?', [payload.sub]);
     if (!rows[0] || !rows[0].active) throw new HttpError(401, 'Akun tidak aktif.');
     req.user = rows[0];
     next();

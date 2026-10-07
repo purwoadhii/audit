@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { query, logActivity } from '../db.js';
+import { query, logActivity, bools } from '../db.js';
 import { requireRole } from '../auth.js';
 import { badRequest, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
@@ -12,8 +12,14 @@ const PUBLIC = 'id, name, email, role, unit, active, created_at';
 r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
   const cols = req.user.role === 'admin' ? PUBLIC : 'id, name, role, unit, active';
   const { rows } = await query(`SELECT ${cols} FROM users ORDER BY active DESC, name`);
-  res.json(rows);
+  res.json(rows.map((u) => bools(u, 'active')));
 });
+
+async function loadUser(id) {
+  const { rows } = await query(`SELECT ${PUBLIC} FROM users WHERE id = ?`, [id]);
+  if (!rows[0]) throw notFound();
+  return bools(rows[0], 'active');
+}
 
 r.post('/', requireRole('admin'), async (req, res) => {
   const name = requireText(req.body?.name, 'Nama');
@@ -23,21 +29,21 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
-  const exists = await query('SELECT 1 FROM users WHERE email = $1', [email]);
+  const exists = await query('SELECT 1 FROM users WHERE email = ?', [email]);
   if (exists.rowCount) throw badRequest('Email sudah dipakai pengguna lain.');
-  const { rows } = await query(
-    `INSERT INTO users (name, email, password_hash, role, unit) VALUES ($1,$2,$3,$4,$5) RETURNING ${PUBLIC}`,
+  const { insertId } = await query(
+    'INSERT INTO users (name, email, password_hash, role, unit) VALUES (?,?,?,?,?)',
     [name, email, await bcrypt.hash(password, 10), role, unit],
   );
-  await logActivity({ query }, req.user.id, 'create', 'user', rows[0].id, { email, role });
-  res.status(201).json(rows[0]);
+  await logActivity({ query }, req.user.id, 'create', 'user', insertId, { email, role });
+  res.status(201).json(await loadUser(insertId));
 });
 
 r.patch('/:id', requireRole('admin'), async (req, res) => {
   const id = intId(req.params.id);
   const sets = [];
   const params = [];
-  const add = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
+  const add = (col, val) => { params.push(val); sets.push(`${col} = ?`); };
   const b = req.body || {};
   if (b.name !== undefined) add('name', requireText(b.name, 'Nama'));
   if (b.role !== undefined) add('role', oneOf(b.role, ROLES, 'Peran'));
@@ -52,11 +58,10 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   }
   if (id === req.user.id && b.role && b.role !== 'admin') throw badRequest('Anda tidak bisa menurunkan peran akun sendiri.');
   if (!sets.length) throw badRequest('Tidak ada perubahan.');
-  params.push(id);
-  const { rows } = await query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING ${PUBLIC}`, params);
-  if (!rows[0]) throw notFound();
+  await loadUser(id);
+  await query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
   await logActivity({ query }, req.user.id, 'update', 'user', id, { fields: Object.keys(b).filter((k) => k !== 'password') });
-  res.json(rows[0]);
+  res.json(await loadUser(id));
 });
 
 export default r;

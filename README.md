@@ -25,8 +25,41 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 
 - Frontend: React + Vite (`web/`)
 - Backend: Node.js + Express (`server/`)
-- Database: PostgreSQL
+- Database: MySQL 8 atau MariaDB 10.4+ (bisa dikelola lewat phpMyAdmin)
 - File bukti disimpan di disk server (`UPLOAD_DIR`)
+
+## Mencoba di komputer sendiri (XAMPP + phpMyAdmin)
+
+Cocok untuk Windows. Yang perlu dipasang:
+
+- [XAMPP](https://www.apachefriends.org/) (berisi MySQL/MariaDB dan phpMyAdmin)
+- [Node.js](https://nodejs.org/) versi 22 LTS
+- [Git](https://git-scm.com/)
+
+Langkah:
+
+1. Buka **XAMPP Control Panel**, klik **Start** pada **Apache** dan **MySQL**.
+2. Buka http://localhost/phpmyadmin, klik **New** (Baru), isi nama database `jejak_audit`, pilih collation `utf8mb4_unicode_ci`, lalu klik **Create**. Tabelnya tidak perlu dibuat manual, aplikasi membuatnya sendiri.
+3. Buka Command Prompt atau PowerShell, lalu ambil kodenya:
+
+   ```bash
+   git clone https://github.com/purwoadhii/audit.git jejak-audit
+   cd jejak-audit
+   ```
+
+4. Salin `.env.example` menjadi `.env` (`copy .env.example .env` di Windows). Isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` untuk akun admin pertama. `DATABASE_URL` sudah cocok untuk XAMPP bawaan (user `root` tanpa kata sandi). Kalau user root MySQL Anda memakai kata sandi, tulis sebagai `mysql://root:KATASANDI@localhost:3306/jejak_audit`.
+5. Pasang dan jalankan:
+
+   ```bash
+   npm run setup
+   npm start
+   ```
+
+6. Buka http://localhost:3000 dan masuk dengan email dan kata sandi admin dari `.env`.
+
+Setelah aplikasi jalan, semua tabel (`users`, `audits`, `audit_steps`, `findings`, `finding_logs`, `attachments`, `activity_log`, `templates`) bisa dilihat di phpMyAdmin pada database `jejak_audit`. File bukti yang diunggah disimpan di folder `server/uploads`.
+
+Untuk memperbarui ke versi terbaru: `git pull`, lalu `npm run setup` dan `npm start` lagi.
 
 ## Menjalankan di server (Docker)
 
@@ -36,13 +69,15 @@ Butuh server Linux dengan Docker dan Docker Compose.
 git clone https://github.com/purwoadhii/audit.git jejak-audit
 cd jejak-audit
 cp .env.example .env
-# Edit .env: isi DB_PASSWORD, JWT_SECRET (openssl rand -hex 32), ADMIN_EMAIL, ADMIN_PASSWORD
+# Edit .env: isi DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET (openssl rand -hex 32), ADMIN_EMAIL, ADMIN_PASSWORD
 docker compose up -d --build
 ```
 
 Aplikasi berjalan di `http://IP-SERVER:3000`. Masuk dengan `ADMIN_EMAIL` dan `ADMIN_PASSWORD`, lalu segera ganti kata sandi lewat menu **Akun**.
 
 Data database dan file bukti disimpan di volume Docker `db-data` dan `uploads`, jadi tetap ada saat aplikasi diperbarui.
+
+Untuk membuka phpMyAdmin di server: `docker compose --profile tools up -d`, lalu buka `http://IP-SERVER:8080` dan masuk dengan user `jejak` dan `DB_PASSWORD`. Sebaiknya port 8080 tidak dibuka ke internet.
 
 ### Domain dan HTTPS
 
@@ -68,34 +103,26 @@ Migrasi database berjalan otomatis saat aplikasi mulai.
 ### Backup
 
 ```bash
-docker compose exec db pg_dump -U jejak jejak_audit > backup-$(date +%F).sql
+docker compose exec db sh -c 'mariadb-dump -ujejak -p"$MARIADB_PASSWORD" jejak_audit' > backup-$(date +%F).sql
 docker run --rm -v jejak-audit_uploads:/data -v "$PWD":/out alpine tar czf /out/uploads-$(date +%F).tgz -C /data .
 ```
 
-## Pengembangan lokal
+## Pengembangan
 
-Butuh Node.js 20+ dan PostgreSQL 14+.
+Untuk mengubah tampilan dengan hot reload, jalankan backend dan frontend terpisah:
 
 ```bash
-# Backend
-cd server
-npm install
-DATABASE_URL=postgres://user:pass@localhost:5432/jejak_audit \
-ADMIN_EMAIL=admin@contoh.id ADMIN_PASSWORD=admin12345 npm run dev
-
-# Frontend (terminal lain), membuka http://localhost:5173
-cd web
-npm install
-npm run dev
+npm --prefix server run dev   # API di http://localhost:3000
+npm --prefix web run dev      # buka http://localhost:5173
 ```
 
 ### Tes
 
-Tes API berjalan terhadap database PostgreSQL sungguhan dan mengosongkannya setiap kali jalan, jadi gunakan database khusus tes:
+Tes API berjalan terhadap database MySQL/MariaDB sungguhan dan **menghapus semua tabelnya** setiap kali jalan. Buat database terpisah bernama `jejak_audit_test` di phpMyAdmin, lalu:
 
 ```bash
 cd server
-TEST_DATABASE_URL=postgres://user:pass@localhost:5432/jejak_audit_test npm test
+TEST_DATABASE_URL=mysql://root:@localhost:3306/jejak_audit_test npm test
 ```
 
 ## Konfigurasi
@@ -104,7 +131,8 @@ Semua pengaturan ada di `.env` (lihat `.env.example`):
 
 | Variabel | Keterangan |
 | --- | --- |
-| `DATABASE_URL` | Koneksi PostgreSQL (diisi otomatis oleh docker-compose) |
+| `DATABASE_URL` | Koneksi MySQL/MariaDB, misalnya `mysql://root:@localhost:3306/jejak_audit` (diisi otomatis oleh docker-compose) |
+| `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Kata sandi database untuk docker-compose |
 | `JWT_SECRET` | Rahasia sesi login, minimal 32 karakter, wajib di production |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun admin pertama, dibuat hanya bila belum ada pengguna |
 | `COOKIE_SECURE` | `true` bila diakses lewat HTTPS |

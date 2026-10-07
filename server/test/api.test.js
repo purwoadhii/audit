@@ -1,12 +1,13 @@
-// Uji API end-to-end terhadap database PostgreSQL sungguhan.
-// Jalankan: TEST_DATABASE_URL=postgres://... npm test
+// Uji API end-to-end terhadap database MySQL/MariaDB sungguhan.
+// Jalankan: TEST_DATABASE_URL=mysql://user:pass@localhost:3306/jejak_audit_test npm test
+// PERHATIAN: semua tabel di database tes dihapus setiap kali tes jalan.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const dbUrl = process.env.TEST_DATABASE_URL || 'postgres://jejak:jejak@localhost:5432/jejak_audit_test';
+const dbUrl = process.env.TEST_DATABASE_URL || 'mysql://root:@localhost:3306/jejak_audit_test';
 process.env.DATABASE_URL = dbUrl;
 process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'jejak-up-'));
 process.env.ADMIN_EMAIL = 'admin@contoh.id';
@@ -43,7 +44,13 @@ function client() {
 }
 
 before(async () => {
-  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  // Kosongkan database tes: hapus semua tabel.
+  const [tables] = await pool.query('SELECT table_name AS t FROM information_schema.tables WHERE table_schema = DATABASE()');
+  const conn = await pool.getConnection();
+  await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+  for (const { t } of tables) await conn.query(`DROP TABLE \`${t}\``);
+  await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+  conn.release();
   await migrate();
   server = createApp().listen(0);
   base = `http://127.0.0.1:${server.address().port}`;

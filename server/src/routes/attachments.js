@@ -40,11 +40,12 @@ function runUpload(req, res) {
 async function saveRecord(req, file, auditId, findingId) {
   // multer membaca nama asli sebagai latin1; ubah ke UTF-8 agar nama berbahasa apa pun tampil benar.
   const filename = Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 200);
-  const { rows } = await query(
+  const { insertId } = await query(
     `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, uploaded_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, filename, mime, size, created_at`,
+     VALUES (?,?,?,?,?,?,?)`,
     [auditId, findingId, filename, file.mimetype, file.size, file.filename, req.user.id]);
-  await logActivity({ query }, req.user.id, 'upload', 'attachment', rows[0].id, { filename, auditId, findingId });
+  const { rows } = await query('SELECT id, filename, mime, size, created_at FROM attachments WHERE id = ?', [insertId]);
+  await logActivity({ query }, req.user.id, 'upload', 'attachment', insertId, { filename, auditId, findingId });
   return { ...rows[0], uploaded_by: req.user.id, uploaded_by_name: req.user.name };
 }
 
@@ -79,7 +80,7 @@ auditUploads.post('/', async (req, res) => {
 const r = Router();
 
 async function loadAttachment(user, id) {
-  const { rows } = await query('SELECT * FROM attachments WHERE id = $1', [id]);
+  const { rows } = await query('SELECT * FROM attachments WHERE id = ?', [id]);
   const att = rows[0];
   if (!att) throw notFound('File tidak ditemukan.');
   // Periksa hak akses melalui temuan atau audit induknya.
@@ -103,7 +104,7 @@ r.get('/:id', async (req, res) => {
 r.delete('/:id', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));
   if (!canEditAudit(req.user) && att.uploaded_by !== req.user.id) throw forbidden();
-  await query('DELETE FROM attachments WHERE id = $1', [att.id]);
+  await query('DELETE FROM attachments WHERE id = ?', [att.id]);
   await removeFile(att.storage_name);
   await logActivity({ query }, req.user.id, 'delete', 'attachment', att.id, { filename: att.filename });
   res.json({ ok: true });

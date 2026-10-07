@@ -10,31 +10,44 @@ function cleanSteps(steps) {
   return steps.map((s) => String(s).trim()).filter(Boolean);
 }
 
+export const parseTemplate = (t) => ({ ...t, steps: typeof t.steps === 'string' ? JSON.parse(t.steps) : t.steps });
+
+async function loadTemplate(id) {
+  const { rows } = await query('SELECT id, name, steps FROM templates WHERE id = ?', [id]);
+  if (!rows[0]) throw notFound();
+  return parseTemplate(rows[0]);
+}
+
 r.get('/', async (_req, res) => {
   const { rows } = await query('SELECT id, name, steps FROM templates ORDER BY name');
-  res.json(rows);
+  res.json(rows.map(parseTemplate));
 });
+
+async function assertUniqueName(name, exceptId = 0) {
+  const dup = await query('SELECT 1 FROM templates WHERE LOWER(name) = LOWER(?) AND id <> ?', [name, exceptId]);
+  if (dup.rowCount) throw badRequest('Nama template sudah ada.');
+}
 
 r.post('/', requireRole('admin'), async (req, res) => {
   const name = requireText(req.body?.name, 'Nama template');
   const steps = cleanSteps(req.body?.steps || []);
-  const dup = await query('SELECT 1 FROM templates WHERE lower(name) = lower($1)', [name]);
-  if (dup.rowCount) throw badRequest('Nama template sudah ada.');
-  const { rows } = await query('INSERT INTO templates (name, steps) VALUES ($1, $2) RETURNING id, name, steps', [name, JSON.stringify(steps)]);
-  res.status(201).json(rows[0]);
+  await assertUniqueName(name);
+  const { insertId } = await query('INSERT INTO templates (name, steps) VALUES (?, ?)', [name, JSON.stringify(steps)]);
+  res.status(201).json(await loadTemplate(insertId));
 });
 
 r.patch('/:id', requireRole('admin'), async (req, res) => {
   const id = intId(req.params.id);
   const name = requireText(req.body?.name, 'Nama template');
   const steps = cleanSteps(req.body?.steps || []);
-  const { rows } = await query('UPDATE templates SET name = $1, steps = $2 WHERE id = $3 RETURNING id, name, steps', [name, JSON.stringify(steps), id]);
-  if (!rows[0]) throw notFound();
-  res.json(rows[0]);
+  await loadTemplate(id);
+  await assertUniqueName(name, id);
+  await query('UPDATE templates SET name = ?, steps = ? WHERE id = ?', [name, JSON.stringify(steps), id]);
+  res.json(await loadTemplate(id));
 });
 
 r.delete('/:id', requireRole('admin'), async (req, res) => {
-  await query('DELETE FROM templates WHERE id = $1', [intId(req.params.id)]);
+  await query('DELETE FROM templates WHERE id = ?', [intId(req.params.id)]);
   res.json({ ok: true });
 });
 

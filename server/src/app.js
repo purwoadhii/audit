@@ -61,7 +61,8 @@ export function createApp() {
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Data JSON tidak valid.' });
-    if (err.code === '23503') return res.status(400).json({ error: 'Data terkait tidak ditemukan.' });
+    if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Data terkait tidak ditemukan.' });
+    if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Data yang sama sudah ada.' });
     console.error(err);
     res.status(500).json({ error: 'Terjadi kesalahan di server.' });
   });
