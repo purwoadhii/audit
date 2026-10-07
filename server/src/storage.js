@@ -7,12 +7,13 @@ import { config } from './config.js';
 import { badRequest } from './errors.js';
 
 // Tempat menyimpan file bukti:
-// - local: folder UPLOAD_DIR di server aplikasi (bisa juga folder NAS yang di-mount ke server).
+// - local: folder di server aplikasi. Bawaannya UPLOAD_DIR, dan System Admin bisa mengarahkannya ke folder lain
+//   (misalnya drive lain atau folder NAS yang di-mount ke server).
 // - s3: object storage yang kompatibel S3, baik cloud (AWS S3, Google Cloud Storage, Cloudflare R2,
 //   Wasabi, penyedia lokal) maupun server sendiri (MinIO on-premise).
 
 const KEY = 'storage';
-const DEFAULT = { driver: 'local', s3: { endpoint: '', region: 'us-east-1', bucket: '', access_key: '', prefix: 'audit/', path_style: true }, secret: '' };
+const DEFAULT = { driver: 'local', local_dir: '', s3: { endpoint: '', region: 'us-east-1', bucket: '', access_key: '', prefix: 'audit/', path_style: true }, secret: '' };
 
 // Secret key S3 disimpan terenkripsi di database dengan kunci turunan JWT_SECRET.
 const cipherKey = () => crypto.createHash('sha256').update(`storage:${config.jwtSecret}`).digest();
@@ -51,7 +52,7 @@ export async function loadStorageConfig() {
 export async function publicStorageConfig() {
   const c = await loadStorageConfig();
   const secret = decrypt(c.secret);
-  return { driver: c.driver, s3: c.s3, secret_set: Boolean(c.secret), secret_unreadable: Boolean(c.secret) && secret === null };
+  return { driver: c.driver, local_dir: c.local_dir, default_dir: config.uploadDir, s3: c.s3, secret_set: Boolean(c.secret), secret_unreadable: Boolean(c.secret) && secret === null };
 }
 
 function cleanS3(input, prev) {
@@ -70,19 +71,30 @@ function cleanS3(input, prev) {
   return out;
 }
 
+// Folder lokal harus berupa alamat lengkap (misalnya D:/AuditFiles atau /srv/audit-files).
+function cleanLocalDir(input, prev) {
+  const raw = String(input ?? prev ?? '').trim();
+  if (!raw) return '';
+  if (raw.length > 400 || raw.includes('\0')) throw badRequest('Alamat folder tidak valid.');
+  if (!path.isAbsolute(raw)) throw badRequest('Tulis alamat folder lengkap, misalnya D:/AuditFiles atau /srv/audit-files.');
+  const dir = path.resolve(raw);
+  return dir === config.uploadDir ? '' : dir;
+}
+
 // Gabungkan perubahan dari form dengan pengaturan lama; secret kosong berarti tidak diubah.
 export async function buildStorageConfig(body) {
   const prev = await loadStorageConfig();
   const driver = body?.driver ?? prev.driver;
   if (!['local', 's3'].includes(driver)) throw badRequest('Jenis penyimpanan tidak valid.');
   const s3 = cleanS3(body?.s3, prev);
+  const local_dir = cleanLocalDir(body?.local_dir, prev.local_dir);
   const secret = body?.secret_key ? encrypt(String(body.secret_key)) : prev.secret;
   if (driver === 's3') {
     if (!s3.bucket) throw badRequest('Nama bucket wajib diisi.');
     if (!s3.access_key) throw badRequest('Access key wajib diisi.');
     if (!secret || decrypt(secret) === null) throw badRequest('Secret key wajib diisi.');
   }
-  return { driver, s3, secret };
+  return { driver, local_dir, s3, secret };
 }
 
 export async function saveStorageConfig(user, cfg) {
@@ -108,16 +120,40 @@ function s3Client(cfg) {
   return clients.get(id);
 }
 
-const localPath = (name) => path.join(config.uploadDir, name);
+const localDir = (cfg) => cfg.local_dir || config.uploadDir;
+// storage_dir kosong berarti file ada di UPLOAD_DIR.
+const localPath = (name, dir) => path.join(dir || config.uploadDir, name);
+
+async function moveFile(from, to) {
+  try {
+    await fs.promises.rename(from, to);
+  } catch (err) {
+    if (err.code !== 'EXDEV') throw err; // beda drive: salin lalu hapus
+    await fs.promises.copyFile(from, to);
+    await fs.promises.unlink(from);
+  }
+}
 
 function noteError(err) {
   health.last_error = { at: new Date().toISOString(), message: String(err?.message || err).slice(0, 300) };
 }
 
-// Simpan file yang sudah diterima multer di folder lokal. Untuk S3, file dikirim lalu salinan lokal dihapus.
+// multer menaruh file sementara di UPLOAD_DIR. Untuk folder lokal lain file dipindahkan ke sana;
+// untuk S3 file dikirim lalu salinan lokal dihapus. Mengembalikan { storage, dir }.
 export async function storeUpload(file) {
   const cfg = await loadStorageConfig();
-  if (cfg.driver !== 's3') return 'local';
+  if (cfg.driver !== 's3') {
+    if (!cfg.local_dir) return { storage: 'local', dir: null };
+    try {
+      await fs.promises.mkdir(cfg.local_dir, { recursive: true });
+      await moveFile(file.path, localPath(file.filename, cfg.local_dir));
+    } catch (err) {
+      noteError(err);
+      await fs.promises.unlink(file.path).catch(() => {});
+      throw badRequest('File tidak bisa disimpan ke folder penyimpanan. Hubungi admin untuk memeriksa pengaturan penyimpanan.');
+    }
+    return { storage: 'local', dir: cfg.local_dir };
+  }
   try {
     await s3Client(cfg).send(new PutObjectCommand({
       Bucket: cfg.s3.bucket, Key: cfg.s3.prefix + file.filename,
@@ -128,12 +164,12 @@ export async function storeUpload(file) {
     throw badRequest('File tidak bisa disimpan ke penyimpanan cloud. Hubungi admin untuk memeriksa pengaturan penyimpanan.');
   }
   await fs.promises.unlink(file.path).catch(() => {});
-  return 's3';
+  return { storage: 's3', dir: null };
 }
 
 export async function openStored(att) {
   if (att.storage !== 's3') {
-    const file = localPath(att.storage_name);
+    const file = localPath(att.storage_name, att.storage_dir);
     if (!fs.existsSync(file)) return null;
     return fs.createReadStream(file);
   }
@@ -147,8 +183,8 @@ export async function openStored(att) {
   }
 }
 
-export async function removeStored(storage, name) {
-  if (storage !== 's3') return fs.promises.unlink(localPath(name)).catch(() => {});
+export async function removeStored(storage, name, dir) {
+  if (storage !== 's3') return fs.promises.unlink(localPath(name, dir)).catch(() => {});
   const cfg = await loadStorageConfig();
   try {
     await s3Client(cfg).send(new DeleteObjectCommand({ Bucket: cfg.s3.bucket, Key: cfg.s3.prefix + name }));
@@ -171,14 +207,16 @@ export async function testStorage(cfg) {
       await client.send(new PutObjectCommand({ Bucket: cfg.s3.bucket, Key, Body: 'ok' }));
       await client.send(new DeleteObjectCommand({ Bucket: cfg.s3.bucket, Key }));
     } else {
-      fs.mkdirSync(config.uploadDir, { recursive: true });
-      const f = localPath(`.tes-koneksi-${crypto.randomUUID()}`);
+      fs.mkdirSync(localDir(cfg), { recursive: true });
+      const f = localPath(`.tes-koneksi-${crypto.randomUUID()}`, localDir(cfg));
       await fs.promises.writeFile(f, 'ok');
       await fs.promises.unlink(f);
     }
     return { ok: true, ms: Date.now() - started, message: 'Berhasil menulis dan menghapus file uji.' };
   } catch (err) {
-    const msg = err?.name === 'NoSuchBucket' || err?.$metadata?.httpStatusCode === 404 ? 'Bucket tidak ditemukan.'
+    const msg = /EACCES|EPERM/.test(err?.code || '') ? 'Aplikasi tidak punya izin menulis ke folder ini.'
+      : /ENOENT|ENOTDIR/.test(err?.code || '') ? 'Folder tidak ditemukan dan tidak bisa dibuat. Periksa alamat dan drive-nya.'
+      : err?.name === 'NoSuchBucket' || err?.$metadata?.httpStatusCode === 404 ? 'Bucket tidak ditemukan.'
       : err?.$metadata?.httpStatusCode === 403 || /InvalidAccessKeyId|SignatureDoesNotMatch|AccessDenied/.test(err?.name || '') ? 'Akses ditolak. Periksa access key, secret key, dan izin bucket.'
         : /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/.test(err?.code || err?.message || '') ? 'Server penyimpanan tidak bisa dihubungi. Periksa endpoint dan jaringan.'
           : String(err?.message || err).slice(0, 200);
@@ -193,3 +231,4 @@ export async function checkHealth() {
 }
 
 export const storageHealth = () => health;
+export const activeLocalDir = localDir;

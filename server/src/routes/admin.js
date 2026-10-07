@@ -113,15 +113,15 @@ r.put('/storage', requireRole('admin'), async (req, res) => {
 
 r.get('/storage/status', requireRole('infraadmin'), async (req, res) => {
   if (req.query.check === '1' || !storageHealth().last_check) await checkHealth();
-  const { rows } = await query('SELECT storage, COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes FROM attachments GROUP BY storage');
+  const { rows } = await query('SELECT storage, storage_dir, COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes FROM attachments GROUP BY storage, storage_dir');
   const cfg = await publicStorageConfig();
   const settings = await getSettings();
   res.json({
     driver: cfg.driver,
-    target: cfg.driver === 's3' ? `${cfg.s3.endpoint || 'AWS S3'} / ${cfg.s3.bucket}/${cfg.s3.prefix}` : config.uploadDir,
+    target: cfg.driver === 's3' ? `${cfg.s3.endpoint || 'AWS S3'} / ${cfg.s3.bucket}/${cfg.s3.prefix}` : cfg.local_dir || config.uploadDir,
     secret_unreadable: cfg.secret_unreadable,
     health: storageHealth(),
-    usage: rows.map((x) => ({ storage: x.storage, files: Number(x.files), bytes: Number(x.bytes) })),
+    usage: rows.map((x) => ({ storage: x.storage, dir: x.storage === 's3' ? null : x.storage_dir || config.uploadDir, files: Number(x.files), bytes: Number(x.bytes) })),
     max_upload_mb: config.maxUploadMb,
     login_background: Boolean(settings.login_background),
   });

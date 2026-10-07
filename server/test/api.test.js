@@ -322,6 +322,28 @@ test('penyimpanan file: lokal dan S3', async () => {
   assert.equal(st.data.health.ok, true);
   assert.equal((await admin.get('/api/admin/storage/status')).status, 403);
 
+  // Folder lokal lain yang diatur dari System Admin.
+  assert.equal((await admin.put('/api/admin/storage', { driver: 'local', local_dir: 'relatif/folder' })).status, 400);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-files-'));
+  const custom = path.join(dir, 'bukti');
+  const setDir = await admin.put('/api/admin/storage', { driver: 'local', local_dir: custom });
+  assert.equal(setDir.status, 200, JSON.stringify(setDir.data));
+  assert.equal(setDir.data.local_dir, custom);
+  const lf = new FormData();
+  lf.append('file', new Blob(['isi bukti di folder lain'], { type: 'text/plain' }), 'bukti-folder.txt');
+  const lup = await auditee.post(`/api/findings/${ctx.findingId}/attachments`, lf);
+  assert.equal(lup.status, 201, JSON.stringify(lup.data));
+  const [[lrow]] = await pool.query('SELECT storage_name, storage_dir FROM attachments WHERE id = ?', [lup.data.id]);
+  assert.equal(lrow.storage_dir, custom);
+  assert.ok(fs.existsSync(path.join(custom, lrow.storage_name)), 'file ada di folder baru');
+  assert.equal((await infra.get('/api/admin/storage/status')).data.target, custom);
+  // Kembali ke folder bawaan; file lama tetap dibaca dari folder asalnya.
+  assert.equal((await admin.put('/api/admin/storage', { driver: 'local', local_dir: '' })).status, 200);
+  assert.equal(await (await auditee.get(`/api/attachments/${lup.data.id}`, { raw: true })).text(), 'isi bukti di folder lain');
+  assert.equal((await auditee.del(`/api/attachments/${lup.data.id}`)).status, 200);
+  assert.equal(fs.existsSync(path.join(custom, lrow.storage_name)), false, 'file terhapus dari folder asalnya');
+  fs.rmSync(dir, { recursive: true, force: true });
+
   const endpoint = process.env.TEST_S3_ENDPOINT;
   if (!endpoint) return; // jalankan dengan TEST_S3_ENDPOINT (misalnya MinIO) untuk menguji S3
   await fetch(`${endpoint}/bukti-tes`, { method: 'PUT' });

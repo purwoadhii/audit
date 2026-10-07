@@ -24,7 +24,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   - Pengguna dan template.
   - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login.
   - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
-  - Penyimpanan file bukti: di server aplikasi (lokal/on-premise, bisa folder NAS yang di-mount) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
+  - Penyimpanan file bukti: di server aplikasi (lokal/on-premise; foldernya bisa diganti dari halaman ini, misalnya `D:/AuditManagement/files` atau folder NAS yang di-mapping) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
   - Sesi aktif yang bisa dipaksa keluar.
 - **Infra Admin** (`/infraAdmin`), untuk developer: kondisi server dan database, kesalahan server terakhir, status dan pemakaian penyimpanan file, batas percobaan login, dan mode perbaikan.
 - **Aktivitas:** log aktivitas, dan untuk admin juga riwayat login (berhasil dan gagal, dengan IP dan perangkat).
@@ -36,7 +36,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 - Frontend: React + Vite (`web/`)
 - Backend: Node.js + Express (`server/`)
 - Database: MySQL 8 atau MariaDB 10.4+ (bisa dikelola lewat phpMyAdmin)
-- File bukti disimpan di disk server (`UPLOAD_DIR`)
+- File bukti disimpan di disk server (`UPLOAD_DIR`, atau folder yang dipilih System Admin)
 
 ## Mencoba di komputer sendiri (XAMPP + phpMyAdmin)
 

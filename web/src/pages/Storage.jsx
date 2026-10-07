@@ -21,7 +21,7 @@ export function StorageSettings() {
   const [busy, setBusy] = useState(false);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
-  const form = f || { driver: data.driver, s3: data.s3 };
+  const form = f || { driver: data.driver, local_dir: data.local_dir, s3: data.s3 };
   const setS3 = (k) => (e) => setF({ ...form, s3: { ...form.s3, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value } });
   const body = () => ({ ...form, ...(secret ? { secret_key: secret } : {}) });
 
@@ -59,10 +59,14 @@ export function StorageSettings() {
         <button type="button" className="swatch" aria-pressed={s3} onClick={() => setF({ ...form, driver: 's3' })}>Object storage S3 (cloud atau server lain)</button>
       </div>
       {!s3 && (
-        <p className="form-note full">
-          File disimpan di folder <span className="code">UPLOAD_DIR</span> pada server aplikasi. Untuk menyimpan ke NAS atau server file kantor,
-          hubungkan (mount) foldernya ke server lalu arahkan <span className="code">UPLOAD_DIR</span> ke folder itu.
-        </p>
+        <label className="full">Folder penyimpanan
+          <input id="st-dir" value={form.local_dir} onChange={(e) => setF({ ...form, local_dir: e.target.value })} placeholder={data.default_dir} spellCheck={false} />
+          <span className="hint">
+            Alamat lengkap folder di komputer server, misalnya <span className="code">D:/AuditManagement/files</span> atau folder NAS yang
+            sudah di-mapping. Kosongkan untuk memakai folder bawaan ({data.default_dir}). Folder dibuat otomatis bila belum ada.
+            Aplikasi hanya menampilkan file yang diunggah lewat aplikasi, bukan file lain di folder itu.
+          </span>
+        </label>
       )}
       {s3 && (
         <>
@@ -123,7 +127,7 @@ export function StorageStatus() {
         <h3>Pemakaian</h3>
         <dl className="dl">
           {data.usage.length ? data.usage.map((u) => (
-            <Fragment key={u.storage}><dt>{u.storage === 's3' ? 'Di S3' : 'Di server lokal'}</dt><dd>{u.files} file, {fmtSize(u.bytes)}</dd></Fragment>
+            <Fragment key={`${u.storage}:${u.dir}`}><dt>{u.storage === 's3' ? 'Di S3' : <>Di server lokal<div className="t-sub code">{u.dir}</div></>}</dt><dd>{u.files} file, {fmtSize(u.bytes)}</dd></Fragment>
           )) : <><dt>File bukti</dt><dd>Belum ada</dd></>}
         </dl>
         <h3 style={{ marginTop: 16 }}>Kesalahan terakhir</h3>
