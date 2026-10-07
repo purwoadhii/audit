@@ -38,10 +38,10 @@ async function ensureAdmin() {
   }
   const hash = await bcrypt.hash(config.admin.password, 10);
   await pool.query(
-    "INSERT INTO users (name, email, password_hash, role) VALUES (?, LOWER(?), ?, 'admin')",
-    [config.admin.name, config.admin.email, hash],
+    "INSERT INTO users (name, username, email, password_hash, role) VALUES (?, LOWER(?), LOWER(?), ?, 'admin')",
+    [config.admin.name, config.admin.username, config.admin.email, hash],
   );
-  console.log(`Admin pertama dibuat: ${config.admin.email}`);
+  console.log(`Admin pertama dibuat: ${config.admin.username} (${config.admin.email})`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

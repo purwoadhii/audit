@@ -9,6 +9,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 - **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan.
 - **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
 - **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
+- **Masuk:** dengan username atau email. "Ingat saya" menjaga sesi 30 hari; tanpa itu sesi berakhir saat browser ditutup (paling lama 12 jam).
 - **Pengguna dan peran:**
 
   | Peran | Hak akses |
@@ -55,7 +56,7 @@ Langkah:
    npm start
    ```
 
-6. Buka http://localhost:3000 dan masuk dengan email dan kata sandi admin dari `.env`.
+6. Buka http://localhost:3000 dan masuk dengan username `admin` (atau `ADMIN_EMAIL`) dan `ADMIN_PASSWORD` dari `.env`.
 
 Setelah aplikasi jalan, semua tabel (`users`, `audits`, `audit_steps`, `findings`, `finding_logs`, `attachments`, `activity_log`, `templates`) bisa dilihat di phpMyAdmin pada database `jejak_audit`. File bukti yang diunggah disimpan di folder `server/uploads`.
 
@@ -73,7 +74,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Aplikasi berjalan di `http://IP-SERVER:3000`. Masuk dengan `ADMIN_EMAIL` dan `ADMIN_PASSWORD`, lalu segera ganti kata sandi lewat menu **Akun**.
+Aplikasi berjalan di `http://IP-SERVER:3000`. Masuk dengan username `admin` (atau `ADMIN_EMAIL`) dan `ADMIN_PASSWORD`, lalu segera ganti kata sandi lewat menu **Akun**.
 
 Data database dan file bukti disimpan di volume Docker `db-data` dan `uploads`, jadi tetap ada saat aplikasi diperbarui.
 
@@ -134,7 +135,7 @@ Semua pengaturan ada di `.env` (lihat `.env.example`):
 | `DATABASE_URL` | Koneksi MySQL/MariaDB, misalnya `mysql://root:@localhost:3306/jejak_audit` (diisi otomatis oleh docker-compose) |
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Kata sandi database untuk docker-compose |
 | `JWT_SECRET` | Rahasia sesi login, minimal 32 karakter, wajib di production |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun admin pertama, dibuat hanya bila belum ada pengguna |
+| `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun admin pertama, dibuat hanya bila belum ada pengguna. Username bawaan `admin` |
 | `COOKIE_SECURE` | `true` bila diakses lewat HTTPS |
 | `MAX_UPLOAD_MB` | Ukuran maksimal file bukti (bawaan 20) |
 | `SMTP_*`, `REMINDER_HOUR` | Email pengingat harian, nonaktif bila `SMTP_HOST` kosong |

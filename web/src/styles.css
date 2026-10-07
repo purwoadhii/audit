@@ -142,9 +142,83 @@ tbody tr.click:hover td { background:var(--sunk); }
 .list-plain li:last-child { border-bottom:0; }
 .list-plain button { all:unset; box-sizing:border-box; width:100%; display:flex; justify-content:space-between; gap:10px; padding:8px 0; font-size:13px; cursor:pointer; }
 .list-plain button:focus-visible { outline:2px solid var(--accent); }
-.login { min-height:100vh; display:grid; place-items:center; padding:24px 16px; }
-.login .panel { width:min(400px,100%); padding:28px; display:flex; flex-direction:column; gap:14px; }
-.login h1 { font-family:var(--f-display); font-size:26px; margin:0; }
+/* Halaman login: panel ilustrasi audit di kiri, kartu masuk di kanan. Warnanya sendiri, tidak ikut mode gelap. */
+.lp {
+  --lp-navy-900:#0b1f2e; --lp-navy-800:#102a3c; --lp-navy-700:#16384f; --lp-teal:#2bb39a; --lp-teal-dark:#1e8f7a;
+  --lp-ink:#13232e; --lp-muted:#5f7480; --lp-line:#dde5ea; --lp-card:#f9fbfb;
+  display:grid; grid-template-columns:1.27fr 1fr; min-height:100vh; background:var(--lp-navy-900); color:var(--lp-ink);
+  font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; font-size:16px; color-scheme:light;
+}
+.lp-hero {
+  position:relative; overflow:hidden; color:#e8f1f4; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:48px;
+  background:
+    radial-gradient(1200px 600px at 15% 10%, rgba(43,179,154,.22), transparent 60%),
+    radial-gradient(900px 600px at 90% 95%, rgba(59,130,246,.18), transparent 60%),
+    linear-gradient(160deg, var(--lp-navy-700) 0%, var(--lp-navy-800) 45%, var(--lp-navy-900) 100%);
+}
+.lp-hero::before {
+  content:""; position:absolute; inset:0; background-size:44px 44px;
+  background-image:linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+  mask-image:radial-gradient(ellipse at center, #000 30%, transparent 80%); -webkit-mask-image:radial-gradient(ellipse at center, #000 30%, transparent 80%);
+}
+.lp-art { position:relative; width:min(560px,90%); }
+.lp-art svg { width:100%; height:auto; display:block; }
+.lp-art .float { animation:lp-float 6s ease-in-out infinite; }
+.lp-art .float-slow { animation:lp-float 8s ease-in-out infinite; }
+@keyframes lp-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .lp-art .float, .lp-art .float-slow { animation:none; } }
+.lp-hero-text { position:relative; text-align:center; max-width:480px; margin-top:28px; }
+.lp-hero-text h2 { font-size:26px; margin:0 0 10px; letter-spacing:-.01em; }
+.lp-hero-text p { margin:0; color:#a9bfc9; line-height:1.6; font-size:15px; }
+.lp-pills { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:22px; }
+.lp-pills span { font-size:13px; padding:7px 14px; border-radius:999px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); color:#d5e4ea; }
+.lp-side { display:flex; padding:6px 6px 6px 0; }
+.lp-card { flex:1; background:var(--lp-card); border-radius:28px; padding:64px 64px 40px; display:flex; flex-direction:column; justify-content:center; }
+.lp-inner { width:100%; max-width:520px; margin:0 auto; }
+.lp-brand { display:flex; align-items:center; gap:16px; margin-bottom:40px; }
+.lp-brand-icon { width:56px; height:56px; border-radius:14px; background:var(--lp-teal); display:grid; place-items:center; color:var(--lp-ink); }
+.lp-brand-name { font-weight:700; font-size:24px; }
+.lp h1 { font-size:40px; margin:0 0 12px; letter-spacing:-.02em; font-family:inherit; }
+.lp-lead { color:var(--lp-muted); font-size:18px; margin:0 0 40px; }
+.lp-label { display:block; font-weight:600; font-size:17px; margin-bottom:12px; }
+.lp-field { position:relative; margin-bottom:28px; }
+.lp-ico { position:absolute; left:22px; top:50%; transform:translateY(-50%); color:#4a5f6b; pointer-events:none; display:flex; }
+.lp-field input {
+  width:100%; height:66px; border-radius:12px; border:1.5px solid var(--lp-line); background:#fff;
+  padding:0 60px 0 62px; font-size:18px; color:var(--lp-ink); font-family:inherit; transition:border-color .15s, box-shadow .15s;
+}
+.lp-field input::placeholder { color:#93a5ae; }
+.lp-field input:focus { outline:none; border-color:var(--lp-teal); box-shadow:0 0 0 4px rgba(43,179,154,.18); }
+.lp-eye { position:absolute; right:14px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:#4a5f6b; cursor:pointer; width:40px; height:40px; border-radius:8px; display:grid; place-items:center; }
+.lp-eye:hover { background:#eef3f5; }
+.lp-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin:4px 0 36px; }
+.lp-remember { display:flex; align-items:center; gap:12px; font-size:17px; cursor:pointer; }
+.lp-remember input { width:22px; height:22px; accent-color:var(--lp-teal-dark); margin:0; }
+.lp-link { border:0; background:none; padding:0; cursor:pointer; color:var(--lp-teal-dark); font-weight:600; font-size:17px; font-family:inherit; }
+.lp-link:hover { text-decoration:underline; }
+.lp-note { margin:-24px 0 28px; padding:12px 14px; border-radius:10px; background:#e3f6f1; color:#16584b; font-size:15px; }
+.lp-error { margin:-12px 0 20px; padding:12px 14px; border-radius:10px; background:#fdecec; color:#a12a2a; font-size:15px; }
+.lp-btn { width:100%; height:68px; border:0; border-radius:14px; background:var(--lp-ink); color:#fff; font-size:20px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s, transform .05s; }
+.lp-btn:hover { background:#1d3442; }
+.lp-btn:active { transform:translateY(1px); }
+.lp-btn:disabled { opacity:.7; cursor:wait; }
+.lp-btn:focus-visible, .lp-link:focus-visible, .lp-eye:focus-visible { outline:3px solid var(--lp-teal); outline-offset:2px; }
+.lp hr { border:0; border-top:1px solid var(--lp-line); margin:44px 0 28px; }
+.lp-foot { text-align:center; color:var(--lp-muted); font-size:15px; margin:0; }
+@media (max-width: 960px) {
+  .lp { grid-template-columns:1fr; }
+  .lp-hero { padding:40px 24px; min-height:320px; }
+  .lp-art { width:min(380px,90%); }
+  .lp-hero-text h2 { font-size:21px; }
+  .lp-pills { display:none; }
+  .lp-side { padding:0; }
+  .lp-card { border-radius:24px 24px 0 0; margin-top:-24px; position:relative; padding:40px 16px 32px; }
+  .lp h1 { font-size:32px; }
+  .lp-lead { font-size:16px; margin-bottom:28px; }
+  .lp-field input { height:56px; font-size:16px; }
+  .lp-btn { height:58px; font-size:18px; }
+  .lp-remember, .lp-link { font-size:15px; }
+}
 /* Laporan cetak */
 .report { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:32px 40px; max-width:860px; margin:0 auto; }
 .report h1 { font-family:var(--f-display); font-size:22px; margin:0 0 4px; }

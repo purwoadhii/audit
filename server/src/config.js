@@ -21,6 +21,7 @@ export const config = {
     email: env.ADMIN_EMAIL || '',
     password: env.ADMIN_PASSWORD || '',
     name: env.ADMIN_NAME || 'Administrator',
+    username: env.ADMIN_USERNAME || 'admin',
   },
   smtp: {
     host: env.SMTP_HOST || '',

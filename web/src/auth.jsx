@@ -11,8 +11,8 @@ export function AuthProvider({ children }) {
     api.get('/auth/me').then(setUser).catch(() => setUser(null));
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const u = await api.post('/auth/login', { email, password });
+  const login = useCallback(async (username, password, remember = false) => {
+    const u = await api.post('/auth/login', { username, password, remember });
     setUser(u);
   }, []);
 

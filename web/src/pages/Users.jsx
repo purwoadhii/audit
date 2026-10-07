@@ -21,11 +21,11 @@ export default function Users() {
       <div className="bar"><h2>Pengguna</h2><button className="btn primary" onClick={() => setEditing({})}>Tambah pengguna</button></div>
       <div className="tablebox">
         <table>
-          <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Unit</th><th>Status</th></tr></thead>
+          <thead><tr><th>Nama</th><th>Username</th><th>Email</th><th>Peran</th><th>Unit</th><th>Status</th></tr></thead>
           <tbody>
             {data.map((u) => (
               <tr key={u.id} className="click" onClick={() => setEditing(u)}>
-                <td className="t-title">{u.name}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.unit || '—'}</td>
+                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.unit || '—'}</td>
                 <td>{u.active ? <span className="pill s-Selesai">Aktif</span> : <span className="pill">Nonaktif</span>}</td>
               </tr>
             ))}
@@ -41,7 +41,7 @@ function UserForm({ user, onClose, onSaved }) {
   const { user: me } = useAuth();
   const toast = useToast();
   const isNew = !user;
-  const [f, setF] = useState({ name: user?.name || '', email: user?.email || '', role: user?.role || 'auditor', unit: user?.unit || '', password: '', active: user?.active ?? true });
+  const [f, setF] = useState({ name: user?.name || '', username: user?.username || '', email: user?.email || '', role: user?.role || 'auditor', unit: user?.unit || '', password: '', active: user?.active ?? true });
   const [error, setError] = useState('');
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
@@ -66,6 +66,7 @@ function UserForm({ user, onClose, onSaved }) {
     <Sheet title={isNew ? 'Pengguna baru' : user.name} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <label>Nama<input id="u-name" required value={f.name} onChange={set('name')} /></label>
+        <label>Username<input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.</span></label>
         <label>Email<input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
         <label>Peran<select id="u-role" value={f.role} onChange={set('role')}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{ROLE_HINT[f.role]}</span></label>
         <label>Unit<input id="u-unit" value={f.unit} onChange={set('unit')} placeholder="Divisi Pengadaan" /><span className="hint">Wajib untuk auditee, harus sama persis dengan unit di audit.</span></label>

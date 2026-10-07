@@ -12,26 +12,27 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
 
 r.post('/login', async (req, res) => {
-  const email = requireText(req.body?.email, 'Email').toLowerCase();
-  const password = requireText(req.body?.password, 'Kata sandi');
-  const key = `${email}|${req.ip}`;
+  // Pengguna boleh masuk dengan username atau email.
+  const login = requireText(req.body?.username ?? req.body?.email, 'Username').toLowerCase();
+  const password = requireText(req.body?.password, 'Password');
+  const key = `${login}|${req.ip}`;
   const now = Date.now();
   const rec = attempts.get(key);
   if (rec && now - rec.first < WINDOW_MS && rec.count >= MAX_ATTEMPTS) {
     throw new HttpError(429, 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.');
   }
-  const { rows } = await query('SELECT * FROM users WHERE email = ?', [email]);
+  const { rows } = await query('SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1', [login, login]);
   const user = rows[0];
   const ok = user && user.active && (await bcrypt.compare(password, user.password_hash));
   if (!ok) {
     const cur = rec && now - rec.first < WINDOW_MS ? rec : { first: now, count: 0 };
     cur.count += 1;
     attempts.set(key, cur);
-    throw new HttpError(401, 'Email atau kata sandi salah.');
+    throw new HttpError(401, 'Username atau password salah.');
   }
   attempts.delete(key);
-  issueSession(res, user);
-  res.json({ id: user.id, name: user.name, email: user.email, role: user.role, unit: user.unit });
+  issueSession(res, user, Boolean(req.body?.remember));
+  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit });
 });
 
 r.post('/logout', (_req, res) => {
@@ -40,8 +41,8 @@ r.post('/logout', (_req, res) => {
 });
 
 r.get('/me', requireAuth, (req, res) => {
-  const { id, name, email, role, unit } = req.user;
-  res.json({ id, name, email, role, unit });
+  const { id, name, username, email, role, unit } = req.user;
+  res.json({ id, name, username, email, role, unit });
 });
 
 r.post('/password', requireAuth, async (req, res) => {

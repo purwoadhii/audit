@@ -27,7 +27,7 @@ export default function Account() {
       <div className="panel">
         <h3>Akun saya</h3>
         <div className="t-title" style={{ fontSize: 16 }}>{user.name}</div>
-        <div className="t-sub">{user.email}</div>
+        <div className="t-sub">{user.username ? `${user.username} · ` : ''}{user.email}</div>
         <div className="t-sub">{ROLES[user.role]}{user.unit ? ` · ${user.unit}` : ''}</div>
       </div>
       <form className="panel form" onSubmit={submit}>

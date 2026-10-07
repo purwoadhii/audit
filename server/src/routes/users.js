@@ -6,7 +6,18 @@ import { badRequest, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
 
 const r = Router();
-const PUBLIC = 'id, name, email, role, unit, active, created_at';
+const PUBLIC = 'id, name, username, email, role, unit, active, created_at';
+
+function cleanUsername(v) {
+  const u = String(v || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,60}$/.test(u)) throw badRequest('Username 3-60 karakter: huruf kecil, angka, titik, minus, atau garis bawah.');
+  return u;
+}
+
+async function assertFree(field, value, exceptId = 0) {
+  const { rowCount } = await query(`SELECT 1 FROM users WHERE ${field} = ? AND id <> ?`, [value, exceptId]);
+  if (rowCount) throw badRequest(field === 'email' ? 'Email sudah dipakai pengguna lain.' : 'Username sudah dipakai pengguna lain.');
+}
 
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
 r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
@@ -29,11 +40,12 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
-  const exists = await query('SELECT 1 FROM users WHERE email = ?', [email]);
-  if (exists.rowCount) throw badRequest('Email sudah dipakai pengguna lain.');
+  const username = cleanUsername(req.body?.username);
+  await assertFree('email', email);
+  await assertFree('username', username);
   const { insertId } = await query(
-    'INSERT INTO users (name, email, password_hash, role, unit) VALUES (?,?,?,?,?)',
-    [name, email, await bcrypt.hash(password, 10), role, unit],
+    'INSERT INTO users (name, username, email, password_hash, role, unit) VALUES (?,?,?,?,?,?)',
+    [name, username, email, await bcrypt.hash(password, 10), role, unit],
   );
   await logActivity({ query }, req.user.id, 'create', 'user', insertId, { email, role });
   res.status(201).json(await loadUser(insertId));
@@ -46,6 +58,11 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   const add = (col, val) => { params.push(val); sets.push(`${col} = ?`); };
   const b = req.body || {};
   if (b.name !== undefined) add('name', requireText(b.name, 'Nama'));
+  if (b.username !== undefined) {
+    const username = cleanUsername(b.username);
+    await assertFree('username', username, id);
+    add('username', username);
+  }
   if (b.role !== undefined) add('role', oneOf(b.role, ROLES, 'Peran'));
   if (b.unit !== undefined) add('unit', b.unit?.trim() || null);
   if (b.active !== undefined) {

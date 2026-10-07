@@ -72,20 +72,39 @@ test('login admin dan menolak kata sandi salah', async () => {
   const r = await admin.post('/api/auth/login', { email: 'ADMIN@contoh.id', password: 'rahasia-admin-1' });
   assert.equal(r.status, 200);
   assert.equal(r.data.role, 'admin');
+  assert.equal(r.data.username, 'admin');
   assert.equal((await client().get('/api/audits')).status, 401);
+});
+
+test('login dengan username dan opsi ingat saya', async () => {
+  const c = client();
+  const plain = await fetch(base + '/api/auth/login', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak' },
+    body: JSON.stringify({ username: 'Admin', password: 'rahasia-admin-1' }),
+  });
+  assert.equal(plain.status, 200);
+  assert.doesNotMatch(plain.headers.get('set-cookie'), /Max-Age|Expires/i, 'tanpa ingat saya, cookie hanya untuk sesi browser');
+  const kept = await fetch(base + '/api/auth/login', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak' },
+    body: JSON.stringify({ username: 'admin', password: 'rahasia-admin-1', remember: true }),
+  });
+  assert.match(kept.headers.get('set-cookie'), /Max-Age=2592000/);
+  assert.equal((await c.post('/api/auth/login', { username: 'admin', password: 'salah' })).status, 401);
 });
 
 test('admin membuat pengguna untuk setiap peran', async () => {
   const mk = async (name, email, role, unit) => {
-    const r = await admin.post('/api/users', { name, email, role, unit, password: 'katasandi123' });
+    const r = await admin.post('/api/users', { name, username: name.toLowerCase(), email, role, unit, password: 'katasandi123' });
     assert.equal(r.status, 201, JSON.stringify(r.data));
     return r.data.id;
   };
   ctx.auditorId = await mk('Radipta', 'radipta@contoh.id', 'auditor');
   ctx.auditeeId = await mk('Budi', 'budi@contoh.id', 'auditee', 'Divisi Pengadaan');
   ctx.otherId = await mk('Sari', 'sari@contoh.id', 'auditee', 'Divisi Keuangan');
-  assert.equal((await admin.post('/api/users', { name: 'X', email: 'budi@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
-  await auditor.post('/api/auth/login', { email: 'radipta@contoh.id', password: 'katasandi123' });
+  assert.equal((await admin.post('/api/users', { name: 'X', username: 'x1', email: 'budi@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
+  assert.equal((await admin.post('/api/users', { name: 'X', username: 'budi', email: 'x@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
+  assert.equal((await admin.post('/api/users', { name: 'X', username: 'a b', email: 'x@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 400);
+  await auditor.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
   await auditee.post('/api/auth/login', { email: 'budi@contoh.id', password: 'katasandi123' });
   await other.post('/api/auth/login', { email: 'sari@contoh.id', password: 'katasandi123' });
   assert.equal((await auditor.post('/api/users', { name: 'Y', email: 'y@contoh.id', role: 'admin', password: 'katasandi123' })).status, 403);

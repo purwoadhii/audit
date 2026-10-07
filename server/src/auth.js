@@ -4,16 +4,20 @@ import { query } from './db.js';
 import { HttpError, forbidden } from './errors.js';
 
 export const COOKIE = 'jejak_session';
-const MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const SESSION_MS = 12 * 60 * 60 * 1000;
+const REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 
-export function issueSession(res, user) {
-  const token = jwt.sign({ sub: user.id }, config.jwtSecret, { expiresIn: MAX_AGE_MS / 1000 });
+// Tanpa "Ingat saya", cookie hilang saat browser ditutup dan sesi berlaku 12 jam.
+// Dengan "Ingat saya", sesi bertahan 30 hari.
+export function issueSession(res, user, remember = false) {
+  const ttl = remember ? REMEMBER_MS : SESSION_MS;
+  const token = jwt.sign({ sub: user.id }, config.jwtSecret, { expiresIn: ttl / 1000 });
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'strict',
     secure: config.cookieSecure,
-    maxAge: MAX_AGE_MS,
     path: '/',
+    ...(remember ? { maxAge: ttl } : {}),
   });
 }
 
@@ -31,7 +35,7 @@ export async function requireAuth(req, _res, next) {
     } catch {
       throw new HttpError(401, 'Sesi berakhir. Silakan masuk lagi.');
     }
-    const { rows } = await query('SELECT id, name, email, role, unit, active FROM users WHERE id = ?', [payload.sub]);
+    const { rows } = await query('SELECT id, name, username, email, role, unit, active FROM users WHERE id = ?', [payload.sub]);
     if (!rows[0] || !rows[0].active) throw new HttpError(401, 'Akun tidak aktif.');
     req.user = rows[0];
     next();
