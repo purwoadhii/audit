@@ -186,10 +186,10 @@ async function callProvider(id, p, body) {
   let res;
   try {
     res = await fetch(`${p.base_url}/chat/completions`, {
-      method: 'POST', headers, body: JSON.stringify({ ...body, model: p.model }), signal: AbortSignal.timeout(60000),
+      method: 'POST', headers, body: JSON.stringify({ ...body, model: p.model }), signal: AbortSignal.timeout(30000),
     });
   } catch (err) {
-    throw new ProviderError(0, err?.name === 'TimeoutError' ? TIMEOUT_MSG(60) : unreachable(err));
+    throw new ProviderError(0, err?.name === 'TimeoutError' ? TIMEOUT_MSG(30) : unreachable(err));
   }
   const text = await res.text();
   let data = null;
@@ -314,7 +314,8 @@ async function complete(userId, body, tried) {
       await logUsage(userId, id, p.model, { ok: false, status: err.status, error: err.message, ms: now() - started });
     }
   }
-  throw new HttpError(503, list.length
+  // 502, bukan 503: 503 dipakai untuk mode perbaikan dan membuat browser kembali ke halaman login.
+  throw new HttpError(502, list.length
     ? 'Semua penyedia AI sedang tidak bisa dipakai (batas tercapai atau error). Coba lagi beberapa saat lagi.'
     : 'Asisten AI belum diatur. Hubungi admin.');
 }

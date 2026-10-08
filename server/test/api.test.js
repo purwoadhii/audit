@@ -278,7 +278,9 @@ test('infra admin di atas system admin', async () => {
 
   // Mode perbaikan: hanya Infra Admin yang tetap bisa masuk.
   assert.equal((await infra.patch('/api/settings', { maintenance: true })).status, 200);
-  assert.equal((await auditor.get('/api/audits')).status, 503);
+  const down = await auditor.get('/api/audits');
+  assert.equal(down.status, 503);
+  assert.equal(down.data.maintenance, true, 'browser tahu ini mode perbaikan');
   assert.equal((await client().post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 503);
   assert.equal((await infra.get('/api/audits')).status, 200);
   assert.equal((await client().get('/api/auth/settings')).data.maintenance, true);
@@ -548,4 +550,12 @@ test('menu OCR membaca file tanpa menyimpannya', async () => {
   const zip = new FormData();
   zip.append('file', new Blob(['x'], { type: 'application/zip' }), 'a.zip');
   assert.equal((await auditor.post('/api/ocr', zip)).status, 400);
+});
+
+test('AI yang semuanya gagal tidak dianggap mode perbaikan', async () => {
+  // Penyedia tiruan dari tes sebelumnya sudah ditutup, jadi semua penyedia gagal dihubungi.
+  const r = await auditee.post('/api/ai/chat', { messages: [{ role: 'user', content: 'halo' }] });
+  assert.equal(r.status, 502, JSON.stringify(r.data));
+  assert.equal(r.data.maintenance, undefined);
+  assert.equal((await auditee.get('/api/auth/me')).status, 200, 'sesi tetap aktif');
 });

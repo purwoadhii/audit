@@ -25,8 +25,9 @@ async function request(method, url, body) {
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    // 401: sesi habis. 503: mode perbaikan. Keduanya kembali ke halaman login.
-    if ((res.status === 401 || res.status === 503) && !url.startsWith('/auth/')) onUnauthorized();
+    // 401: sesi habis. 503 dengan tanda maintenance: mode perbaikan. Keduanya kembali ke halaman login.
+    // Error lain (termasuk penyedia AI yang gagal) tidak boleh membuat pengguna keluar.
+    if ((res.status === 401 || (res.status === 503 && data?.maintenance)) && !url.startsWith('/auth/')) onUnauthorized();
     throw new ApiError(res.status, data?.error || 'Terjadi kesalahan.');
   }
   return data;

@@ -68,7 +68,7 @@ export function createApp() {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
-    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
+    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, ...(err.maintenance ? { maintenance: true } : {}) });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Data JSON tidak valid.' });
     if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Data terkait tidak ditemukan.' });
     if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Data yang sama sudah ada.' });

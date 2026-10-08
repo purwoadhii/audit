@@ -56,7 +56,7 @@ export async function requireAuth(req, _res, next) {
       throw new HttpError(401, 'Akun tidak aktif.');
     }
     const s = await getSettings();
-    if (s.maintenance && row.role !== 'infraadmin') throw new HttpError(503, s.maintenance_message);
+    if (s.maintenance && row.role !== 'infraadmin') throw Object.assign(new HttpError(503, s.maintenance_message), { maintenance: true });
     // Catat aktivitas paling sering sekali per menit. Sesi tanpa "Ingat saya" diperpanjang selama dipakai.
     if (Date.now() - new Date(row.last_seen_at).getTime() > 60000) {
       const extend = row.remember ? '' : ', expires_at = ?';
