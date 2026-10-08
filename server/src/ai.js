@@ -12,8 +12,8 @@ import { auditScope, findingScope } from './access.js';
 export const PROVIDERS = {
   gemini: { label: 'Google Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-flash-latest', key_url: 'https://aistudio.google.com/apikey' },
   groq: { label: 'Groq', base_url: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', key_url: 'https://console.groq.com/keys' },
-  openrouter: { label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-oss-120b:free', key_url: 'https://openrouter.ai/settings/keys' },
-  openai: { label: 'ChatGPT (OpenAI)', base_url: 'https://api.openai.com/v1', model: 'gpt-5-mini', key_url: 'https://platform.openai.com/api-keys' },
+  together: { label: 'Together AI', base_url: 'https://api.together.xyz/v1', model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', key_url: 'https://api.together.ai/settings/api-keys' },
+  novita: { label: 'Novita AI', base_url: 'https://api.novita.ai/openai', model: 'meta-llama/llama-3.3-70b-instruct', key_url: 'https://novita.ai/settings/key-management' },
   cohere: { label: 'Cohere', base_url: 'https://api.cohere.ai/compatibility/v1', model: 'command-a-03-2025', key_url: 'https://dashboard.cohere.com/api-keys' },
 };
 const IDS = Object.keys(PROVIDERS);
@@ -32,7 +32,15 @@ function defaults() {
   };
 }
 
+// Penyedia baru (atau pengganti penyedia lama) masuk di posisi bawaannya, bukan di akhir.
+function withNewProviders(order) {
+  const out = [...order];
+  for (const id of IDS) if (!out.includes(id)) out.splice(Math.min(IDS.indexOf(id), out.length), 0, id);
+  return out;
+}
+
 let cache = null;
+export const clearAiCache = () => { cache = null; };
 export async function loadAiConfig() {
   if (cache) return cache;
   const { rows } = await query('SELECT v FROM settings WHERE k = ?', [KEY]);
@@ -43,7 +51,7 @@ export async function loadAiConfig() {
   cache = {
     enabled: Boolean(saved.enabled ?? d.enabled),
     roles: Array.isArray(saved.roles) ? saved.roles.filter((r) => WORK_ROLES.includes(r)) : d.roles,
-    order: [...order, ...IDS.filter((x) => !order.includes(x))],
+    order: withNewProviders(order),
     providers: Object.fromEntries(IDS.map((id) => [id, { ...d.providers[id], ...(saved.providers?.[id] || {}) }])),
   };
   return cache;
@@ -150,12 +158,6 @@ async function callProvider(id, p, body) {
   const key = open(p.key);
   if (!key) throw new ProviderError(401, 'API key belum diisi atau tidak terbaca.');
   const headers = { 'content-type': 'application/json', authorization: `Bearer ${key}` };
-  // Model OpenAI terbaru memakai max_completion_tokens dan hanya menerima temperature bawaan.
-  if (id === 'openai') {
-    const { max_tokens: max, temperature: _t, ...rest } = body;
-    body = { ...rest, ...(max ? { max_completion_tokens: max } : {}) };
-  }
-  if (id === 'openrouter') { headers['x-title'] = 'Audit Management'; }
   let res;
   try {
     res = await fetch(`${p.base_url}/chat/completions`, {
@@ -199,8 +201,9 @@ export async function listModels(id, p) {
   for (const m of raw) {
     const mid = String(m.id || m.name || '').replace(/^models\//, '');
     if (!mid || NOT_CHAT.test(mid)) continue;
+    if (m.type && m.type !== 'chat') continue; // Together: model gambar, embedding, dan lain-lain
     if (m.active === false || m.deprecation || m.capabilities?.completion_chat === false) continue;
-    const free = id === 'openrouter' ? mid.endsWith(':free') || (m.pricing && Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0) : undefined;
+    const free = /free$/i.test(mid) || (m.pricing && Number(m.pricing.input ?? m.pricing.prompt) === 0 && Number(m.pricing.output ?? m.pricing.completion) === 0) || undefined;
     const tools = Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : m.capabilities?.function_calling;
     out.push({ id: mid, free, tools });
   }
@@ -210,15 +213,14 @@ export async function listModels(id, p) {
 const version = (mid) => Number((mid.match(/(\d+(?:\.\d+)?)/) || [])[1] || 0);
 const PREFS = {
   groq: [/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /kimi-k2/, /qwen3?-32b/, /llama/],
-  openrouter: [/gpt-oss-120b/, /llama-3\.3-70b/, /deepseek-(chat|v3)/, /qwen3/, /mistral-small/, /llama-4/, /gemma/],
-  openai: [/^gpt-5(\.\d+)?-mini$/, /^gpt-4\.1-mini$/, /^gpt-4o-mini$/, /^gpt-5(\.\d+)?$/, /mini/],
+  together: [/Llama-3\.3-70B-Instruct-Turbo-Free/i, /gpt-oss-120b/i, /Llama-3\.3-70B-Instruct-Turbo/i, /DeepSeek-V3/i, /Qwen.*Instruct/i, /Llama/i],
+  novita: [/gpt-oss-120b/, /llama-3\.3-70b/, /deepseek-v3/, /qwen.*instruct/, /llama/],
   cohere: [/^command-a-\d/, /^command-a/, /^command-r-plus/, /^command-r/, /^command/],
 };
 
-// Pilih model pengganti. OpenRouter hanya memilih model gratis supaya tidak muncul tagihan.
+// Pilih model pengganti yang mendukung pemanggilan alat.
 export function pickModel(id, models) {
   let list = models.filter((m) => m.tools !== false);
-  if (id === 'openrouter') list = list.filter((m) => m.free);
   if (!list.length) return null;
   if (id === 'gemini') {
     const flash = list.filter((m) => /gemini/.test(m.id) && /flash/.test(m.id) && !/lite|thinking|exp/.test(m.id));

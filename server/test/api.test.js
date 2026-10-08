@@ -450,11 +450,11 @@ test('asisten AI memakai penyedia berikutnya saat batas tercapai', async () => {
     const providers = {
       gemini: { key: 'kunci-gemini', base_url: `${fakeUrl}/gemini` },
       groq: { key: 'kunci-groq-1234', base_url: `${fakeUrl}/groq` },
-      openrouter: { enabled: false },
+      together: { enabled: false },
     };
     const saved = await admin.put('/api/admin/ai', { enabled: true, roles: ['auditor', 'auditee'], providers });
     assert.equal(saved.status, 200, JSON.stringify(saved.data));
-    assert.deepEqual(saved.data.order, ['gemini', 'groq', 'openrouter', 'openai', 'cohere']);
+    assert.deepEqual(saved.data.order, ['gemini', 'groq', 'together', 'novita', 'cohere']);
     assert.equal(saved.data.providers.groq.key_hint, '…1234');
     assert.equal(JSON.stringify(saved.data).includes('kunci-groq'), false, 'API key tidak dikirim ke browser');
     const [[row]] = await pool.query("SELECT v FROM settings WHERE k = 'ai'");
@@ -501,27 +501,36 @@ test('model AI yang sudah tidak ada diganti otomatis', async () => {
     let body = '';
     for await (const c of req) body += c;
     res.setHeader('content-type', 'application/json');
-    if (req.url === '/openai/models') return res.end(JSON.stringify({ data: [{ id: 'text-embedding-3-small' }, { id: 'gpt-4o-mini' }, { id: 'gpt-5-mini' }, { id: 'gpt-realtime' }] }));
+    // Together mengembalikan daftar model sebagai array dengan kolom type.
+    if (req.url === '/together/models') return res.end(JSON.stringify([{ id: 'BAAI/bge-large-en-v1.5', type: 'embedding' }, { id: 'black-forest-labs/FLUX.1-schnell', type: 'image' }, { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', type: 'chat' }, { id: 'Qwen/Qwen2.5-72B-Instruct-Turbo', type: 'chat' }]));
     if (req.url.startsWith('/cohere')) { res.statusCode = 401; return res.end('{"message":"invalid api token"}'); }
     const sent = JSON.parse(body);
     const { model } = sent;
-    if (sent.max_tokens || sent.temperature !== undefined) { res.statusCode = 400; return res.end('{"error":{"message":"Unsupported parameter: max_tokens"}}'); }
-    if (model !== 'gpt-5-mini') { res.statusCode = 404; return res.end(JSON.stringify({ error: { message: `The model ${model} does not exist` } })); }
+    if (model !== 'meta-llama/Llama-3.3-70B-Instruct-Turbo') { res.statusCode = 404; return res.end(JSON.stringify({ error: { message: `The model ${model} does not exist` } })); }
     res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'siap' } }] }));
   }).listen(0);
   const url = `http://127.0.0.1:${fake.address().port}`;
   try {
-    await admin.put('/api/admin/ai', { providers: { openai: { key: 'kunci-openai', model: 'model-lama', base_url: `${url}/openai` }, cohere: { key: 'kunci-salah', base_url: `${url}/cohere` } } });
-    const list = await admin.post('/api/admin/ai/models', { provider: 'openai' });
-    assert.deepEqual(list.data.models.map((m) => m.id), ['gpt-4o-mini', 'gpt-5-mini'], 'model embedding dan realtime tidak ditawarkan');
-    assert.equal(list.data.recommended, 'gpt-5-mini');
-    const t = await admin.post('/api/admin/ai/test', { provider: 'openai' });
+    await admin.put('/api/admin/ai', { providers: { together: { key: 'kunci-together', model: 'model-lama', base_url: `${url}/together` }, cohere: { key: 'kunci-salah', base_url: `${url}/cohere` } } });
+    const list = await admin.post('/api/admin/ai/models', { provider: 'together' });
+    assert.deepEqual(list.data.models.map((m) => m.id), ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo'], 'model embedding dan gambar tidak ditawarkan');
+    assert.equal(list.data.recommended, 'meta-llama/Llama-3.3-70B-Instruct-Turbo');
+    const t = await admin.post('/api/admin/ai/test', { provider: 'together' });
     assert.equal(t.data.ok, true, JSON.stringify(t.data));
-    assert.match(t.data.message, /model-lama sudah tidak tersedia, diganti otomatis ke gpt-5-mini/);
-    assert.equal((await admin.get('/api/admin/ai')).data.providers.openai.model, 'gpt-5-mini', 'model baru tersimpan');
+    assert.ok(t.data.message.includes('model-lama sudah tidak tersedia, diganti otomatis ke meta-llama/Llama-3.3-70B-Instruct-Turbo'), t.data.message);
+    assert.equal((await admin.get('/api/admin/ai')).data.providers.together.model, 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'model baru tersimpan');
     const bad = await admin.post('/api/admin/ai/test', { provider: 'cohere' });
     assert.equal(bad.data.ok, false);
     assert.match(bad.data.message, /API key ditolak oleh Cohere/);
+    // Urutan lama dengan penyedia yang sudah diganti: pengganti masuk di posisinya.
+    await admin.put('/api/admin/ai', { order: ['cohere', 'groq', 'gemini', 'together', 'novita'] });
+    const [[row]] = await pool.query("SELECT v FROM settings WHERE k = 'ai'");
+    const cfg = JSON.parse(row.v);
+    cfg.order = ['gemini', 'groq', 'openrouter', 'openai', 'cohere'];
+    await pool.query("UPDATE settings SET v = ? WHERE k = 'ai'", [JSON.stringify(cfg)]);
+    const { loadAiConfig, clearAiCache } = await import('../src/ai.js');
+    clearAiCache();
+    assert.deepEqual((await loadAiConfig()).order, ['gemini', 'groq', 'together', 'novita', 'cohere']);
   } finally {
     fake.close();
   }
