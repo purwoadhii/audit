@@ -157,14 +157,31 @@ async function logUsage(userId, id, model, r) {
   ).catch(() => {});
 }
 
+// API key: bedakan belum diisi dengan tidak terbaca (JWT_SECRET berubah setelah key disimpan).
+function readKey(p) {
+  const fail = (msg) => Object.assign(new ProviderError(401, msg), { local: true });
+  if (!p.key) throw fail('API key belum diisi.');
+  const key = open(p.key);
+  if (!key) throw fail('API key tersimpan tidak bisa dibaca karena JWT_SECRET di .env berubah. Tempel ulang API key lalu simpan.');
+  return key;
+}
+
+const TIMEOUT_MSG = (s) => `Server penyedia tidak menjawab dalam ${s} detik. Biasanya karena koneksi dari komputer server aplikasi ke internet terhalang (firewall, proxy kantor, atau VPN), atau penyedia sedang lambat.`;
+function unreachable(err) {
+  const code = err?.cause?.code || err?.code || '';
+  if (/ENOTFOUND|EAI_AGAIN/.test(code)) return `Alamat penyedia tidak ditemukan (${code}). Periksa koneksi internet atau DNS di komputer server aplikasi.`;
+  if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT/.test(code)) return `Koneksi ke penyedia ditolak atau terputus (${code}). Periksa firewall, proxy, atau VPN.`;
+  if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY/.test(code)) return `Sertifikat HTTPS ditolak (${code}). Biasanya karena antivirus atau proxy kantor memeriksa HTTPS.`;
+  return `Tidak bisa dihubungi: ${code || err?.message}`;
+}
+
 // Satu panggilan ke satu penyedia. Melempar ProviderError bila gagal.
 class ProviderError extends Error {
   constructor(status, message, retryAfter) { super(message); this.status = status; this.retryAfter = retryAfter; }
 }
 
 async function callProvider(id, p, body) {
-  const key = open(p.key);
-  if (!key) throw new ProviderError(401, 'API key belum diisi atau tidak terbaca.');
+  const key = readKey(p);
   const headers = { 'content-type': 'application/json', authorization: `Bearer ${key}` };
   let res;
   try {
@@ -172,7 +189,7 @@ async function callProvider(id, p, body) {
       method: 'POST', headers, body: JSON.stringify({ ...body, model: p.model }), signal: AbortSignal.timeout(60000),
     });
   } catch (err) {
-    throw new ProviderError(0, err?.name === 'TimeoutError' ? 'Tidak ada jawaban dalam 60 detik.' : `Tidak bisa dihubungi: ${err?.cause?.code || err?.message}`);
+    throw new ProviderError(0, err?.name === 'TimeoutError' ? TIMEOUT_MSG(60) : unreachable(err));
   }
   const text = await res.text();
   let data = null;
@@ -192,13 +209,12 @@ async function callProvider(id, p, body) {
 const NOT_CHAT = /(realtime|search|davinci|babbage|dall-e|sora|moderat|vision|translate|embed|whisper|tts|speech|audio|transcri|image|imagen|veo|guard|moderation|ocr|rerank|aqa|live|robotics|computer-use|playai|orpheus|native|learnlm|codestral-embed|voxtral)/i;
 
 export async function listModels(id, p) {
-  const key = open(p.key);
-  if (!key) throw new ProviderError(401, 'API key belum diisi atau tidak terbaca.');
+  const key = readKey(p);
   let res;
   try {
     res = await fetch(`${p.base_url}/models`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20000) });
   } catch (err) {
-    throw new ProviderError(0, `Tidak bisa dihubungi: ${err?.cause?.code || err?.message}`);
+    throw new ProviderError(0, err?.name === 'TimeoutError' ? TIMEOUT_MSG(20) : unreachable(err));
   }
   const text = await res.text();
   let data = null;
@@ -531,6 +547,8 @@ export async function testProvider(id) {
   } catch (err) {
     markFail(id, err.status, err.message, err.retryAfter);
     const { label } = PROVIDERS[id];
+    if (err.local) return { ok: false, ms: now() - started, message: err.message };
+    if (err.status === 0) return { ok: false, ms: now() - started, message: err.message };
     const hint = err.status === 401 || err.status === 403
       ? `API key ditolak oleh ${label}. Pastikan key ini dibuat di ${PROVIDERS[id].key_url.replace('https://', '')}, bukan key penyedia lain.`
       : modelGone(err) ? 'Model tidak tersedia dan tidak ada pengganti yang cocok. Klik "Daftar model" untuk memilih sendiri.'

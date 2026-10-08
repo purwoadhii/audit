@@ -20,7 +20,15 @@ export function AiSettings() {
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
   const form = f || structuredClone({ enabled: data.enabled, roles: data.roles, order: data.order, providers: data.providers });
-  const setP = (id, k, v) => setF({ ...form, providers: { ...form.providers, [id]: { ...form.providers[id], [k]: v } } });
+  // Pesan hasil tes dan daftar model dihapus saat isian kartu berubah, supaya tidak ada pesan lama yang menyesatkan.
+  const clearMsgs = (id) => {
+    setTests((t) => ({ ...t, [id]: undefined }));
+    setLists((l) => ({ ...l, [id]: l[id]?.ok ? l[id] : undefined }));
+  };
+  const setP = (id, k, v) => {
+    if (k !== 'model') clearMsgs(id);
+    setF({ ...form, providers: { ...form.providers, [id]: { ...form.providers[id], [k]: v } } });
+  };
   const move = (i, d) => {
     const order = [...form.order];
     [order[i], order[i + d]] = [order[i + d], order[i]];
@@ -67,6 +75,7 @@ export function AiSettings() {
 
   async function test(id) {
     setTests({ ...tests, [id]: { busy: true } });
+    setLists((l) => ({ ...l, [id]: l[id]?.ok ? l[id] : undefined }));
     try {
       await saveFirst();
       const r = await api.post('/admin/ai/test', { provider: id });
@@ -79,6 +88,7 @@ export function AiSettings() {
 
   async function models(id) {
     setLists({ ...lists, [id]: { busy: true } });
+    setTests((t) => ({ ...t, [id]: undefined }));
     try {
       await saveFirst();
       const r = await api.post('/admin/ai/models', { provider: id });
@@ -130,7 +140,7 @@ export function AiSettings() {
                 </div>
               </div>
               <label>API key
-                <input id={`ai-key-${id}`} type="password" autoComplete="new-password" value={keys[id] || ''} onChange={(e) => setKeys({ ...keys, [id]: e.target.value })} placeholder={p.key_set ? 'Tersimpan. Isi hanya untuk mengganti.' : 'Tempel API key di sini'} />
+                <input id={`ai-key-${id}`} type="password" autoComplete="new-password" value={keys[id] || ''} onChange={(e) => { clearMsgs(id); setKeys({ ...keys, [id]: e.target.value }); }} placeholder={p.key_set ? 'Tersimpan. Isi hanya untuk mengganti.' : 'Tempel API key di sini'} />
                 <span className="hint">Buat API key di <a href={p.key_url} target="_blank" rel="noreferrer">{p.key_url.replace('https://', '')}</a>.</span>
                 {p.key_unreadable && <span className="hint bad-text">API key lama tidak bisa dibaca karena JWT_SECRET berubah. Isi ulang.</span>}
               </label>
