@@ -454,7 +454,7 @@ test('asisten AI memakai penyedia berikutnya saat batas tercapai', async () => {
     };
     const saved = await admin.put('/api/admin/ai', { enabled: true, roles: ['auditor', 'auditee'], providers });
     assert.equal(saved.status, 200, JSON.stringify(saved.data));
-    assert.deepEqual(saved.data.order, ['gemini', 'groq', 'together', 'novita', 'cohere']);
+    assert.deepEqual(saved.data.order, ['gemini', 'groq', 'together', 'huggingface', 'cohere']);
     assert.equal(saved.data.providers.groq.key_hint, '…1234');
     assert.equal(JSON.stringify(saved.data).includes('kunci-groq'), false, 'API key tidak dikirim ke browser');
     const [[row]] = await pool.query("SELECT v FROM settings WHERE k = 'ai'");
@@ -523,14 +523,14 @@ test('model AI yang sudah tidak ada diganti otomatis', async () => {
     assert.equal(bad.data.ok, false);
     assert.match(bad.data.message, /API key ditolak oleh Cohere/);
     // Urutan lama dengan penyedia yang sudah diganti: pengganti masuk di posisinya.
-    await admin.put('/api/admin/ai', { order: ['cohere', 'groq', 'gemini', 'together', 'novita'] });
+    await admin.put('/api/admin/ai', { order: ['cohere', 'groq', 'gemini', 'together', 'huggingface'] });
     const [[row]] = await pool.query("SELECT v FROM settings WHERE k = 'ai'");
     const cfg = JSON.parse(row.v);
-    cfg.order = ['gemini', 'groq', 'openrouter', 'openai', 'cohere'];
+    cfg.order = ['gemini', 'groq', 'together', 'novita', 'cohere'];
     await pool.query("UPDATE settings SET v = ? WHERE k = 'ai'", [JSON.stringify(cfg)]);
     const { loadAiConfig, clearAiCache } = await import('../src/ai.js');
     clearAiCache();
-    assert.deepEqual((await loadAiConfig()).order, ['gemini', 'groq', 'together', 'novita', 'cohere']);
+    assert.deepEqual((await loadAiConfig()).order, ['gemini', 'groq', 'together', 'huggingface', 'cohere']);
   } finally {
     fake.close();
   }

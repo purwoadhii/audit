@@ -260,7 +260,7 @@ function Rich({ text }) {
   });
 }
 
-const PROVIDER_LABEL = { gemini: 'Gemini', groq: 'Groq', together: 'Together AI', novita: 'Novita AI', cohere: 'Cohere' };
+const PROVIDER_LABEL = { gemini: 'Gemini', groq: 'Groq', together: 'Together AI', huggingface: 'Hugging Face', cohere: 'Cohere' };
 const EXAMPLES = ['Temuan risiko tinggi yang masih terbuka', 'Cari file kwitansi atau invoice', 'Tindak lanjut yang lewat jatuh tempo', 'Ringkas audit yang sedang berjalan'];
 
 // Pengguna: percakapan dengan Asisten AI. Riwayat hanya disimpan di halaman ini.

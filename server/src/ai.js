@@ -13,7 +13,7 @@ export const PROVIDERS = {
   gemini: { label: 'Google Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-flash-latest', key_url: 'https://aistudio.google.com/apikey' },
   groq: { label: 'Groq', base_url: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', key_url: 'https://console.groq.com/keys' },
   together: { label: 'Together AI', base_url: 'https://api.together.xyz/v1', model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', key_url: 'https://api.together.ai/settings/api-keys' },
-  novita: { label: 'Novita AI', base_url: 'https://api.novita.ai/openai', model: 'meta-llama/llama-3.3-70b-instruct', key_url: 'https://novita.ai/settings/key-management' },
+  huggingface: { label: 'Hugging Face', base_url: 'https://router.huggingface.co/v1', model: 'meta-llama/Llama-3.3-70B-Instruct', key_url: 'https://huggingface.co/settings/tokens' },
   cohere: { label: 'Cohere', base_url: 'https://api.cohere.ai/compatibility/v1', model: 'command-a-03-2025', key_url: 'https://dashboard.cohere.com/api-keys' },
 };
 const IDS = Object.keys(PROVIDERS);
@@ -204,7 +204,9 @@ export async function listModels(id, p) {
     if (m.type && m.type !== 'chat') continue; // Together: model gambar, embedding, dan lain-lain
     if (m.active === false || m.deprecation || m.capabilities?.completion_chat === false) continue;
     const free = /free$/i.test(mid) || (m.pricing && Number(m.pricing.input ?? m.pricing.prompt) === 0 && Number(m.pricing.output ?? m.pricing.completion) === 0) || undefined;
-    const tools = Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : m.capabilities?.function_calling;
+    // Hugging Face: model dilayani beberapa provider; cukup satu yang mendukung pemanggilan alat.
+    const tools = Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools')
+      : Array.isArray(m.providers) ? m.providers.some((x) => x.supports_tools) : m.capabilities?.function_calling;
     out.push({ id: mid, free, tools });
   }
   return out.sort((a, b) => a.id.localeCompare(b.id));
@@ -214,7 +216,7 @@ const version = (mid) => Number((mid.match(/(\d+(?:\.\d+)?)/) || [])[1] || 0);
 const PREFS = {
   groq: [/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /kimi-k2/, /qwen3?-32b/, /llama/],
   together: [/Llama-3\.3-70B-Instruct-Turbo-Free/i, /gpt-oss-120b/i, /Llama-3\.3-70B-Instruct-Turbo/i, /DeepSeek-V3/i, /Qwen.*Instruct/i, /Llama/i],
-  novita: [/gpt-oss-120b/, /llama-3\.3-70b/, /deepseek-v3/, /qwen.*instruct/, /llama/],
+  huggingface: [/Llama-3\.3-70B-Instruct/i, /gpt-oss-120b/i, /Qwen.*Instruct/i, /DeepSeek-V3/i, /Llama/i],
   cohere: [/^command-a-\d/, /^command-a/, /^command-r-plus/, /^command-r/, /^command/],
 };
 
