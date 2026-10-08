@@ -369,3 +369,4 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
   .ai-msg { max-width:100%; }
   .ai-log { max-height:none; }
 }
+.linkbtn { background:none; border:0; padding:0; color:var(--accent); font:inherit; font-weight:600; text-decoration:underline; cursor:pointer; }

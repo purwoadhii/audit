@@ -494,3 +494,33 @@ test('asisten AI memakai penyedia berikutnya saat batas tercapai', async () => {
     fake.close();
   }
 });
+
+test('model AI yang sudah tidak ada diganti otomatis', async () => {
+  const http = await import('node:http');
+  const fake = http.createServer(async (req, res) => {
+    let body = '';
+    for await (const c of req) body += c;
+    res.setHeader('content-type', 'application/json');
+    if (req.url === '/mistral/models') return res.end(JSON.stringify({ data: [{ id: 'mistral-embed' }, { id: 'mistral-small-latest' }, { id: 'mistral-large-latest' }] }));
+    if (req.url.startsWith('/cerebras')) { res.statusCode = 401; return res.end('{"message":"Wrong API Key"}'); }
+    const { model } = JSON.parse(body);
+    if (model !== 'mistral-small-latest') { res.statusCode = 404; return res.end(JSON.stringify({ error: { message: `The model ${model} does not exist` } })); }
+    res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'siap' } }] }));
+  }).listen(0);
+  const url = `http://127.0.0.1:${fake.address().port}`;
+  try {
+    await admin.put('/api/admin/ai', { providers: { mistral: { key: 'kunci-mistral', model: 'model-lama', base_url: `${url}/mistral` }, cerebras: { key: 'kunci-salah', base_url: `${url}/cerebras` } } });
+    const list = await admin.post('/api/admin/ai/models', { provider: 'mistral' });
+    assert.deepEqual(list.data.models.map((m) => m.id), ['mistral-large-latest', 'mistral-small-latest'], 'model embedding tidak ditawarkan');
+    assert.equal(list.data.recommended, 'mistral-small-latest');
+    const t = await admin.post('/api/admin/ai/test', { provider: 'mistral' });
+    assert.equal(t.data.ok, true, JSON.stringify(t.data));
+    assert.match(t.data.message, /model-lama sudah tidak tersedia, diganti otomatis ke mistral-small-latest/);
+    assert.equal((await admin.get('/api/admin/ai')).data.providers.mistral.model, 'mistral-small-latest', 'model baru tersimpan');
+    const bad = await admin.post('/api/admin/ai/test', { provider: 'cerebras' });
+    assert.equal(bad.data.ok, false);
+    assert.match(bad.data.message, /API key ditolak oleh Cerebras/);
+  } finally {
+    fake.close();
+  }
+});

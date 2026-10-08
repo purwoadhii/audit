@@ -14,6 +14,7 @@ export function AiSettings() {
   const [f, setF] = useState(null);
   const [keys, setKeys] = useState({});
   const [tests, setTests] = useState({});
+  const [lists, setLists] = useState({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   if (loading && !data) return <Loading />;
@@ -55,21 +56,37 @@ export function AiSettings() {
     }
   }
 
-  // Tes memakai pengaturan yang sudah disimpan, jadi simpan dulu bila ada perubahan.
+  // Tes dan daftar model memakai pengaturan yang sudah disimpan, jadi simpan dulu bila ada perubahan.
+  async function saveFirst() {
+    if (f || Object.keys(keys).length) {
+      await api.put('/admin/ai', body());
+      setKeys({});
+      setF(null);
+    }
+  }
+
   async function test(id) {
     setTests({ ...tests, [id]: { busy: true } });
     try {
-      if (f || Object.keys(keys).length) {
-        await api.put('/admin/ai', body());
-        setKeys({});
-        setF(null);
-        reload();
-      }
+      await saveFirst();
       const r = await api.post('/admin/ai/test', { provider: id });
       setTests((t) => ({ ...t, [id]: r }));
     } catch (err) {
       setTests((t) => ({ ...t, [id]: { ok: false, message: err.message } }));
     }
+    reload();
+  }
+
+  async function models(id) {
+    setLists({ ...lists, [id]: { busy: true } });
+    try {
+      await saveFirst();
+      const r = await api.post('/admin/ai/models', { provider: id });
+      setLists((l) => ({ ...l, [id]: r }));
+    } catch (err) {
+      setLists((l) => ({ ...l, [id]: { ok: false, message: err.message } }));
+    }
+    reload();
   }
 
   const ready = form.order.filter((id) => form.providers[id].enabled && (form.providers[id].key_set || keys[id]));
@@ -100,6 +117,7 @@ export function AiSettings() {
         {form.order.map((id, i) => {
           const p = form.providers[id];
           const t = tests[id];
+          const l = lists[id];
           return (
             <section key={id} className="panel form ai-provider" aria-label={p.label}>
               <div className="full ai-head">
@@ -117,8 +135,14 @@ export function AiSettings() {
                 {p.key_unreadable && <span className="hint bad-text">API key lama tidak bisa dibaca karena JWT_SECRET berubah. Isi ulang.</span>}
               </label>
               <label>Model
-                <input id={`ai-model-${id}`} value={p.model} onChange={(e) => setP(id, 'model', e.target.value)} placeholder={p.default_model} />
-                <span className="hint">Bawaan: {p.default_model}</span>
+                <input id={`ai-model-${id}`} list={`ai-models-${id}`} value={p.model} onChange={(e) => setP(id, 'model', e.target.value)} placeholder={p.default_model} />
+                <datalist id={`ai-models-${id}`}>{(l?.models || []).map((m) => <option key={m.id} value={m.id}>{m.free ? 'gratis' : ''}</option>)}</datalist>
+                <span className="hint">
+                  {l?.busy ? 'Mengambil daftar model…'
+                    : l?.ok ? <>{l.models.length} model tersedia, pilih dari kolom ini.{l.recommended && <> Disarankan: <button type="button" className="linkbtn" onClick={() => setP(id, 'model', l.recommended)}>{l.recommended}</button></>}</>
+                      : l?.message ? <span className="bad-text">{l.message}</span>
+                        : 'Bila model sudah tidak tersedia, aplikasi otomatis memilih model pengganti.'}
+                </span>
               </label>
               <details className="full">
                 <summary className="t-sub">Lanjutan</summary>
@@ -129,7 +153,10 @@ export function AiSettings() {
               </details>
               <div className="full form-foot" style={{ justifyContent: 'space-between' }}>
                 <span className={t?.ok ? 'ok-text' : 'error-text'} role="status">{t?.busy ? 'Menguji…' : t?.message || ''}</span>
-                <button type="button" className="btn" disabled={t?.busy || (!p.key_set && !keys[id])} onClick={() => test(id)}>Tes</button>
+                <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                  <button type="button" className="btn" disabled={l?.busy || (!p.key_set && !keys[id])} onClick={() => models(id)}>Daftar model</button>
+                  <button type="button" className="btn" disabled={t?.busy || (!p.key_set && !keys[id])} onClick={() => test(id)}>Tes</button>
+                </div>
               </div>
             </section>
           );
@@ -196,7 +223,7 @@ export function AiStatus() {
                     : <span className="pill s-Selesai">Siap</span>}</td>
                 <td className="num">{p.today.ok} berhasil{p.today.failed ? `, ${p.today.failed} gagal` : ''}{p.today.limited ? ` (${p.today.limited} kena batas)` : ''}</td>
                 <td className="num">{(p.today.tokens_in + p.today.tokens_out).toLocaleString('id-ID')}</td>
-                <td>{p.last_error ? <><div className="t-sub">{fmtDateTime(p.last_error.at)}{p.last_error.status ? ` · ${p.last_error.status}` : ''}</div><div className="bad-text">{p.last_error.message}</div></> : '—'}</td>
+                <td>{p.model_changed && <div className="t-sub">Model diganti otomatis {fmtDateTime(p.model_changed.at)}: {p.model_changed.from} → {p.model_changed.to}</div>}{p.last_error ? <><div className="t-sub">{fmtDateTime(p.last_error.at)}{p.last_error.status ? ` · ${p.last_error.status}` : ''}</div><div className="bad-text">{p.last_error.message}</div></> : '—'}</td>
               </tr>
             ))}
           </tbody>

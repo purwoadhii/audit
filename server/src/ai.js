@@ -10,11 +10,11 @@ import { auditScope, findingScope } from './access.js';
 // permintaan otomatis dilanjutkan ke penyedia berikutnya sesuai urutan.
 
 export const PROVIDERS = {
-  gemini: { label: 'Google Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', key_url: 'https://aistudio.google.com/apikey' },
-  groq: { label: 'Groq', base_url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', key_url: 'https://console.groq.com/keys' },
-  openrouter: { label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free', key_url: 'https://openrouter.ai/settings/keys' },
+  gemini: { label: 'Google Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-flash-latest', key_url: 'https://aistudio.google.com/apikey' },
+  groq: { label: 'Groq', base_url: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', key_url: 'https://console.groq.com/keys' },
+  openrouter: { label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-oss-120b:free', key_url: 'https://openrouter.ai/settings/keys' },
   mistral: { label: 'Mistral', base_url: 'https://api.mistral.ai/v1', model: 'mistral-small-latest', key_url: 'https://console.mistral.ai/api-keys' },
-  cerebras: { label: 'Cerebras', base_url: 'https://api.cerebras.ai/v1', model: 'llama-3.3-70b', key_url: 'https://cloud.cerebras.ai' },
+  cerebras: { label: 'Cerebras', base_url: 'https://api.cerebras.ai/v1', model: 'gpt-oss-120b', key_url: 'https://cloud.cerebras.ai' },
 };
 const IDS = Object.keys(PROVIDERS);
 const KEY = 'ai';
@@ -171,6 +171,96 @@ async function callProvider(id, p, body) {
   return { message: choice.message, usage: data.usage || {} };
 }
 
+// ---- Daftar model dan penggantian model otomatis ----
+// Penyedia sering menghapus atau mengganti nama model. Bila model yang diatur tidak tersedia lagi,
+// daftar model diambil dari penyedia lalu dipilih yang paling cocok, disimpan, dan permintaan diulang.
+const NOT_CHAT = /(embed|whisper|tts|speech|audio|transcri|image|imagen|veo|guard|moderation|ocr|rerank|aqa|live|robotics|computer-use|playai|orpheus|native|learnlm|codestral-embed|voxtral)/i;
+
+export async function listModels(id, p) {
+  const key = open(p.key);
+  if (!key) throw new ProviderError(401, 'API key belum diisi atau tidak terbaca.');
+  let res;
+  try {
+    res = await fetch(`${p.base_url}/models`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20000) });
+  } catch (err) {
+    throw new ProviderError(0, `Tidak bisa dihubungi: ${err?.cause?.code || err?.message}`);
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch { /* bukan JSON */ }
+  if (!res.ok) throw new ProviderError(res.status, data?.error?.message || data?.message || text.slice(0, 200) || res.statusText);
+  const raw = data?.data || data?.models || (Array.isArray(data) ? data : []);
+  const out = [];
+  for (const m of raw) {
+    const mid = String(m.id || m.name || '').replace(/^models\//, '');
+    if (!mid || NOT_CHAT.test(mid)) continue;
+    if (m.active === false || m.deprecation || m.capabilities?.completion_chat === false) continue;
+    const free = id === 'openrouter' ? mid.endsWith(':free') || (m.pricing && Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0) : undefined;
+    const tools = Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : m.capabilities?.function_calling;
+    out.push({ id: mid, free, tools });
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+const version = (mid) => Number((mid.match(/(\d+(?:\.\d+)?)/) || [])[1] || 0);
+const PREFS = {
+  groq: [/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /kimi-k2/, /qwen3?-32b/, /llama/],
+  openrouter: [/gpt-oss-120b/, /llama-3\.3-70b/, /deepseek-(chat|v3)/, /qwen3/, /mistral-small/, /llama-4/, /gemma/],
+  mistral: [/^mistral-small-latest$/, /^mistral-medium-latest$/, /^mistral-large-latest$/, /mistral-small/, /mistral-medium/],
+  cerebras: [/gpt-oss-120b/, /llama-3\.3-70b/, /qwen-3-235b/, /qwen/, /llama/],
+};
+
+// Pilih model pengganti. OpenRouter hanya memilih model gratis supaya tidak muncul tagihan.
+export function pickModel(id, models) {
+  let list = models.filter((m) => m.tools !== false);
+  if (id === 'openrouter') list = list.filter((m) => m.free);
+  if (!list.length) return null;
+  if (id === 'gemini') {
+    const flash = list.filter((m) => /gemini/.test(m.id) && /flash/.test(m.id) && !/lite|thinking|exp/.test(m.id));
+    const latest = flash.find((m) => m.id === 'gemini-flash-latest');
+    if (latest) return latest.id;
+    const pool = flash.length ? flash : list.filter((m) => /gemini/.test(m.id));
+    pool.sort((a, b) => (/preview/.test(a.id) - /preview/.test(b.id)) || version(b.id) - version(a.id));
+    return pool[0]?.id || null;
+  }
+  for (const re of PREFS[id] || []) {
+    const hit = list.filter((m) => re.test(m.id)).sort((a, b) => version(b.id) - version(a.id))[0];
+    if (hit) return hit.id;
+  }
+  return list[0].id;
+}
+
+const modelGone = (err) => err.status === 404
+  || (err.status === 400 && /model/i.test(err.message) && /(not found|not exist|unavailable|decommission|deprecat|no longer|invalid model)/i.test(err.message));
+
+async function saveModel(id, model) {
+  const { rows } = await query('SELECT v FROM settings WHERE k = ?', [KEY]);
+  let saved = {};
+  try { saved = rows[0] ? JSON.parse(rows[0].v) : {}; } catch { /* mulai baru */ }
+  saved.providers ||= {};
+  saved.providers[id] = { ...(saved.providers[id] || {}), model };
+  await query(
+    'INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v), updated_at = CURRENT_TIMESTAMP(3)',
+    [KEY, JSON.stringify(saved)],
+  );
+  cache = null;
+}
+
+// Panggil penyedia; bila modelnya sudah tidak ada, ganti otomatis lalu ulangi sekali.
+async function callWithRepair(id, p, body) {
+  try {
+    return { ...(await callProvider(id, p, body)), model: p.model };
+  } catch (err) {
+    if (!modelGone(err)) throw err;
+    let next = null;
+    try { next = pickModel(id, (await listModels(id, p)).filter((m) => m.id !== p.model)); } catch { /* pakai error awal */ }
+    if (!next) throw err;
+    await saveModel(id, next);
+    (health[id] ||= {}).model_changed = { at: new Date().toISOString(), from: p.model, to: next, reason: String(err.message).slice(0, 200) };
+    return { ...(await callProvider(id, { ...p, model: next }, body)), model: next, replaced: { from: p.model, to: next } };
+  }
+}
+
 // Panggil penyedia sesuai urutan; lanjut ke berikutnya bila gagal.
 async function complete(userId, body, tried) {
   const c = await loadAiConfig();
@@ -181,10 +271,10 @@ async function complete(userId, body, tried) {
     const p = c.providers[id];
     const started = now();
     try {
-      const out = await callProvider(id, p, body);
+      const out = await callWithRepair(id, p, body);
       markOk(id);
-      await logUsage(userId, id, p.model, { ok: true, ms: now() - started, tokens_in: out.usage.prompt_tokens, tokens_out: out.usage.completion_tokens });
-      return { ...out, provider: id, model: p.model };
+      await logUsage(userId, id, out.model, { ok: true, ms: now() - started, tokens_in: out.usage.prompt_tokens, tokens_out: out.usage.completion_tokens });
+      return { ...out, provider: id };
     } catch (err) {
       markFail(id, err.status, err.message, err.retryAfter);
       tried.push({ provider: id, status: err.status, message: err.message });
@@ -392,7 +482,7 @@ export async function chat(user, history) {
   let last = null;
   for (let step = 0; step < 6; step++) {
     const final = step === 5; // langkah terakhir: minta jawaban tanpa alat
-    last = await complete(user.id, { messages, temperature: 0.2, max_tokens: 1200, ...(final ? {} : { tools: TOOLS, tool_choice: 'auto' }) }, tried);
+    last = await complete(user.id, { messages, temperature: 0.2, max_tokens: 4000, ...(final ? {} : { tools: TOOLS, tool_choice: 'auto' }) }, tried);
     if (!used.includes(last.provider)) used.push(last.provider);
     const calls = last.message.tool_calls || [];
     if (!calls.length || final) {
@@ -417,11 +507,29 @@ export async function testProvider(id) {
   const c = await loadAiConfig();
   const started = now();
   try {
-    const out = await callProvider(id, c.providers[id], { messages: [{ role: 'user', content: 'Balas dengan satu kata: siap' }], max_tokens: 10 });
+    const out = await callWithRepair(id, c.providers[id], { messages: [{ role: 'user', content: 'Balas dengan satu kata: siap' }], max_tokens: 50 });
     markOk(id);
-    return { ok: true, ms: now() - started, message: `Terhubung. Jawaban: ${String(out.message.content || '').trim().slice(0, 40)}` };
+    const note = out.replaced ? `Model ${out.replaced.from} sudah tidak tersedia, diganti otomatis ke ${out.replaced.to}. ` : '';
+    return { ok: true, ms: now() - started, model: out.model, message: `${note}Terhubung dengan model ${out.model}.` };
   } catch (err) {
     markFail(id, err.status, err.message, err.retryAfter);
-    return { ok: false, ms: now() - started, message: `${err.status ? `(${err.status}) ` : ''}${err.message}` };
+    const { label } = PROVIDERS[id];
+    const hint = err.status === 401 || err.status === 403
+      ? `API key ditolak oleh ${label}. Pastikan key ini dibuat di ${PROVIDERS[id].key_url.replace('https://', '')}, bukan key penyedia lain.`
+      : modelGone(err) ? 'Model tidak tersedia dan tidak ada pengganti yang cocok. Klik "Daftar model" untuk memilih sendiri.'
+        : err.status === 429 ? 'Batas pemakaian penyedia ini sedang tercapai. Coba lagi nanti.' : '';
+    return { ok: false, ms: now() - started, message: `${err.status ? `(${err.status}) ` : ''}${hint ? `${hint} ` : ''}Pesan penyedia: ${err.message}` };
+  }
+}
+
+// Daftar model yang bisa dipilih untuk satu penyedia, beserta yang disarankan.
+export async function providerModels(id) {
+  if (!IDS.includes(id)) throw badRequest('Penyedia tidak dikenal.');
+  const c = await loadAiConfig();
+  try {
+    const models = await listModels(id, c.providers[id]);
+    return { ok: true, models, recommended: pickModel(id, models) };
+  } catch (err) {
+    return { ok: false, models: [], message: `${err.status ? `(${err.status}) ` : ''}${err.message}` };
   }
 }

@@ -7,7 +7,7 @@ import { badRequest, forbidden, notFound } from '../errors.js';
 import { config } from '../config.js';
 import { recentErrors } from '../errorlog.js';
 import { getSettings } from '../settings.js';
-import { publicAiConfig, saveAiConfig, testProvider, aiHealth, PROVIDERS } from '../ai.js';
+import { publicAiConfig, saveAiConfig, testProvider, providerModels, aiHealth, PROVIDERS } from '../ai.js';
 import { extractionState, requeueAll } from '../extract.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
@@ -142,6 +142,10 @@ r.put('/ai', requireRole('admin'), async (req, res) => {
 
 r.post('/ai/test', requireRole('admin'), async (req, res) => {
   res.json(await testProvider(String(req.body?.provider || '')));
+});
+
+r.post('/ai/models', requireRole('admin'), async (req, res) => {
+  res.json(await providerModels(String(req.body?.provider || '')));
 });
 
 r.get('/ai/status', requireRole('infraadmin'), async (_req, res) => {
