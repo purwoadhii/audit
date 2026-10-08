@@ -549,6 +549,11 @@ export async function testProvider(id) {
     markFail(id, err.status, err.message, err.retryAfter);
     const { label } = PROVIDERS[id];
     if (err.local) return { ok: false, ms: now() - started, message: err.message };
+    // Key Gemini dari Google AI Studio selalu diawali "AIza"; key Google Cloud/Vertex (misalnya "AQ.") tidak berlaku di sini.
+    const key = open(c.providers[id].key) || '';
+    if (id === 'gemini' && key && !key.startsWith('AIza')) {
+      return { ok: false, ms: now() - started, message: `API key ini bukan key Gemini dari Google AI Studio (key Gemini diawali "AIza"). Buat key di aistudio.google.com/apikey. Pesan penyedia: ${err.message}` };
+    }
     if (err.status === 0) return { ok: false, ms: now() - started, message: err.message };
     const hint = err.status === 401 || err.status === 403
       ? `API key ditolak oleh ${label}. Pastikan key ini dibuat di ${PROVIDERS[id].key_url.replace('https://', '')}, bukan key penyedia lain.`

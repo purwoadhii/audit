@@ -559,3 +559,10 @@ test('AI yang semuanya gagal tidak dianggap mode perbaikan', async () => {
   assert.equal(r.data.maintenance, undefined);
   assert.equal((await auditee.get('/api/auth/me')).status, 200, 'sesi tetap aktif');
 });
+
+test('key Gemini yang bukan dari AI Studio diberi petunjuk', async () => {
+  await admin.put('/api/admin/ai', { providers: { gemini: { key: 'AQ.contoh-key-vertex', base_url: 'http://127.0.0.1:9' } } });
+  const t = await admin.post('/api/admin/ai/test', { provider: 'gemini' });
+  assert.equal(t.data.ok, false);
+  assert.match(t.data.message, /bukan key Gemini dari Google AI Studio/);
+});
