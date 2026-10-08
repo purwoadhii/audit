@@ -19,7 +19,8 @@ import Logins from './pages/Logins.jsx';
 import Sessions from './pages/Sessions.jsx';
 import System from './pages/System.jsx';
 import { StorageSettings, StorageStatus } from './pages/Storage.jsx';
-import { AiSettings, AiStatus, AiChat } from './pages/Ai.jsx';
+import { AiSettings, AiStatus, AiChat, AiUnavailable } from './pages/Ai.jsx';
+import Ocr from './pages/Ocr.jsx';
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
@@ -92,14 +93,14 @@ function InfraAdminArea() {
 
 // Menu Asisten AI muncul bila admin sudah mengaktifkannya untuk peran pengguna ini.
 function useAiAvailable(user, works) {
-  const [st, setSt] = useState({ id: null, ok: false });
+  const [st, setSt] = useState({ id: null, status: null });
   const id = works ? user?.id : null;
   useEffect(() => {
     if (!id) return;
-    api.get('/ai/status').then((r) => setSt({ id, ok: r.available })).catch(() => setSt({ id, ok: false }));
+    api.get('/ai/status').then((r) => setSt({ id, status: r })).catch(() => setSt({ id, status: { available: false, reason: 'error' } }));
   }, [id]);
   if (!id) return false;
-  return st.id === id ? st.ok : null; // null = sedang diperiksa
+  return st.id === id ? st.status : null; // null = sedang diperiksa
 }
 
 export default function App() {
@@ -136,7 +137,8 @@ export default function App() {
                 <NavLink to="/audit">Audit</NavLink>
                 <NavLink to="/temuan">Temuan</NavLink>
                 <NavLink to="/tindak-lanjut">Tindak Lanjut</NavLink>
-                {ai === true && <NavLink to="/asisten">Asisten AI</NavLink>}
+                <NavLink to="/asisten">Asisten AI</NavLink>
+                <NavLink to="/ocr">OCR</NavLink>
               </>
             )}
             {seesActivity && <NavLink to="/aktivitas">Aktivitas</NavLink>}
@@ -155,7 +157,8 @@ export default function App() {
               <Route path="/audit/:id/laporan" element={<Report />} />
               <Route path="/temuan" element={<Findings />} />
               <Route path="/tindak-lanjut" element={<Board />} />
-              {ai !== false && <Route path="/asisten" element={ai ? <AiChat /> : <Loading />} />}
+              <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />
+              <Route path="/ocr" element={<Ocr />} />
             </>
           ) : <Route path="/" element={<Navigate to="/sysAdmin" replace />} />}
           <Route path="/akun" element={<Account />} />

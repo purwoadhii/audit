@@ -370,3 +370,7 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
   .ai-log { max-height:none; }
 }
 .linkbtn { background:none; border:0; padding:0; color:var(--accent); font:inherit; font-weight:600; text-decoration:underline; cursor:pointer; }
+.ocr-drop { text-align:center; padding:32px 16px; border:2px dashed var(--line); }
+.ocr-drop.drag { border-color:var(--accent); background:var(--accent-soft); }
+.ocr-drop p { margin:0 0 10px; }
+.ocr-drop .t-sub { margin:12px auto 0; max-width:620px; }

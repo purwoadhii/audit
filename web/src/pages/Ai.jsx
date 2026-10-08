@@ -260,6 +260,22 @@ function Rich({ text }) {
   });
 }
 
+const REASON = {
+  disabled: 'Asisten AI belum diaktifkan. Admin perlu mencentang "Aktifkan Asisten AI" di System Admin → Asisten AI, lalu menyimpan.',
+  no_key: 'Belum ada penyedia AI dengan API key. Admin perlu mengisi API key di System Admin → Asisten AI.',
+  role: 'Asisten AI belum dibuka untuk peran Anda. Admin bisa mencentang peran ini di System Admin → Asisten AI.',
+  error: 'Status Asisten AI tidak bisa diperiksa. Muat ulang halaman.',
+};
+
+export function AiUnavailable({ reason }) {
+  return (
+    <div className="ai-chat">
+      <div className="bar"><h2>Asisten AI</h2></div>
+      <div className="panel"><p style={{ margin: 0 }}>{REASON[reason] || REASON.error}</p>{reason !== 'error' && <p className="t-sub" style={{ margin: '8px 0 0' }}>Setelah admin mengubahnya, muat ulang halaman ini.</p>}</div>
+    </div>
+  );
+}
+
 const PROVIDER_LABEL = { gemini: 'Gemini', groq: 'Groq', together: 'Together AI', huggingface: 'Hugging Face', cohere: 'Cohere' };
 const EXAMPLES = ['Temuan risiko tinggi yang masih terbuka', 'Cari file kwitansi atau invoice', 'Tindak lanjut yang lewat jatuh tempo', 'Ringkas audit yang sedang berjalan'];
 

@@ -114,10 +114,18 @@ export async function saveAiConfig(user, body) {
   for (const id of IDS) if (body.providers?.[id]) delete health[id];
 }
 
-export async function canUseAi(user) {
+// Alasan Asisten AI belum bisa dipakai (null berarti siap).
+export async function aiUnavailableReason(user) {
   const c = await loadAiConfig();
-  const ready = c.order.some((id) => c.providers[id].enabled && c.providers[id].key);
-  return c.enabled && ready && c.roles.includes(user.role);
+  if (!WORK_ROLES.includes(user.role)) return 'role';
+  if (!c.enabled) return 'disabled';
+  if (!c.order.some((id) => c.providers[id].enabled && c.providers[id].key)) return 'no_key';
+  if (!c.roles.includes(user.role)) return 'role';
+  return null;
+}
+
+export async function canUseAi(user) {
+  return !(await aiUnavailableReason(user));
 }
 
 // ---- Kondisi penyedia (untuk urutan cadangan dan halaman Infra Admin) ----

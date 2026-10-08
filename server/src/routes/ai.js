@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { canUseAi, chat } from '../ai.js';
+import { aiUnavailableReason, chat } from '../ai.js';
 
 const r = Router();
 
-// Apakah menu Asisten AI ditampilkan untuk pengguna ini.
+// Apakah Asisten AI bisa dipakai pengguna ini, dan bila belum, alasannya.
 r.get('/status', async (req, res) => {
-  res.json({ available: await canUseAi(req.user) });
+  const reason = await aiUnavailableReason(req.user);
+  res.json({ available: !reason, reason });
 });
 
 r.post('/chat', async (req, res) => {

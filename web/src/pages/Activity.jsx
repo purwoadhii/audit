@@ -2,8 +2,8 @@ import { api } from '../api.js';
 import { fmtDateTime } from '../util.js';
 import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 
-const ACTION = { create: 'membuat', update: 'mengubah', delete: 'menghapus', upload: 'mengunggah' };
-const ENTITY = { audit: 'audit', finding: 'temuan', user: 'pengguna', attachment: 'file bukti', setting: 'pengaturan' };
+const ACTION = { create: 'membuat', update: 'mengubah', delete: 'menghapus', upload: 'mengunggah', ocr: 'membaca dengan OCR' };
+const ENTITY = { audit: 'audit', finding: 'temuan', user: 'pengguna', attachment: 'file bukti', setting: 'pengaturan', file: 'file' };
 
 function describe(l) {
   const d = l.detail || {};

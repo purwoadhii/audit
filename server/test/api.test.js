@@ -445,7 +445,7 @@ test('asisten AI memakai penyedia berikutnya saat batas tercapai', async () => {
   }).listen(0);
   const fakeUrl = `http://127.0.0.1:${fake.address().port}`;
   try {
-    assert.equal((await auditee.get('/api/ai/status')).data.available, false, 'belum diatur');
+    assert.deepEqual((await auditee.get('/api/ai/status')).data, { available: false, reason: 'disabled' });
     assert.equal((await auditor.get('/api/admin/ai')).status, 403);
     const providers = {
       gemini: { key: 'kunci-gemini', base_url: `${fakeUrl}/gemini` },
@@ -534,4 +534,18 @@ test('model AI yang sudah tidak ada diganti otomatis', async () => {
   } finally {
     fake.close();
   }
+});
+
+test('menu OCR membaca file tanpa menyimpannya', async () => {
+  const before = (await pool.query('SELECT COUNT(*) AS n FROM attachments'))[0][0].n;
+  const fd = new FormData();
+  fd.append('file', new Blob([fx.imageWithText(['NOTA DINAS', 'Nomor ND-45']).buf], { type: 'image/png' }), 'nota.png');
+  const r = await auditor.post('/api/ocr', fd);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.ocr, true);
+  assert.match(r.data.text, /NOTA DINAS/);
+  assert.equal((await pool.query('SELECT COUNT(*) AS n FROM attachments'))[0][0].n, before, 'file tidak disimpan');
+  const zip = new FormData();
+  zip.append('file', new Blob(['x'], { type: 'application/zip' }), 'a.zip');
+  assert.equal((await auditor.post('/api/ocr', zip)).status, 400);
 });

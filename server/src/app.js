@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import settingsRoutes from './routes/settings.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
+import ocrRoutes from './routes/ocr.js';
 import { recordError } from './errorlog.js';
 
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -57,6 +58,7 @@ export function createApp() {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/ai', aiRoutes);
+  app.use('/api/ocr', ocrRoutes);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Alamat API tidak ditemukan.')));
 
   if (fs.existsSync(webDist)) {
