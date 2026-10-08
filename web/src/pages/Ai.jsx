@@ -106,8 +106,7 @@ export function AiSettings() {
         <h3 className="full" style={{ margin: 0 }}>Asisten AI</h3>
         <p className="form-note full">
           Pengguna bisa meminta AI mencari audit, temuan, dan isi file (termasuk hasil OCR). AI hanya melihat data yang boleh dilihat
-          pengguna itu. Penyedia dipakai berurutan: bila satu kena batas pemakaian gratis atau error, permintaan otomatis pindah ke
-          penyedia berikutnya. Pertanyaan dan data yang ditemukan dikirim ke penyedia AI yang dipakai.
+          pengguna itu. Pertanyaan dan data yang ditemukan dikirim ke penyedia AI ({form.order.map((id) => form.providers[id].label).join(', ')}).
         </p>
         <label className="full check-row"><input id="ai-enabled" type="checkbox" checked={form.enabled} onChange={(e) => setF({ ...form, enabled: e.target.checked })} />Aktifkan Asisten AI</label>
         <div className="full">
@@ -120,7 +119,7 @@ export function AiSettings() {
             ))}
           </div>
         </div>
-        {form.enabled && !ready.length && <div className="full error-text">Isi API key minimal satu penyedia supaya Asisten AI bisa dipakai.</div>}
+        {form.enabled && !ready.length && <div className="full error-text">Isi API key penyedia supaya Asisten AI bisa dipakai.</div>}
       </form>
 
       <div className="ai-providers">
@@ -131,13 +130,13 @@ export function AiSettings() {
           return (
             <section key={id} className="panel form ai-provider" aria-label={p.label}>
               <div className="full ai-head">
-                <span className="ai-rank">{i + 1}</span>
+                {form.order.length > 1 && <span className="ai-rank">{i + 1}</span>}
                 <div className="ai-name"><b>{p.label}</b><span className="t-sub">{p.key_set ? `API key tersimpan ${p.key_hint}` : 'API key belum diisi'}</span></div>
                 <label className="check-row"><input type="checkbox" checked={p.enabled} onChange={(e) => setP(id, 'enabled', e.target.checked)} />Dipakai</label>
-                <div className="ai-move">
+                {form.order.length > 1 && <div className="ai-move">
                   <button type="button" className="btn small" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Naikkan ${p.label}`}>↑</button>
                   <button type="button" className="btn small" disabled={i === form.order.length - 1} onClick={() => move(i, 1)} aria-label={`Turunkan ${p.label}`}>↓</button>
-                </div>
+                </div>}
               </div>
               <label>API key
                 <input id={`ai-key-${id}`} type="password" autoComplete="new-password" value={keys[id] || ''} onChange={(e) => { clearMsgs(id); setKeys({ ...keys, [id]: e.target.value }); }} placeholder={p.key_set ? 'Tersimpan. Isi hanya untuk mengganti.' : 'Tempel API key di sini'} />
@@ -286,7 +285,7 @@ export function AiUnavailable({ reason }) {
   );
 }
 
-const PROVIDER_LABEL = { gemini: 'Gemini', groq: 'Groq', together: 'Together AI', huggingface: 'Hugging Face', cohere: 'Cohere' };
+const PROVIDER_LABEL = { cohere: 'Cohere' };
 const EXAMPLES = ['Temuan risiko tinggi yang masih terbuka', 'Cari file kwitansi atau invoice', 'Tindak lanjut yang lewat jatuh tempo', 'Ringkas audit yang sedang berjalan'];
 
 // Pengguna: percakapan dengan Asisten AI. Riwayat hanya disimpan di halaman ini.
