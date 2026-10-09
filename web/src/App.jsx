@@ -2,7 +2,7 @@ import { NavLink, Navigate, Route, Routes, Link } from 'react-router-dom';
 import { useAuth } from './auth.jsx';
 import { useSettings } from './settings.jsx';
 import { ROLES, isAdmin as checkAdmin } from './util.js';
-import { LogoIcon } from './components/Icons.jsx';
+import { Logo } from './components/Icons.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Audits from './pages/Audits.jsx';
@@ -121,7 +121,7 @@ export default function App() {
         <div className="appbar-in">
           <header className="top">
             <Link to="/" className="brand">
-              <div className="brand-mark"><LogoIcon size={20} /></div>
+              <div className="brand-mark"><Logo size={40} /></div>
               <div><h1>{settings.app_name}</h1>{settings.app_tagline && <small>{settings.app_tagline}</small>}</div>
             </Link>
             <div className="usermenu">

@@ -49,7 +49,7 @@ a { color: var(--accent); }
 .appbar-in { max-width:1180px; margin:0 auto; padding-inline:20px; }
 header.top { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-block:16px 10px; }
 .brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit; min-width:0; }
-.brand-mark { width:36px; height:36px; border-radius:10px; background:var(--bright); color:var(--navy-900); display:grid; place-items:center; flex:none; }
+.brand-mark { width:40px; height:40px; display:grid; place-items:center; flex:none; }
 .brand h1 { font-family:var(--f-display); font-size:20px; margin:0; letter-spacing:-.01em; color:#fff; }
 .brand small { display:block; color:#A9BFC9; font-size:12px; margin-top:-2px; }
 .usermenu { display:flex; align-items:center; gap:10px; font-size:13px; }
@@ -221,7 +221,7 @@ tbody tr.click:hover td { background:var(--sunk); }
 .lp-card { flex:1; background:var(--card); border-radius:24px; padding:clamp(24px,5vh,48px) clamp(24px,4vw,56px); display:flex; flex-direction:column; justify-content:center; }
 .lp-inner { width:100%; max-width:400px; margin:0 auto; }
 .lp-brand { display:flex; align-items:center; gap:12px; margin-bottom:clamp(16px,4vh,32px); }
-.lp-brand-icon { width:44px; height:44px; border-radius:12px; background:var(--bright); display:grid; place-items:center; color:var(--navy-900); flex:none; }
+.lp-brand-icon { width:52px; height:52px; display:grid; place-items:center; flex:none; }
 .lp-brand-name { font-weight:700; font-size:19px; line-height:1.2; }
 .lp h1 { font-size:clamp(24px,2.2vw,30px); margin:0 0 6px; letter-spacing:-.02em; font-family:inherit; }
 .lp-lead { color:#5f7480; font-size:15px; margin:0 0 clamp(16px,3.5vh,28px); }

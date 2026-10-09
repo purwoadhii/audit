@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import LoginArt from '../components/LoginArt.jsx';
-import { LogoIcon } from '../components/Icons.jsx';
+import { Logo } from '../components/Icons.jsx';
 
 const SAVED_KEY = 'am_username';
 
@@ -79,7 +79,7 @@ export default function Login() {
         <div className="lp-card">
           <div className="lp-inner">
             <div className="lp-brand">
-              <div className="lp-brand-icon"><LogoIcon size={24} /></div>
+              <div className="lp-brand-icon"><Logo size={52} /></div>
               <div className="lp-brand-name">{settings.app_name}</div>
             </div>
 
