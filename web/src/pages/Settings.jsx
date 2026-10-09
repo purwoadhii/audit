@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
-import { ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
+import { ConfirmDelete, ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
 
 const THEME_LABEL = { teal: 'Teal', biru: 'Biru', hijau: 'Hijau', ungu: 'Ungu', merah: 'Merah', oranye: 'Oranye' };
 // Contoh warna: bilah atas dan aksen tiap tema.
@@ -128,59 +128,66 @@ function Section({ title, keys, data, onSaved }) {
   );
 }
 
-// Unggah gambar latar halaman login. Pratinjau memakai tata letak login yang sama.
+// Gambar latar halaman login. Gambar yang dipilih tampil dulu di pratinjau, baru tersimpan setelah klik Simpan.
 function BackgroundSection({ onSaved }) {
   const { settings } = useSettings();
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const url = settings.login_background_url;
+  const [pending, setPending] = useState(null); // { file, url } yang belum disimpan
+  const saved = settings.login_background_url;
+  const url = pending?.url || saved;
 
-  async function upload(e) {
+  useEffect(() => () => { if (pending) URL.revokeObjectURL(pending.url); }, [pending]);
+
+  function pick(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    setError('');
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return setError('Pilih gambar JPG, PNG, atau WebP.');
     if (file.size > 5 * 1024 * 1024) return setError('Ukuran gambar maksimal 5 MB.');
-    setBusy(true);
+    setPending({ file, url: URL.createObjectURL(file) });
+  }
+
+  async function run(kind, action, message) {
+    setBusy(kind);
     setError('');
     try {
-      await api.upload('/settings/login-background', file);
-      toast('Gambar latar login diperbarui');
+      await action();
+      setPending(null);
+      toast(message);
       onSaved();
     } catch (err) {
       setError(err.message);
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   }
 
-  async function remove() {
-    setBusy(true);
-    setError('');
-    try {
-      await api.del('/settings/login-background');
-      toast('Kembali ke ilustrasi bawaan');
-      onSaved();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const save = () => run('save', () => api.upload('/settings/login-background', pending.file), 'Gambar latar login disimpan');
+  const remove = () => run('delete', () => api.del('/settings/login-background'), 'Gambar latar dihapus, halaman login kembali ke tampilan bawaan');
 
   return (
     <section className="panel form" aria-label="Gambar latar login">
       <h3 className="full" style={{ margin: 0 }}>Gambar latar login</h3>
       <div className="full bg-preview" aria-label="Pratinjau halaman login">
-        <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Ilustrasi bawaan'}</div>
+        <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Tampilan bawaan'}</div>
         <div className="right"><i style={{ width: '45%' }} /><i /><i /><i className="btnlike" /></div>
       </div>
+      {pending && <div className="full hint" role="status">Pratinjau {pending.file.name}. Belum disimpan: klik Simpan untuk memakainya di halaman login.</div>}
       <div className="full upload-row">
-        <label className="btn primary" style={{ cursor: busy ? 'wait' : 'pointer' }}>
-          {busy ? 'Mengunggah…' : url ? 'Ganti gambar' : 'Unggah gambar'}
-          <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={upload} />
+        <label className="btn" style={{ cursor: busy ? 'wait' : 'pointer' }}>
+          {pending || saved ? 'Pilih gambar lain' : 'Pilih gambar'}
+          <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={Boolean(busy)} onChange={pick} />
         </label>
-        {url && <button type="button" className="btn" disabled={busy} onClick={remove}>Pakai ilustrasi bawaan</button>}
+        {pending && <>
+          <button type="button" className="btn primary" disabled={Boolean(busy)} onClick={save}>{busy === 'save' ? 'Menyimpan…' : 'Simpan'}</button>
+          <button type="button" className="btn ghost" disabled={Boolean(busy)} onClick={() => setPending(null)}>Batal</button>
+        </>}
+        {!pending && saved && (busy === 'delete'
+          ? <button type="button" className="btn danger" disabled>Menghapus…</button>
+          : <ConfirmDelete question="Hapus gambar latar? Halaman login kembali ke tampilan bawaan." onConfirm={remove} />)}
         <span className="hint">JPG, PNG, atau WebP, maksimal 5 MB. Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.</span>
       </div>
       {error && <div className="error-text full" role="alert">{error}</div>}
