@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { config } from './config.js';
 import { badRequest } from './errors.js';
 
-// Gambar latar login disimpan di folder branding di dalam UPLOAD_DIR.
+// Gambar latar (halaman login dan halaman setelah login) disimpan di folder branding di dalam UPLOAD_DIR.
 export const brandingDir = path.join(config.uploadDir, 'branding');
 export const MAX_BACKGROUND_MB = 5;
 
@@ -17,16 +17,22 @@ const KINDS = [
 
 export const mimeFor = (name) => KINDS.find((k) => name.endsWith(`.${k.ext}`))?.mime;
 
-export async function saveBackground(buffer) {
-  const kind = KINDS.find((k) => k.test(buffer));
-  if (!kind) throw badRequest('Gunakan gambar JPG, PNG, atau WebP.');
+// Jenis gambar latar: awalan nama file dan kunci pengaturannya.
+export const BACKGROUNDS = {
+  login: { prefix: 'login-bg', key: 'login_background', label: 'gambar latar login' },
+  app: { prefix: 'app-bg', key: 'app_background', label: 'gambar latar halaman aplikasi' },
+};
+
+export async function saveBackground(buffer, kind = 'login') {
+  const type = KINDS.find((k) => k.test(buffer));
+  if (!type) throw badRequest('Gunakan gambar JPG, PNG, atau WebP.');
   await fs.mkdir(brandingDir, { recursive: true });
-  const name = `login-bg-${crypto.randomBytes(8).toString('hex')}.${kind.ext}`;
+  const name = `${BACKGROUNDS[kind].prefix}-${crypto.randomBytes(8).toString('hex')}.${type.ext}`;
   await fs.writeFile(path.join(brandingDir, name), buffer);
   return name;
 }
 
 export async function removeBackground(name) {
-  if (!/^login-bg-[0-9a-f]{16}\.(jpg|png|webp)$/.test(name || '')) return;
+  if (!/^(login|app)-bg-[0-9a-f]{16}\.(jpg|png|webp)$/.test(name || '')) return;
   await fs.rm(path.join(brandingDir, name), { force: true });
 }

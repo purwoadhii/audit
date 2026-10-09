@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { badRequest } from '../errors.js';
-import { MAX_BACKGROUND_MB, saveBackground, removeBackground } from '../branding.js';
+import { BACKGROUNDS, MAX_BACKGROUND_MB, saveBackground, removeBackground } from '../branding.js';
 import { logActivity, query } from '../db.js';
 import { requireRole } from '../auth.js';
 import { SETTINGS, THEMES, getSettings, saveSettings, saveInternal, publicSettings } from '../settings.js';
@@ -27,30 +27,33 @@ r.patch('/', requireRole('admin'), async (req, res) => {
 
 const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_BACKGROUND_MB * 1024 * 1024, files: 1 } });
 
-// Unggah gambar latar halaman login. Gambar lama dihapus setelah yang baru tersimpan.
-r.post('/login-background', requireRole('admin'), async (req, res) => {
-  await new Promise((resolve, reject) => {
-    imageUpload.single('file')(req, res, (err) => {
-      if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest(`Ukuran gambar maksimal ${MAX_BACKGROUND_MB} MB.`));
-      if (err) return reject(err);
-      if (!req.file) return reject(badRequest('Pilih gambar yang akan diunggah.'));
-      resolve();
+// Gambar latar halaman login (/login-background) dan halaman setelah login (/app-background).
+// Gambar lama dihapus setelah yang baru tersimpan.
+for (const [kind, bg] of Object.entries(BACKGROUNDS)) {
+  r.post(`/${kind}-background`, requireRole('admin'), async (req, res) => {
+    await new Promise((resolve, reject) => {
+      imageUpload.single('file')(req, res, (err) => {
+        if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest(`Ukuran gambar maksimal ${MAX_BACKGROUND_MB} MB.`));
+        if (err) return reject(err);
+        if (!req.file) return reject(badRequest('Pilih gambar yang akan diunggah.'));
+        resolve();
+      });
     });
+    const old = (await getSettings())[bg.key];
+    const name = await saveBackground(req.file.buffer, kind);
+    await saveInternal(req.user, bg.key, name);
+    await removeBackground(old);
+    await logActivity({ query }, req.user.id, 'upload', 'setting', null, { filename: bg.label });
+    res.json(await publicSettings());
   });
-  const old = (await getSettings()).login_background;
-  const name = await saveBackground(req.file.buffer);
-  await saveInternal(req.user, 'login_background', name);
-  await removeBackground(old);
-  await logActivity({ query }, req.user.id, 'upload', 'setting', null, { filename: 'gambar latar login' });
-  res.json(await publicSettings());
-});
 
-r.delete('/login-background', requireRole('admin'), async (req, res) => {
-  const old = (await getSettings()).login_background;
-  await saveInternal(req.user, 'login_background', '');
-  await removeBackground(old);
-  await logActivity({ query }, req.user.id, 'delete', 'setting', null, { filename: 'gambar latar login' });
-  res.json(await publicSettings());
-});
+  r.delete(`/${kind}-background`, requireRole('admin'), async (req, res) => {
+    const old = (await getSettings())[bg.key];
+    await saveInternal(req.user, bg.key, '');
+    await removeBackground(old);
+    await logActivity({ query }, req.user.id, 'delete', 'setting', null, { filename: bg.label });
+    res.json(await publicSettings());
+  });
+}
 
 export default r;

@@ -325,6 +325,15 @@ pre.err { white-space:pre-wrap; font:12px var(--f-mono); color:var(--muted); mar
 .bg-preview .right { background:var(--card); display:flex; flex-direction:column; justify-content:center; gap:8px; padding:16px 22px; }
 .bg-preview .right i { display:block; height:10px; border-radius:5px; background:var(--line); }
 .bg-preview .right i.btnlike { height:16px; background:var(--navy-800); }
+.bg-preview.app { display:flex; flex-direction:column; gap:0; background:var(--bg); }
+.bg-preview.app .pv-bar { height:34px; background:linear-gradient(90deg, var(--navy-900), var(--navy-800)); flex:none; }
+.bg-preview.app .pv-body { flex:1; position:relative; background-size:cover; background-position:center; padding:16px 22px; }
+.bg-preview.app .pv-body span { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted, #6b7f8a); font-size:12px; font-weight:600; }
+.bg-preview.app .cards { position:relative; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.bg-preview.app .cards i { display:block; height:52px; border-radius:8px; background:var(--card); border:1px solid var(--line); }
+/* Gambar latar halaman setelah login: tetap di belakang isi, dengan lapisan terang supaya teks tetap terbaca. */
+.app-bg { position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; }
+.app-bg::after { content:''; position:absolute; inset:0; background:color-mix(in srgb, var(--bg) 35%, transparent); }
 .upload-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 /* Penanda kolom wajib */
 .req { color:var(--high); font-weight:800; margin-left:2px; }

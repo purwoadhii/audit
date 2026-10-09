@@ -46,6 +46,7 @@ export const SETTINGS = {
   forgot_password_text: { def: 'Hubungi admin aplikasi untuk mengatur ulang password Anda.', who: 'admin', label: 'Pesan lupa password', check: optText(200), pub: true },
   // Gambar latar login: nama file di folder branding. Diatur lewat endpoint unggah, bukan PATCH.
   login_background: { def: '', who: 'internal', label: 'Gambar latar login', check: optText(100) },
+  app_background: { def: '', who: 'internal', label: 'Gambar latar halaman aplikasi', check: optText(100) },
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
@@ -82,6 +83,7 @@ export async function publicSettings() {
   const out = Object.fromEntries(Object.entries(SETTINGS).filter(([, s]) => s.pub).map(([k]) => [k, all[k]]));
   // Nama file berubah setiap unggah, jadi bisa dipakai sebagai penanda versi untuk cache browser.
   out.login_background_url = all.login_background ? `/api/auth/login-background?v=${encodeURIComponent(all.login_background)}` : '';
+  out.app_background_url = all.app_background ? `/api/auth/app-background?v=${encodeURIComponent(all.app_background)}` : '';
   return out;
 }
 

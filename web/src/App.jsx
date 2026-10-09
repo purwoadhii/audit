@@ -114,8 +114,10 @@ export default function App() {
   const seesActivity = isAdmin || ['auditor', 'manajemen'].includes(user.role);
   // Akun admin hanya untuk pengaturan; pekerjaan audit dilakukan dengan akun pengguna biasa.
   const works = !isAdmin;
+  const appBg = settings.app_background_url;
   return (
     <>
+      {appBg && <div className="app-bg" style={{ backgroundImage: `url("${appBg}")` }} aria-hidden="true" />}
       <div className="appbar">
         {settings.maintenance && <div className="maint">Mode perbaikan aktif. Hanya Infra Admin yang bisa masuk.</div>}
         <div className="appbar-in">

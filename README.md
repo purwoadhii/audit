@@ -22,7 +22,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 
 - **System Admin** (`/sysAdmin`), untuk admin dari pihak klien:
   - Pengguna dan template.
-  - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login.
+  - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login, serta gambar latar halaman setelah login.
   - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
   - Penyimpanan file bukti: di server aplikasi (lokal/on-premise; foldernya bisa diganti dari halaman ini, misalnya `D:/AuditManagement/files` atau folder NAS yang di-mapping) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
   - Sesi aktif yang bisa dipaksa keluar.

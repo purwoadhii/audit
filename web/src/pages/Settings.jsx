@@ -128,14 +128,31 @@ function Section({ title, keys, data, onSaved }) {
   );
 }
 
-// Gambar latar halaman login. Gambar yang dipilih tampil dulu di pratinjau, baru tersimpan setelah klik Simpan.
-function BackgroundSection({ onSaved }) {
+const BACKGROUNDS = {
+  login: {
+    title: 'Gambar latar login',
+    url: 'login_background_url',
+    page: 'halaman login',
+    hint: 'Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.',
+  },
+  app: {
+    title: 'Gambar latar halaman aplikasi',
+    url: 'app_background_url',
+    page: 'halaman setelah login',
+    hint: 'Disarankan gambar mendatar minimal 1920 x 1080 piksel. Gambar tampil di belakang isi halaman setelah login, di bawah bilah atas.',
+  },
+};
+
+// Gambar latar halaman login atau halaman setelah login.
+// Gambar yang dipilih tampil dulu di pratinjau, baru tersimpan setelah klik Simpan.
+function BackgroundSection({ kind, onSaved }) {
+  const bg = BACKGROUNDS[kind];
   const { settings } = useSettings();
   const toast = useToast();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(null); // { file, url } yang belum disimpan
-  const saved = settings.login_background_url;
+  const saved = settings[bg.url];
   const url = pending?.url || saved;
 
   useEffect(() => () => { if (pending) URL.revokeObjectURL(pending.url); }, [pending]);
@@ -165,21 +182,31 @@ function BackgroundSection({ onSaved }) {
     }
   }
 
-  const save = () => run('save', () => api.upload('/settings/login-background', pending.file), 'Gambar latar login disimpan');
-  const remove = () => run('delete', () => api.del('/settings/login-background'), 'Gambar latar dihapus, halaman login kembali ke tampilan bawaan');
+  const save = () => run('save', () => api.upload(`/settings/${kind}-background`, pending.file), `${bg.title} disimpan`);
+  const remove = () => run('delete', () => api.del(`/settings/${kind}-background`), `Gambar latar dihapus, ${bg.page} kembali ke tampilan bawaan`);
 
   return (
-    <section className="panel form" aria-label="Gambar latar login">
-      <h3 className="full" style={{ margin: 0 }}>Gambar latar login</h3>
-      <div className="full bg-preview" aria-label="Pratinjau halaman login">
-        <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Tampilan bawaan'}</div>
-        <div className="right"><i style={{ width: '45%' }} /><i /><i /><i className="btnlike" /></div>
-      </div>
-      {pending && <div className="full hint" role="status">Pratinjau {pending.file.name}. Belum disimpan: klik Simpan untuk memakainya di halaman login.</div>}
+    <section className="panel form" aria-label={bg.title}>
+      <h3 className="full" style={{ margin: 0 }}>{bg.title}</h3>
+      {kind === 'login' ? (
+        <div className="full bg-preview" aria-label="Pratinjau halaman login">
+          <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Tampilan bawaan'}</div>
+          <div className="right"><i style={{ width: '45%' }} /><i /><i /><i className="btnlike" /></div>
+        </div>
+      ) : (
+        <div className="full bg-preview app" aria-label="Pratinjau halaman setelah login">
+          <div className="pv-bar" />
+          <div className="pv-body" style={url ? { backgroundImage: `url("${url}")` } : undefined}>
+            {!url && <span>Tampilan bawaan</span>}
+            <div className="cards"><i /><i /><i /></div>
+          </div>
+        </div>
+      )}
+      {pending && <div className="full hint" role="status">Pratinjau {pending.file.name}. Belum disimpan: klik Simpan untuk memakainya di {bg.page}.</div>}
       <div className="full upload-row">
         <label className="btn" style={{ cursor: busy ? 'wait' : 'pointer' }}>
           {pending || saved ? 'Pilih gambar lain' : 'Pilih gambar'}
-          <input id="bg-file" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={Boolean(busy)} onChange={pick} />
+          <input id={`bg-file-${kind}`} type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={Boolean(busy)} onChange={pick} />
         </label>
         {pending && <>
           <button type="button" className="btn primary" disabled={Boolean(busy)} onClick={save}>{busy === 'save' ? 'Menyimpan…' : 'Simpan'}</button>
@@ -187,8 +214,8 @@ function BackgroundSection({ onSaved }) {
         </>}
         {!pending && saved && (busy === 'delete'
           ? <button type="button" className="btn danger" disabled>Menghapus…</button>
-          : <ConfirmDelete question="Hapus gambar latar? Halaman login kembali ke tampilan bawaan." onConfirm={remove} />)}
-        <span className="hint">JPG, PNG, atau WebP, maksimal 5 MB. Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.</span>
+          : <ConfirmDelete question={`Hapus gambar latar? Tampilan ${bg.page} kembali ke bawaan.`} onConfirm={remove} />)}
+        <span className="hint">JPG, PNG, atau WebP, maksimal 5 MB. {bg.hint}</span>
       </div>
       {error && <div className="error-text full" role="alert">{error}</div>}
     </section>
@@ -207,7 +234,8 @@ export default function Settings({ infra = false }) {
   return (
     <div className="settings-grid">
       <Section {...SECTIONS[0]} data={data} onSaved={saved} />
-      <BackgroundSection onSaved={saved} />
+      <BackgroundSection kind="login" onSaved={saved} />
+      <BackgroundSection kind="app" onSaved={saved} />
       {SECTIONS.slice(1).map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}
     </div>
   );

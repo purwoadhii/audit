@@ -288,7 +288,7 @@ test('infra admin di atas system admin', async () => {
   assert.equal((await auditor.get('/api/audits')).status, 200);
 });
 
-test('gambar latar login', async () => {
+test('gambar latar login dan halaman aplikasi', async () => {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
   const form = (buf, name, type) => { const fd = new FormData(); fd.append('file', new Blob([buf], { type }), name); return fd; };
   assert.equal((await client().get('/api/auth/login-background', { raw: true })).status, 404);
@@ -303,6 +303,18 @@ test('gambar latar login', async () => {
   assert.equal((await admin.patch('/api/settings', { login_background: '../../etc/passwd' })).status, 400);
   assert.equal((await admin.del('/api/settings/login-background')).status, 200);
   assert.equal((await client().get('/api/auth/settings')).data.login_background_url, '');
+
+  // Gambar latar halaman setelah login terpisah dari gambar latar login.
+  assert.equal((await auditor.post('/api/settings/app-background', form(png, 'a.png', 'image/png'))).status, 403);
+  const app = await admin.post('/api/settings/app-background', form(png, 'kantor.png', 'image/png'));
+  assert.equal(app.status, 200, JSON.stringify(app.data));
+  assert.match(app.data.app_background_url, /^\/api\/auth\/app-background\?v=app-bg-[0-9a-f]{16}\.png$/);
+  assert.equal(app.data.login_background_url, '');
+  assert.equal((await client().get(app.data.app_background_url, { raw: true })).status, 200);
+  assert.equal((await admin.patch('/api/settings', { app_background: 'x.png' })).status, 400);
+  assert.equal((await admin.del('/api/settings/app-background')).status, 200);
+  assert.equal((await client().get('/api/auth/settings')).data.app_background_url, '');
+  assert.equal((await client().get('/api/auth/app-background', { raw: true })).status, 404);
 });
 
 test('anggota tim dari pengguna terdaftar dan anggota eksternal', async () => {
