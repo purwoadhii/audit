@@ -133,7 +133,7 @@ export async function licenseFeatures() {
 export const hasFeature = async (f) => (await licenseFeatures()).includes(f);
 export async function assertFeature(f) {
   if (await hasFeature(f)) return;
-  throw new HttpError(403, `${FEATURES[f]} hanya tersedia di lisensi Pro. Hubungi Infra Admin untuk meningkatkan lisensi.`);
+  throw new HttpError(403, '{feature} hanya tersedia di lisensi Pro. Hubungi Infra Admin untuk meningkatkan lisensi.', { feature: FEATURES[f] });
 }
 
 // Batas pengguna lisensi (0 berarti tanpa batas). Dipanggil sebelum akun menjadi aktif atau berganti peran:
@@ -149,5 +149,5 @@ export async function assertUserSlot(role, from = null) {
   bump(role, 1);
   // Perubahan yang tidak menambah hitungan selalu boleh, walaupun pemakaian sudah melewati batas.
   if (counted(after) <= st.max_users || counted(after) <= counted(c)) return;
-  throw badRequest(`Jumlah pengguna aktif sudah mencapai batas lisensi (${st.max_users} pengguna). Nonaktifkan pengguna lain atau minta Infra Admin memperbarui lisensi.`);
+  throw badRequest('Jumlah pengguna aktif sudah mencapai batas lisensi ({n} pengguna). Nonaktifkan pengguna lain atau minta Infra Admin memperbarui lisensi.', { n: st.max_users });
 }

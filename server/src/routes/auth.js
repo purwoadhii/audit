@@ -6,7 +6,7 @@ import { query } from '../db.js';
 import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent, PORTALS, portalOf, portalForRole } from '../auth.js';
 import { assertLicensed, licenseFeatures } from '../license.js';
 import { APP_VERSION } from '../version.js';
-import { HttpError, badRequest, requireText } from '../errors.js';
+import { HttpError, badRequest, oneOf, requireText } from '../errors.js';
 import { getSettings, publicSettings } from '../settings.js';
 
 const r = Router();
@@ -68,7 +68,7 @@ r.post('/login', async (req, res) => {
   if (!PORTALS[portal].roles.includes(user.role)) {
     await recordLogin(req, login, user, false, 'pintu_salah');
     const right = PORTALS[portalForRole(user.role)];
-    throw new HttpError(403, right ? `Akun ini masuk lewat ${right.label} di alamat ${right.path}.` : 'Akun ini tidak bisa masuk di sini.');
+    throw right ? new HttpError(403, 'Akun ini masuk lewat {portal} di alamat {path}.', { portal: right.label, path: right.path }) : new HttpError(403, 'Akun ini tidak bisa masuk di sini.');
   }
   if (settings.maintenance && user.role !== 'infraadmin') {
     await recordLogin(req, login, user, false, 'perbaikan');
@@ -84,7 +84,7 @@ r.post('/login', async (req, res) => {
   await issueSession(req, res, user, Boolean(req.body?.remember));
   await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [user.id]);
   await recordLogin(req, login, user, true, null);
-  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit, features: await licenseFeatures() });
+  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit, language: user.language, features: await licenseFeatures() });
 });
 
 r.post('/logout', async (req, res) => {
@@ -95,8 +95,16 @@ r.post('/logout', async (req, res) => {
 });
 
 r.get('/me', requireAuth, async (req, res) => {
-  const { id, name, username, email, role, unit } = req.user;
-  res.json({ id, name, username, email, role, unit, features: await licenseFeatures() });
+  const { id, name, username, email, role, unit, language } = req.user;
+  res.json({ id, name, username, email, role, unit, language, features: await licenseFeatures() });
+});
+
+// Bahasa tampilan, disimpan per pengguna.
+export const LANGUAGES = ['en', 'id', 'ms', 'zh', 'ja', 'ko'];
+r.put('/language', requireAuth, async (req, res) => {
+  const language = oneOf(req.body?.language, LANGUAGES, 'Bahasa');
+  await query('UPDATE users SET language = ? WHERE id = ?', [language, req.user.id]);
+  res.json({ language });
 });
 
 // Riwayat login dan sesi aktif milik pengguna sendiri.

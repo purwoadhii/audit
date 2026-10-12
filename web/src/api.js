@@ -1,4 +1,5 @@
 import { PORTAL } from './portal.js';
+import { t, tServer } from './i18n.jsx';
 
 // Pembungkus fetch untuk API. Sesi disimpan di cookie httpOnly oleh server, satu cookie per pintu masuk.
 export class ApiError extends Error {
@@ -23,15 +24,16 @@ async function request(method, url, body) {
   try {
     res = await fetch(`/api${url}`, { method, headers, body: payload, credentials: 'same-origin' });
   } catch {
-    throw new ApiError(0, 'Tidak bisa terhubung ke server. Periksa koneksi internet.');
+    throw new ApiError(0, t('Tidak bisa terhubung ke server. Periksa koneksi internet.'));
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     // 401: sesi habis. 503 dengan tanda maintenance: mode perbaikan. 403 dengan tanda license: lisensi habis.
     // Semuanya kembali ke halaman login. Error lain (termasuk penyedia AI yang gagal) tidak membuat pengguna keluar.
     const out = res.status === 401 || (res.status === 503 && data?.maintenance) || (res.status === 403 && data?.license);
-    if (out && !url.startsWith('/auth/')) onUnauthorized(data?.license ? data.error : null);
-    throw new ApiError(res.status, data?.error || 'Terjadi kesalahan.');
+    const message = data?.error ? tServer(data.key || data.error, data.vars) : t('Terjadi kesalahan.');
+    if (out && !url.startsWith('/auth/')) onUnauthorized(data?.license ? message : null);
+    throw new ApiError(res.status, message);
   }
   return data;
 }

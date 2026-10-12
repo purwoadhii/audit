@@ -5,6 +5,7 @@ import { useAuth } from '../auth.jsx';
 import { FINDING_STATUS, RISKS, canEdit, fmtDate } from '../util.js';
 import { Empty, ErrorBox, Loading, RiskPill, StatusPill, useLoad } from '../components/ui.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
+import { t } from '../i18n.jsx';
 
 export default function Findings() {
   const { user } = useAuth();
@@ -38,22 +39,22 @@ export default function Findings() {
   return (
     <>
       <div className="bar">
-        <h2>{user.role === 'auditee' ? 'Temuan untuk Anda' : 'Temuan'}</h2>
-        {canEdit(user) && <button className="btn primary" onClick={() => setSheet({ preset: {} })}>Catat temuan</button>}
+        <h2>{user.role === 'auditee' ? t('Temuan untuk Anda') : t('Temuan')}</h2>
+        {canEdit(user) && <button className="btn primary" onClick={() => setSheet({ preset: {} })}>{t('Catat temuan')}</button>}
       </div>
       <div className="filters">
-        <input id="f-q" placeholder="Cari judul, PIC, atau kondisi" value={filter.q} onChange={set('q')} />
-        <select id="f-status-filter" aria-label="Status" value={filter.status} onChange={set('status')}><option value="">Semua status</option>{FINDING_STATUS.map((s) => <option key={s}>{s}</option>)}</select>
-        <select id="f-risk-filter" aria-label="Risiko" value={filter.risk} onChange={set('risk')}><option value="">Semua risiko</option>{RISKS.map((s) => <option key={s}>{s}</option>)}</select>
-        <select id="f-audit-filter" aria-label="Audit" value={filter.audit} onChange={set('audit')}><option value="">Semua audit</option>{audits.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
-        <label className="btn" style={{ cursor: 'pointer' }}><input id="f-overdue" type="checkbox" style={{ width: 'auto' }} checked={filter.overdue} onChange={set('overdue')} />Terlambat saja</label>
+        <input id="f-q" placeholder={t('Cari judul, PIC, atau kondisi')} value={filter.q} onChange={set('q')} />
+        <select id="f-status-filter" aria-label={t('Status')} value={filter.status} onChange={set('status')}><option value="">{t('Semua status')}</option>{FINDING_STATUS.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select>
+        <select id="f-risk-filter" aria-label={t('Risiko')} value={filter.risk} onChange={set('risk')}><option value="">{t('Semua risiko')}</option>{RISKS.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select>
+        <select id="f-audit-filter" aria-label={t('Audit')} value={filter.audit} onChange={set('audit')}><option value="">{t('Semua audit')}</option>{audits.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
+        <label className="btn" style={{ cursor: 'pointer' }}><input id="f-overdue" type="checkbox" style={{ width: 'auto' }} checked={filter.overdue} onChange={set('overdue')} />{t('Terlambat saja')}</label>
       </div>
       {loading && !data ? <Loading /> : error ? <ErrorBox error={error} retry={reload} /> : !data.length ? (
-        <Empty title="Belum ada temuan">{canEdit(user) ? 'Catat temuan dari audit yang sedang berjalan, atau tandai langkah program kerja sebagai Tidak sesuai.' : 'Temuan akan muncul di sini setelah auditor mencatatnya.'}</Empty>
+        <Empty title={t('Belum ada temuan')}>{canEdit(user) ? t('Catat temuan dari audit yang sedang berjalan, atau tandai langkah program kerja sebagai Tidak sesuai.') : t('Temuan akan muncul di sini setelah auditor mencatatnya.')}</Empty>
       ) : (
         <div className="tablebox">
           <table>
-            <thead><tr><th>No.</th><th>Temuan</th><th>Risiko</th><th>PIC</th><th>Batas waktu</th><th>Status</th></tr></thead>
+            <thead><tr><th>{t('No.')}</th><th>{t('Temuan')}</th><th>{t('Risiko')}</th><th>{t('PIC')}</th><th>{t('Batas waktu')}</th><th>{t('Status')}</th></tr></thead>
             <tbody>
               {rows.map((f) => (
                 <tr key={f.id} className="click" onClick={() => setSheet({ id: f.id })}>
@@ -61,11 +62,11 @@ export default function Findings() {
                   <td><div className="t-title">{f.title}</div><div className="t-sub">{f.audit_title} · {f.audit_unit}</div></td>
                   <td><RiskPill value={f.risk} /></td>
                   <td>{f.owner_name || '—'}</td>
-                  <td className={`num ${f.overdue ? 'overdue' : ''}`}>{fmtDate(f.due_date)}{f.overdue ? ' · terlambat' : ''}</td>
+                  <td className={`num ${f.overdue ? 'overdue' : ''}`}>{fmtDate(f.due_date)}{f.overdue ? ` · ${t('terlambat')}` : ''}</td>
                   <td><StatusPill value={f.status} /></td>
                 </tr>
               ))}
-              {!rows.length && <tr><td colSpan={6}><Empty small>Tidak ada temuan yang cocok dengan filter.</Empty></td></tr>}
+              {!rows.length && <tr><td colSpan={6}><Empty small>{t('Tidak ada temuan yang cocok dengan filter.')}</Empty></td></tr>}
             </tbody>
           </table>
         </div>

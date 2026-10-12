@@ -5,24 +5,26 @@ import { useSettings } from '../settings.jsx';
 import LoginArt from '../components/LoginArt.jsx';
 import { Logo } from '../components/Icons.jsx';
 import { PORTAL, portalInfo } from '../portal.js';
+import { N_, t } from '../i18n.jsx';
+import LangMenu from '../components/LangMenu.jsx';
 
 const SAVED_KEY = PORTAL === 'user' ? 'am_username' : `am_username_${PORTAL}`;
 
 // Teks halaman login untuk System Admin dan Infra Admin. Halaman login pengguna memakai teks dari Pengaturan.
 const ADMIN_TEXT = {
   sys: {
-    title: 'Masuk System Admin',
-    lead: 'Kelola akun pengguna, template audit, dan pengaturan aplikasi.',
-    hero: 'Atur pengguna dan aplikasi dari satu tempat',
-    heroText: 'System Admin mengatur akun auditor, auditee, dan manajemen, beserta tampilan, data master, penyimpanan, dan Asisten AI.',
-    pills: ['Pengguna', 'Template', 'Pengaturan'],
+    title: N_('Masuk System Admin'),
+    lead: N_('Kelola akun pengguna, template audit, dan pengaturan aplikasi.'),
+    hero: N_('Atur pengguna dan aplikasi dari satu tempat'),
+    heroText: N_('System Admin mengatur akun auditor, auditee, dan manajemen, beserta tampilan, data master, penyimpanan, dan Asisten AI.'),
+    pills: [N_('Pengguna'), N_('Template'), N_('Pengaturan')],
   },
   infra: {
-    title: 'Masuk Infra Admin',
-    lead: 'Kelola lisensi, akun System Admin, dan keamanan aplikasi.',
-    hero: 'Pusat kendali aplikasi',
-    heroText: 'Infra Admin menjaga lisensi, akun System Admin, keamanan login, dan kondisi server.',
-    pills: ['Lisensi', 'Akun Admin', 'Keamanan'],
+    title: N_('Masuk Infra Admin'),
+    lead: N_('Kelola lisensi, akun System Admin, dan keamanan aplikasi.'),
+    hero: N_('Pusat kendali aplikasi'),
+    heroText: N_('Infra Admin menjaga lisensi, akun System Admin, keamanan login, dan kondisi server.'),
+    pills: [N_('Lisensi'), N_('Akun Admin'), N_('Keamanan')],
   },
 };
 
@@ -58,7 +60,7 @@ export default function Login() {
   async function submit(e) {
     e.preventDefault();
     const u = username.trim();
-    if (!u || !password) { setError('Username dan password wajib diisi.'); return; }
+    if (!u || !password) { setError(t('Username dan password wajib diisi.')); return; }
     setBusy(true);
     setError('');
     try {
@@ -85,39 +87,40 @@ export default function Login() {
       >
         {!bg && <div className="lp-art"><LoginArt /></div>}
         <div className="lp-hero-text">
-          {admin ? <h2>{admin.hero}</h2> : settings.login_hero_title && <h2>{settings.login_hero_title}</h2>}
-          {admin ? <p>{admin.heroText}</p> : settings.login_hero_text && <p>{settings.login_hero_text}</p>}
+          {admin ? <h2>{t(admin.hero)}</h2> : settings.login_hero_title && <h2>{t(settings.login_hero_title)}</h2>}
+          {admin ? <p>{t(admin.heroText)}</p> : settings.login_hero_text && <p>{t(settings.login_hero_text)}</p>}
           <div className="lp-pills">
-            {(admin?.pills || ['Perencanaan Audit', 'Kertas Kerja', 'Temuan & Tindak Lanjut']).map((x) => <span key={x}>{x}</span>)}
+            {(admin?.pills || [N_('Perencanaan Audit'), N_('Kertas Kerja'), N_('Temuan & Tindak Lanjut')]).map((x) => <span key={x}>{t(x)}</span>)}
           </div>
         </div>
       </section>
 
       <main className="lp-side">
         <div className="lp-card">
+          <div className="lp-lang"><LangMenu /></div>
           <div className="lp-inner">
             <div className="lp-brand">
               <div className="lp-brand-icon"><Logo size={52} /></div>
-              <div className="lp-brand-name">{settings.app_name}{admin && <span className={`portal-badge ${PORTAL}`}>{portalInfo.label}</span>}</div>
+              <div className="lp-brand-name">{t(settings.app_name)}{admin && <span className={`portal-badge ${PORTAL}`}>{t(portalInfo.label)}</span>}</div>
             </div>
 
-            <h1>{admin ? admin.title : settings.login_title}</h1>
-            {admin ? <p className="lp-lead">{admin.lead}</p> : settings.login_subtitle && <p className="lp-lead">{settings.login_subtitle}</p>}
-            {settings.maintenance && PORTAL !== 'infra' && <div className="lp-maint" role="status">{settings.maintenance_message}</div>}
+            <h1>{admin ? t(admin.title) : t(settings.login_title)}</h1>
+            {admin ? <p className="lp-lead">{t(admin.lead)}</p> : settings.login_subtitle && <p className="lp-lead">{t(settings.login_subtitle)}</p>}
+            {settings.maintenance && PORTAL !== 'infra' && <div className="lp-maint" role="status">{t(settings.maintenance_message)}</div>}
             {notice && <div className="lp-maint" role="status">{notice}</div>}
 
             <form onSubmit={submit} noValidate>
-              <label className="lp-label" htmlFor="username">Username</label>
+              <label className="lp-label" htmlFor="username">{t('Username')}</label>
               <div className="lp-field">
                 <span className="lp-ico"><Icon><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></Icon></span>
-                <input id="username" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="contoh: budi.santoso" value={username} onChange={(e) => setUsername(e.target.value)} />
+                <input id="username" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={t('contoh: budi.santoso')} value={username} onChange={(e) => setUsername(e.target.value)} />
               </div>
 
-              <label className="lp-label" htmlFor="password">Password</label>
+              <label className="lp-label" htmlFor="password">{t('Password')}</label>
               <div className="lp-field">
                 <span className="lp-ico"><Icon><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon></span>
-                <input id="password" type={showPw ? 'text' : 'password'} autoComplete="current-password" placeholder="Masukkan password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <button type="button" className="lp-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPw}>
+                <input id="password" type={showPw ? 'text' : 'password'} autoComplete="current-password" placeholder={t('Masukkan password')} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="button" className="lp-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t('Sembunyikan password') : t('Tampilkan password')} aria-pressed={showPw}>
                   {showPw
                     ? <Icon><path d="M3 3l18 18" /><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></Icon>
                     : <Icon><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></Icon>}
@@ -127,16 +130,16 @@ export default function Login() {
               {error && <div className="lp-error" role="alert">{error}</div>}
 
               <div className="lp-row">
-                <label className="lp-remember"><input id="remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Ingat saya</label>
-                <button type="button" className="lp-link" onClick={() => setForgot(!forgot)} aria-expanded={forgot}>Forgot password?</button>
+                <label className="lp-remember"><input id="remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> {t('Ingat saya')}</label>
+                <button type="button" className="lp-link" onClick={() => setForgot(!forgot)} aria-expanded={forgot}>{t('Forgot password?')}</button>
               </div>
-              {forgot && <div className="lp-note" role="status">{settings.forgot_password_text}</div>}
+              {forgot && <div className="lp-note" role="status">{t(settings.forgot_password_text)}</div>}
 
-              <button type="submit" className="lp-btn" disabled={busy}>{busy ? 'Memeriksa…' : 'Sign In'}</button>
+              <button type="submit" className="lp-btn" disabled={busy}>{busy ? t('Memeriksa…') : t('Sign In')}</button>
             </form>
 
             <hr />
-            <p className="lp-foot">{settings.app_tagline || settings.app_name}{settings.version && <> · Versi {settings.version}</>}</p>
+            <p className="lp-foot">{t(settings.app_tagline || settings.app_name)}{settings.version && <> · {t('Versi {version}', { version: settings.version })}</>}</p>
           </div>
         </div>
       </main>

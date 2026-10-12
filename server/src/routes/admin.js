@@ -112,7 +112,7 @@ r.post('/storage/test', requireRole('admin'), async (req, res) => {
 r.put('/storage', requireRole('admin'), async (req, res) => {
   const cfg = await buildStorageConfig(req.body);
   const test = await testStorage(cfg);
-  if (!test.ok) throw badRequest(`Pengaturan belum disimpan. ${test.message}`);
+  if (!test.ok) throw badRequest('Pengaturan belum disimpan. {detail}', { detail: test.message });
   await saveStorageConfig(req.user, cfg);
   await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['storage'], driver: cfg.driver });
   await checkHealth();
@@ -196,7 +196,7 @@ r.put('/license', requireRole('infraadmin'), async (req, res) => {
   const lic = parseLicense(req.body?.key);
   const used = await countedUsers();
   if (lic.max_users && used > lic.max_users) {
-    throw badRequest(`Lisensi ini untuk ${lic.max_users} pengguna, sedangkan pengguna aktif sekarang ${used}. Nonaktifkan sebagian pengguna dulu atau minta lisensi dengan batas lebih besar.`);
+    throw badRequest('Lisensi ini untuk {max} pengguna, sedangkan pengguna aktif sekarang {used}. Nonaktifkan sebagian pengguna dulu atau minta lisensi dengan batas lebih besar.', { max: lic.max_users, used });
   }
   await saveInternal(req.user, 'license_key', String(req.body.key).trim().replace(/\s+/g, ''));
   clearLicenseCache();

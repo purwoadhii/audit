@@ -694,3 +694,19 @@ test('AI yang semuanya gagal tidak dianggap mode perbaikan', async () => {
   assert.equal(r.data.maintenance, undefined);
   assert.equal((await auditee.get('/api/auth/me')).status, 200, 'sesi tetap aktif');
 });
+
+test('bahasa per pengguna dan pesan error yang bisa diterjemahkan', async () => {
+  assert.equal((await auditor.get('/api/auth/me')).data.language, 'en', 'bawaan bahasa Inggris');
+  assert.equal((await auditor.put('/api/auth/language', { language: 'id' })).data.language, 'id');
+  assert.equal((await auditor.get('/api/auth/me')).data.language, 'id');
+  assert.equal((await auditor.put('/api/auth/language', { language: 'xx' })).status, 400);
+  assert.equal((await admin.get('/api/auth/me')).data.language, 'en', 'bahasa disimpan per pengguna');
+  await auditor.put('/api/auth/language', { language: 'en' });
+
+  // Pesan error membawa teks asli dan isiannya supaya browser bisa menerjemahkan.
+  const bad = await admin.post('/api/users', { name: ' ', username: 'x', email: 'x@contoh.id', role: 'auditor', password: 'katasandi123' });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.data.error, 'Nama wajib diisi.');
+  assert.equal(bad.data.key, '{label} wajib diisi.');
+  assert.deepEqual(bad.data.vars, { label: 'Nama' });
+});

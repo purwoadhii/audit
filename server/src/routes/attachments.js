@@ -30,7 +30,7 @@ const upload = multer({
 function runUpload(req, res) {
   return new Promise((resolve, reject) => {
     upload.single('file')(req, res, (err) => {
-      if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest(`Ukuran file maksimal ${config.maxUploadMb} MB.`));
+      if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest('Ukuran file maksimal {n} MB.', { n: config.maxUploadMb }));
       if (err) return reject(err);
       if (!req.file) return reject(badRequest('Pilih file yang akan diunggah.'));
       resolve(req.file);

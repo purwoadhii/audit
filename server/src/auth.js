@@ -64,7 +64,7 @@ export async function requireAuth(req, _res, next) {
     const portal = portalOf(req);
     if (!payload?.sid) throw new HttpError(401, req.cookies?.[PORTALS[portal].cookie] ? 'Sesi berakhir. Silakan masuk lagi.' : 'Silakan masuk terlebih dahulu.');
     const { rows } = await query(
-      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.active,
+      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.active, u.language,
               s.id AS sid, s.remember, s.expires_at, s.ended_at, s.last_seen_at
          FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND u.id = ?`,
       [payload.sid, payload.sub],

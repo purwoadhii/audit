@@ -43,6 +43,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   - Kondisi server dan database, kesalahan server terakhir, status penyimpanan file, pemakaian Asisten AI, dan riwayat versi.
 - Supaya pemilik akun admin tetap bisa mengerjakan audit, saat aplikasi jalan dibuat juga akun user terpisah (peran dari `ADMIN_USER_ROLE`, bawaan auditor) dengan password yang sama, username `<ADMIN_USERNAME>.user`, dan email alias `+user`, misalnya `oti.twingate+user@gmail.com`. Akun ini masuk lewat `http://localhost:3000`.
 - **Lisensi:** kunci lisensi berisi nama pelanggan, paket (Standar atau Pro), batas jumlah pengguna aktif, dan tanggal berakhir. Paket Pro membuka OCR dan Asisten AI; paket Standar berisi semua fitur audit tanpa keduanya. Batas pengguna menghitung semua akun aktif kecuali Infra Admin dan satu System Admin (System Admin kedua dan seterusnya ikut dihitung, begitu juga akun kembar admin seperti `admin.user`). Masa uji coba membuka semua fitur Pro. Kunci ditandatangani dengan kunci privat penyedia, jadi isinya tidak bisa diubah. Tanpa lisensi, aplikasi berjalan 30 hari masa uji coba sejak pertama dijalankan. Bila lisensi atau masa uji coba habis, pengguna dan System Admin tidak bisa masuk, sedangkan Infra Admin tetap bisa masuk untuk memasang lisensi baru. Admin melihat peringatan 30 hari sebelum lisensi habis.
+- **Bahasa:** setiap pengguna memilih bahasanya sendiri lewat tombol bahasa di bilah atas atau di halaman login: English (bawaan), Bahasa Indonesia, Bahasa Melayu, 简体中文, 日本語, dan 한국어. Pilihan disimpan di akun. Asisten AI menjawab dalam bahasa pengguna. Data yang diketik pengguna (judul audit, temuan, nama) tidak diterjemahkan.
 - **Versi:** nomor versi tampil di halaman login dan di bawah setiap halaman. Riwayat versi ada di [CHANGELOG.md](CHANGELOG.md) dan di Infra Admin → Versi aplikasi.
 - **Pembacaan dokumen dan OCR:** teks PDF, Word, Excel, dan PowerPoint (.docx, .xlsx, .pptx) dibaca otomatis saat diunggah. Gambar dan PDF hasil scan dibaca dengan OCR (bahasa Indonesia dan Inggris, tanpa internet). Teks bisa dilihat dari tombol "Lihat teks" di daftar file dan dipakai untuk pencarian. OCR bisa dimatikan di Pengaturan. Ada juga menu **OCR** untuk user: unggah foto, scan, atau dokumen, lalu teksnya bisa disalin atau diunduh tanpa file itu disimpan.
 - **Asisten AI** (menu untuk auditor, auditee, dan manajemen): mencari audit, temuan, tindak lanjut, dan isi file atas permintaan, dengan tautan ke datanya. AI hanya melihat data yang boleh dilihat penanya. Penyedia AI yang dipakai adalah Cohere. Bila Cohere kena batas pemakaian gratis atau error, asisten tidak bisa menjawab sampai batasnya pulih. API key, model, urutan, dan peran yang boleh memakai diatur di System Admin (API key disimpan terenkripsi). Pemakaian per penyedia, batas yang tercapai, dan antrian OCR dipantau di Infra Admin.
@@ -155,6 +156,18 @@ Tes API berjalan terhadap database MySQL/MariaDB sungguhan dan **menghapus semua
 cd server
 TEST_DATABASE_URL=mysql://root:@localhost:3306/jejak_audit_test npm test
 ```
+
+### Terjemahan
+
+Teks di kode ditulis dalam bahasa Indonesia dan dibungkus `t('...')` (lihat `web/src/i18n.jsx`). Teks itu sekaligus menjadi kunci kamus di `web/src/locales/<bahasa>.json`. Setelah menambah atau mengubah teks, jalankan:
+
+```bash
+cd web
+node scripts/i18n-keys.mjs              # jumlah teks yang belum diterjemahkan per bahasa
+node scripts/i18n-keys.mjs --missing en # daftar teks yang belum ada di en.json
+```
+
+Teks yang belum diterjemahkan tampil dalam bahasa Indonesia. Untuk menambah bahasa: buat file kamus baru, lalu daftarkan di `LANGS` dan `LOADERS` (`web/src/i18n.jsx`) serta `LANGUAGES` (`server/src/routes/auth.js`).
 
 ### Membuat kunci lisensi (khusus penyedia aplikasi)
 

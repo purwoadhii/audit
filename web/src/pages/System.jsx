@@ -1,15 +1,16 @@
 import { api } from '../api.js';
 import { fmtDateTime, fmtSize } from '../util.js';
 import { ErrorBox, Loading, useLoad } from '../components/ui.jsx';
+import { T, t } from '../i18n.jsx';
 
 function uptime(s) {
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  return [d && `${d} hari`, h && `${h} jam`, `${m} menit`].filter(Boolean).join(' ');
+  return [d && t('{n} hari', { n: d }), h && t('{n} jam', { n: h }), t('{n} menit', { n: m })].filter(Boolean).join(' ');
 }
 
-const Flag = ({ on, yes = 'Ya', no = 'Tidak' }) => (on ? <span className="ok-text">{yes}</span> : <span className="bad-text">{no}</span>);
+const Flag = ({ on, yes = t('Ya'), no = t('Tidak') }) => (on ? <span className="ok-text">{yes}</span> : <span className="bad-text">{no}</span>);
 
 // Halaman pemeriksaan teknis untuk Infra Admin (developer).
 export default function System() {
@@ -20,55 +21,55 @@ export default function System() {
   const { app, database: db, uploads, config } = info.data;
   return (
     <>
-      <div className="bar"><h2>Sistem</h2><button className="btn" onClick={() => { info.reload(); errors.reload(); }}>Muat ulang</button></div>
+      <div className="bar"><h2>{t('Sistem')}</h2><button className="btn" onClick={() => { info.reload(); errors.reload(); }}>{t('Muat ulang')}</button></div>
       <div className="grid2" style={{ marginBottom: 16 }}>
         <div className="panel">
-          <h3>Aplikasi</h3>
+          <h3>{t('Aplikasi')}</h3>
           <dl className="dl">
-            <dt>Versi</dt><dd>{app.version}</dd>
+            <dt>{t('Versi')}</dt><dd>{app.version}</dd>
             <dt>Node.js</dt><dd>{app.node} · {app.platform}</dd>
-            <dt>Mode</dt><dd>{app.env}</dd>
-            <dt>Berjalan sejak</dt><dd>{fmtDateTime(app.started_at)} ({uptime(app.uptime_s)})</dd>
-            <dt>Memori</dt><dd>{app.memory_mb} MB</dd>
+            <dt>{t('Mode')}</dt><dd>{app.env}</dd>
+            <dt>{t('Berjalan sejak')}</dt><dd>{fmtDateTime(app.started_at)} ({uptime(app.uptime_s)})</dd>
+            <dt>{t('Memori')}</dt><dd>{app.memory_mb} MB</dd>
           </dl>
         </div>
         <div className="panel">
-          <h3>Database</h3>
+          <h3>{t('Database')}</h3>
           <dl className="dl">
-            <dt>Server</dt><dd>{db.version}</dd>
-            <dt>Nama database</dt><dd className="code">{db.name}</dd>
-            <dt>Waktu server</dt><dd>{fmtDateTime(db.time)}</dd>
-            <dt>Migrasi</dt><dd>{db.migrations.length} diterapkan, terakhir <span className="code">{db.migrations.at(-1)?.name}</span></dd>
+            <dt>{t('Server')}</dt><dd>{db.version}</dd>
+            <dt>{t('Nama database')}</dt><dd className="code">{db.name}</dd>
+            <dt>{t('Waktu server')}</dt><dd>{fmtDateTime(db.time)}</dd>
+            <dt>{t('Migrasi')}</dt><dd><T k="{n} diterapkan, terakhir {name}" n={db.migrations.length} name={<span className="code">{db.migrations.at(-1)?.name}</span>} /></dd>
           </dl>
         </div>
         <div className="panel">
-          <h3>Penyimpanan bukti</h3>
+          <h3>{t('Penyimpanan bukti')}</h3>
           <dl className="dl">
-            <dt>Folder</dt><dd className="code">{uploads.dir}</dd>
-            <dt>Isi</dt><dd>{uploads.files} file, {fmtSize(uploads.bytes)}</dd>
-            <dt>Batas per file</dt><dd>{uploads.max_mb} MB</dd>
+            <dt>{t('Folder')}</dt><dd className="code">{uploads.dir}</dd>
+            <dt>{t('Isi')}</dt><dd>{t('{n} file, {size}', { n: uploads.files, size: fmtSize(uploads.bytes) })}</dd>
+            <dt>{t('Batas per file')}</dt><dd>{uploads.max_mb} MB</dd>
           </dl>
         </div>
         <div className="panel">
-          <h3>Konfigurasi</h3>
+          <h3>{t('Konfigurasi')}</h3>
           <dl className="dl">
-            <dt>JWT_SECRET diisi</dt><dd><Flag on={config.jwt_secret_set} no="Belum, wajib di server" /></dd>
-            <dt>Cookie HTTPS</dt><dd><Flag on={config.cookie_secure} no="Tidak (aktifkan bila memakai HTTPS)" /></dd>
-            <dt>Email pengingat</dt><dd><Flag on={config.smtp} yes={`Aktif, jam ${config.reminder_hour}.00`} no="Nonaktif" /></dd>
-            <dt>Alamat aplikasi</dt><dd className="code">{config.app_url}</dd>
+            <dt>{t('JWT_SECRET diisi')}</dt><dd><Flag on={config.jwt_secret_set} no={t('Belum, wajib di server')} /></dd>
+            <dt>{t('Cookie HTTPS')}</dt><dd><Flag on={config.cookie_secure} no={t('Tidak (aktifkan bila memakai HTTPS)')} /></dd>
+            <dt>{t('Email pengingat')}</dt><dd><Flag on={config.smtp} yes={t('Aktif, jam {hour}.00', { hour: config.reminder_hour })} no={t('Nonaktif')} /></dd>
+            <dt>{t('Alamat aplikasi')}</dt><dd className="code">{config.app_url}</dd>
           </dl>
         </div>
       </div>
       <div className="grid2">
         <div className="tablebox">
           <table>
-            <thead><tr><th>Tabel</th><th>Baris (perkiraan)</th><th>Ukuran</th></tr></thead>
-            <tbody>{db.tables.map((t) => <tr key={t.name}><td className="code">{t.name}</td><td className="num">{t.approx_rows ?? '—'}</td><td className="num">{fmtSize(Number(t.bytes) || 0)}</td></tr>)}</tbody>
+            <thead><tr><th>{t('Tabel')}</th><th>{t('Baris (perkiraan)')}</th><th>{t('Ukuran')}</th></tr></thead>
+            <tbody>{db.tables.map((tb) => <tr key={tb.name}><td className="code">{tb.name}</td><td className="num">{tb.approx_rows ?? '—'}</td><td className="num">{fmtSize(Number(tb.bytes) || 0)}</td></tr>)}</tbody>
           </table>
         </div>
         <div className="panel">
-          <h3>Kesalahan server terakhir</h3>
-          {!errors.data?.length ? <div className="t-sub">Tidak ada kesalahan sejak aplikasi dijalankan.</div> : (
+          <h3>{t('Kesalahan server terakhir')}</h3>
+          {!errors.data?.length ? <div className="t-sub">{t('Tidak ada kesalahan sejak aplikasi dijalankan.')}</div> : (
             <div className="log">
               {errors.data.map((e, i) => (
                 <div className="log-item" key={i}>

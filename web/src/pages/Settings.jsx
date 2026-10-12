@@ -3,8 +3,9 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import { ConfirmDelete, ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
+import { N_, T, t } from '../i18n.jsx';
 
-const THEME_LABEL = { teal: 'Teal', biru: 'Biru', hijau: 'Hijau', ungu: 'Ungu', merah: 'Merah', oranye: 'Oranye' };
+const THEME_LABEL = { teal: N_('Teal'), biru: N_('Biru'), hijau: N_('Hijau'), ungu: N_('Ungu'), merah: N_('Merah'), oranye: N_('Oranye') };
 // Contoh warna: bilah atas dan aksen tiap tema.
 const THEME_COLOR = {
   teal: ['#102A3C', '#2BB39A'], biru: ['#102447', '#4C8DF0'], hijau: ['#112D20', '#4CB86A'],
@@ -12,41 +13,41 @@ const THEME_COLOR = {
 };
 
 const SECTIONS = [
-  { title: 'Tampilan', keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
-  { title: 'Data master', keys: ['units', 'audit_types'] },
-  { title: 'Dokumen', keys: ['ocr_enabled'] },
-  { title: 'Keamanan login', keys: ['session_idle_minutes', 'remember_max_days'] },
+  { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
+  { title: N_('Data master'), keys: ['units', 'audit_types'] },
+  { title: N_('Dokumen'), keys: ['ocr_enabled'] },
+  { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
 
 // Pengaturan teknis di halaman Infra Admin.
 const INFRA_SECTIONS = [
-  { title: 'Batas percobaan login', keys: ['max_login_attempts'] },
-  { title: 'Mode perbaikan', keys: ['maintenance', 'maintenance_message'] },
+  { title: N_('Batas percobaan login'), keys: ['max_login_attempts'] },
+  { title: N_('Mode perbaikan'), keys: ['maintenance', 'maintenance_message'] },
 ];
 
 const HINT = {
-  units: 'Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.',
-  audit_types: 'Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.',
-  session_idle_minutes: 'Tanpa "Ingat saya", pengguna otomatis keluar bila tidak aktif selama ini.',
-  remember_max_days: 'Dengan "Ingat saya", sesi bertahan sampai browser ditutup, paling lama sekian hari.',
-  max_login_attempts: 'Percobaan gagal per username dan alamat IP dalam 15 menit sebelum login dikunci.',
-  maintenance: 'Saat aktif, hanya Infra Admin yang bisa masuk. Pengguna lain melihat pesan di bawah.',
-  ocr_enabled: 'Teks gambar dan PDF hasil scan dibaca otomatis saat diunggah, supaya isinya bisa dicari lewat Asisten AI. Word, Excel, PowerPoint, dan PDF biasa selalu dibaca.',
-  app_tagline: 'Tampil di bawah nama aplikasi dan di bagian bawah kartu login.',
+  units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
+  audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
+  session_idle_minutes: N_('Tanpa "Ingat saya", pengguna otomatis keluar bila tidak aktif selama ini.'),
+  remember_max_days: N_('Dengan "Ingat saya", sesi bertahan sampai browser ditutup, paling lama sekian hari.'),
+  max_login_attempts: N_('Percobaan gagal per username dan alamat IP dalam 15 menit sebelum login dikunci.'),
+  maintenance: N_('Saat aktif, hanya Infra Admin yang bisa masuk. Pengguna lain melihat pesan di bawah.'),
+  ocr_enabled: N_('Teks gambar dan PDF hasil scan dibaca otomatis saat diunggah, supaya isinya bisa dicari lewat Asisten AI. Word, Excel, PowerPoint, dan PDF biasa selalu dibaca.'),
+  app_tagline: N_('Tampil di bawah nama aplikasi dan di bagian bawah kartu login.'),
 };
 
 const LONG = ['login_hero_text', 'forgot_password_text', 'maintenance_message', 'login_subtitle'];
 
 function Field({ k, meta, value, onChange, themes, locked }) {
-  const label = <>{meta.label}{locked && <span className="locked"> · hanya Infra Admin</span>}</>;
+  const label = <>{t(meta.label)}{locked && <span className="locked"> · {t('hanya Infra Admin')}</span>}</>;
   if (k === 'theme') {
     return (
       <div className="full">
         <span className="lbl">{label}</span>
-        <div className="swatches" role="group" aria-label="Tema warna">
-          {themes.map((t) => (
-            <button type="button" key={t} className="swatch" aria-pressed={value === t} onClick={() => onChange(t)} disabled={locked}>
-              <i style={{ background: `linear-gradient(90deg, ${THEME_COLOR[t][0]} 50%, ${THEME_COLOR[t][1]} 50%)` }} />{THEME_LABEL[t] || t}
+        <div className="swatches" role="group" aria-label={t('Tema warna')}>
+          {themes.map((name) => (
+            <button type="button" key={name} className="swatch" aria-pressed={value === name} onClick={() => onChange(name)} disabled={locked}>
+              <i style={{ background: `linear-gradient(90deg, ${THEME_COLOR[name][0]} 50%, ${THEME_COLOR[name][1]} 50%)` }} />{t(THEME_LABEL[name]) || name}
             </button>
           ))}
         </div>
@@ -57,7 +58,7 @@ function Field({ k, meta, value, onChange, themes, locked }) {
     return (
       <label>{label}
         <textarea id={`s-${k}`} rows={6} disabled={locked} value={value.join('\n')} onChange={(e) => onChange(e.target.value.split('\n'))} />
-        {HINT[k] && <span className="hint">{HINT[k]}</span>}
+        {HINT[k] && <span className="hint">{t(HINT[k])}</span>}
       </label>
     );
   }
@@ -65,15 +66,15 @@ function Field({ k, meta, value, onChange, themes, locked }) {
     return (
       <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <input id={`s-${k}`} type="checkbox" style={{ width: 'auto' }} disabled={locked} checked={value} onChange={(e) => onChange(e.target.checked)} />
-        <span>{label}{HINT[k] && <span className="hint" style={{ display: 'block' }}>{HINT[k]}</span>}</span>
+        <span>{label}{HINT[k] && <span className="hint" style={{ display: 'block' }}>{t(HINT[k])}</span>}</span>
       </label>
     );
   }
   if (typeof meta.default === 'number') {
     return (
-      <label>{label}{k === 'session_idle_minutes' ? ' (menit)' : k === 'remember_max_days' ? ' (hari)' : ''}
+      <label>{k === 'session_idle_minutes' ? <T k="{label} (menit)" label={label} /> : k === 'remember_max_days' ? <T k="{label} (hari)" label={label} /> : label}
         <input id={`s-${k}`} type="number" disabled={locked} value={value} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />
-        {HINT[k] && <span className="hint">{HINT[k]}</span>}
+        {HINT[k] && <span className="hint">{t(HINT[k])}</span>}
       </label>
     );
   }
@@ -83,7 +84,7 @@ function Field({ k, meta, value, onChange, themes, locked }) {
       {long
         ? <textarea id={`s-${k}`} rows={2} disabled={locked} value={value} onChange={(e) => onChange(e.target.value)} />
         : <input id={`s-${k}`} disabled={locked} value={value} onChange={(e) => onChange(e.target.value)} />}
-      {HINT[k] && <span className="hint">{HINT[k]}</span>}
+      {HINT[k] && <span className="hint">{t(HINT[k])}</span>}
     </label>
   );
 }
@@ -107,7 +108,7 @@ function Section({ title, keys, data, onSaved }) {
     try {
       const body = Object.fromEntries(editable.map((k) => [k, Array.isArray(f[k]) ? f[k].map((x) => x.trim()).filter(Boolean) : f[k]]));
       await api.patch('/settings', body);
-      toast(`${title} disimpan`);
+      toast(t('{title} disimpan', { title: t(title) }));
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -117,32 +118,36 @@ function Section({ title, keys, data, onSaved }) {
   }
 
   return (
-    <form className="panel form" onSubmit={submit} aria-label={title}>
-      <h3 className="full" style={{ margin: 0 }}>{title}</h3>
+    <form className="panel form" onSubmit={submit} aria-label={t(title)}>
+      <h3 className="full" style={{ margin: 0 }}>{t(title)}</h3>
       {keys.map((k) => (
         <Field key={k} k={k} meta={data.meta[k]} value={f[k]} themes={data.themes} locked={lockedKey(k)} onChange={(v) => setF({ ...f, [k]: v })} />
       ))}
       {keys.includes('ocr_enabled') && !(user.features || []).includes('ocr') && (
-        <div className="notice full">Lisensi saat ini Standar, jadi OCR gambar dan PDF hasil scan tidak berjalan. OCR tersedia di lisensi Pro.</div>
+        <div className="notice full">{t('Lisensi saat ini Standar, jadi OCR gambar dan PDF hasil scan tidak berjalan. OCR tersedia di lisensi Pro.')}</div>
       )}
       {error && <div className="error-text full" role="alert">{error}</div>}
-      {editable.length > 0 && <div className="form-foot full"><button className="btn primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan'}</button></div>}
+      {editable.length > 0 && <div className="form-foot full"><button className="btn primary" disabled={busy}>{busy ? t('Menyimpan…') : t('Simpan')}</button></div>}
     </form>
   );
 }
 
 const BACKGROUNDS = {
   login: {
-    title: 'Gambar latar login',
+    title: N_('Gambar latar login'),
     url: 'login_background_url',
-    page: 'halaman login',
-    hint: 'Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.',
+    preview: N_('Pratinjau {name}. Belum disimpan: klik Simpan untuk memakainya di halaman login.'),
+    removed: N_('Gambar latar dihapus, halaman login kembali ke tampilan bawaan'),
+    confirm: N_('Hapus gambar latar? Tampilan halaman login kembali ke bawaan.'),
+    hint: N_('Disarankan gambar mendatar minimal 1600 x 1000 piksel. Gambar mengisi panel kiri halaman login.'),
   },
   app: {
-    title: 'Gambar latar halaman aplikasi',
+    title: N_('Gambar latar halaman aplikasi'),
     url: 'app_background_url',
-    page: 'halaman setelah login',
-    hint: 'Disarankan gambar mendatar minimal 1920 x 1080 piksel. Gambar tampil di belakang isi halaman setelah login, di bawah bilah atas.',
+    preview: N_('Pratinjau {name}. Belum disimpan: klik Simpan untuk memakainya di halaman setelah login.'),
+    removed: N_('Gambar latar dihapus, halaman setelah login kembali ke tampilan bawaan'),
+    confirm: N_('Hapus gambar latar? Tampilan halaman setelah login kembali ke bawaan.'),
+    hint: N_('Disarankan gambar mendatar minimal 1920 x 1080 piksel. Gambar tampil di belakang isi halaman setelah login, di bawah bilah atas.'),
   },
 };
 
@@ -165,8 +170,8 @@ function BackgroundSection({ kind, onSaved }) {
     e.target.value = '';
     if (!file) return;
     setError('');
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return setError('Pilih gambar JPG, PNG, atau WebP.');
-    if (file.size > 5 * 1024 * 1024) return setError('Ukuran gambar maksimal 5 MB.');
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return setError(t('Pilih gambar JPG, PNG, atau WebP.'));
+    if (file.size > 5 * 1024 * 1024) return setError(t('Ukuran gambar maksimal 5 MB.'));
     setPending({ file, url: URL.createObjectURL(file) });
   }
 
@@ -185,40 +190,40 @@ function BackgroundSection({ kind, onSaved }) {
     }
   }
 
-  const save = () => run('save', () => api.upload(`/settings/${kind}-background`, pending.file), `${bg.title} disimpan`);
-  const remove = () => run('delete', () => api.del(`/settings/${kind}-background`), `Gambar latar dihapus, ${bg.page} kembali ke tampilan bawaan`);
+  const save = () => run('save', () => api.upload(`/settings/${kind}-background`, pending.file), t('{title} disimpan', { title: t(bg.title) }));
+  const remove = () => run('delete', () => api.del(`/settings/${kind}-background`), t(bg.removed));
 
   return (
-    <section className="panel form" aria-label={bg.title}>
-      <h3 className="full" style={{ margin: 0 }}>{bg.title}</h3>
+    <section className="panel form" aria-label={t(bg.title)}>
+      <h3 className="full" style={{ margin: 0 }}>{t(bg.title)}</h3>
       {kind === 'login' ? (
-        <div className="full bg-preview" aria-label="Pratinjau halaman login">
-          <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : 'Tampilan bawaan'}</div>
+        <div className="full bg-preview" aria-label={t('Pratinjau halaman login')}>
+          <div className="left" style={url ? { backgroundImage: `url("${url}")` } : undefined}>{url ? '' : t('Tampilan bawaan')}</div>
           <div className="right"><i style={{ width: '45%' }} /><i /><i /><i className="btnlike" /></div>
         </div>
       ) : (
-        <div className="full bg-preview app" aria-label="Pratinjau halaman setelah login">
+        <div className="full bg-preview app" aria-label={t('Pratinjau halaman setelah login')}>
           <div className="pv-bar" />
           <div className="pv-body" style={url ? { backgroundImage: `url("${url}")` } : undefined}>
-            {!url && <span>Tampilan bawaan</span>}
+            {!url && <span>{t('Tampilan bawaan')}</span>}
             <div className="cards"><i /><i /><i /></div>
           </div>
         </div>
       )}
-      {pending && <div className="full hint" role="status">Pratinjau {pending.file.name}. Belum disimpan: klik Simpan untuk memakainya di {bg.page}.</div>}
+      {pending && <div className="full hint" role="status">{t(bg.preview, { name: pending.file.name })}</div>}
       <div className="full upload-row">
         <label className="btn" style={{ cursor: busy ? 'wait' : 'pointer' }}>
-          {pending || saved ? 'Pilih gambar lain' : 'Pilih gambar'}
+          {pending || saved ? t('Pilih gambar lain') : t('Pilih gambar')}
           <input id={`bg-file-${kind}`} type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={Boolean(busy)} onChange={pick} />
         </label>
         {pending && <>
-          <button type="button" className="btn primary" disabled={Boolean(busy)} onClick={save}>{busy === 'save' ? 'Menyimpan…' : 'Simpan'}</button>
-          <button type="button" className="btn ghost" disabled={Boolean(busy)} onClick={() => setPending(null)}>Batal</button>
+          <button type="button" className="btn primary" disabled={Boolean(busy)} onClick={save}>{busy === 'save' ? t('Menyimpan…') : t('Simpan')}</button>
+          <button type="button" className="btn ghost" disabled={Boolean(busy)} onClick={() => setPending(null)}>{t('Batal')}</button>
         </>}
         {!pending && saved && (busy === 'delete'
-          ? <button type="button" className="btn danger" disabled>Menghapus…</button>
-          : <ConfirmDelete question={`Hapus gambar latar? Tampilan ${bg.page} kembali ke bawaan.`} onConfirm={remove} />)}
-        <span className="hint">JPG, PNG, atau WebP, maksimal 5 MB. {bg.hint}</span>
+          ? <button type="button" className="btn danger" disabled>{t('Menghapus…')}</button>
+          : <ConfirmDelete question={t(bg.confirm)} onConfirm={remove} />)}
+        <span className="hint">{t('JPG, PNG, atau WebP, maksimal 5 MB.')} {t(bg.hint)}</span>
       </div>
       {error && <div className="error-text full" role="alert">{error}</div>}
     </section>

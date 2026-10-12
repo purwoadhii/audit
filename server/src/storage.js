@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { query } from './db.js';
 import { config } from './config.js';
-import { badRequest } from './errors.js';
+import { N_, badRequest } from './errors.js';
 import { sealSecret, openSecret } from './secret.js';
 
 // Tempat menyimpan file bukti:
@@ -198,11 +198,11 @@ export async function testStorage(cfg) {
     }
     return { ok: true, ms: Date.now() - started, message: 'Berhasil menulis dan menghapus file uji.' };
   } catch (err) {
-    const msg = /EACCES|EPERM/.test(err?.code || '') ? 'Aplikasi tidak punya izin menulis ke folder ini.'
-      : /ENOENT|ENOTDIR/.test(err?.code || '') ? 'Folder tidak ditemukan dan tidak bisa dibuat. Periksa alamat dan drive-nya.'
-      : err?.name === 'NoSuchBucket' || err?.$metadata?.httpStatusCode === 404 ? 'Bucket tidak ditemukan.'
-      : err?.$metadata?.httpStatusCode === 403 || /InvalidAccessKeyId|SignatureDoesNotMatch|AccessDenied/.test(err?.name || '') ? 'Akses ditolak. Periksa access key, secret key, dan izin bucket.'
-        : /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/.test(err?.code || err?.message || '') ? 'Server penyimpanan tidak bisa dihubungi. Periksa endpoint dan jaringan.'
+    const msg = /EACCES|EPERM/.test(err?.code || '') ? N_('Aplikasi tidak punya izin menulis ke folder ini.')
+      : /ENOENT|ENOTDIR/.test(err?.code || '') ? N_('Folder tidak ditemukan dan tidak bisa dibuat. Periksa alamat dan drive-nya.')
+      : err?.name === 'NoSuchBucket' || err?.$metadata?.httpStatusCode === 404 ? N_('Bucket tidak ditemukan.')
+      : err?.$metadata?.httpStatusCode === 403 || /InvalidAccessKeyId|SignatureDoesNotMatch|AccessDenied/.test(err?.name || '') ? N_('Akses ditolak. Periksa access key, secret key, dan izin bucket.')
+        : /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/.test(err?.code || err?.message || '') ? N_('Server penyimpanan tidak bisa dihubungi. Periksa endpoint dan jaringan.')
           : String(err?.message || err).slice(0, 200);
     return { ok: false, ms: Date.now() - started, message: msg };
   }

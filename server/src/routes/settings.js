@@ -33,7 +33,7 @@ for (const [kind, bg] of Object.entries(BACKGROUNDS)) {
   r.post(`/${kind}-background`, requireRole('admin'), async (req, res) => {
     await new Promise((resolve, reject) => {
       imageUpload.single('file')(req, res, (err) => {
-        if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest(`Ukuran gambar maksimal ${MAX_BACKGROUND_MB} MB.`));
+        if (err?.code === 'LIMIT_FILE_SIZE') return reject(badRequest('Ukuran gambar maksimal {n} MB.', { n: MAX_BACKGROUND_MB }));
         if (err) return reject(err);
         if (!req.file) return reject(badRequest('Pilih gambar yang akan diunggah.'));
         resolve();

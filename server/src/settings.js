@@ -7,30 +7,30 @@ export const THEMES = ['teal', 'biru', 'hijau', 'ungu', 'merah', 'oranye'];
 
 // Setiap pengaturan: nilai bawaan, siapa yang boleh mengubah, dan cara memeriksanya.
 const text = (max) => (v, label) => {
-  if (typeof v !== 'string' || !v.trim()) throw badRequest(`${label} wajib diisi.`);
-  if (v.trim().length > max) throw badRequest(`${label} maksimal ${max} karakter.`);
+  if (typeof v !== 'string' || !v.trim()) throw badRequest('{label} wajib diisi.', { label });
+  if (v.trim().length > max) throw badRequest('{label} maksimal {max} karakter.', { label, max });
   return v.trim();
 };
 const optText = (max) => (v, label) => {
   const s = String(v ?? '').trim();
-  if (s.length > max) throw badRequest(`${label} maksimal ${max} karakter.`);
+  if (s.length > max) throw badRequest('{label} maksimal {max} karakter.', { label, max });
   return s;
 };
 const list = (v, label) => {
-  if (!Array.isArray(v)) throw badRequest(`${label} harus berupa daftar.`);
+  if (!Array.isArray(v)) throw badRequest('{label} harus berupa daftar.', { label });
   const out = [...new Set(v.map((x) => String(x ?? '').trim()).filter(Boolean))];
-  if (out.some((x) => x.length > 150)) throw badRequest(`Isi ${label} maksimal 150 karakter.`);
-  if (out.length > 200) throw badRequest(`${label} maksimal 200 baris.`);
+  if (out.some((x) => x.length > 150)) throw badRequest('Isi {label} maksimal 150 karakter.', { label });
+  if (out.length > 200) throw badRequest('{label} maksimal 200 baris.', { label });
   return out;
 };
 const int = (min, max) => (v, label) => {
   const n = Number(v);
-  if (!Number.isInteger(n) || n < min || n > max) throw badRequest(`${label} harus angka ${min} sampai ${max}.`);
+  if (!Number.isInteger(n) || n < min || n > max) throw badRequest('{label} harus angka {min} sampai {max}.', { label, min, max });
   return n;
 };
 const bool = (v) => Boolean(v);
 const oneOf = (opts) => (v, label) => {
-  if (!opts.includes(v)) throw badRequest(`${label} tidak valid.`);
+  if (!opts.includes(v)) throw badRequest('{label} tidak valid.', { label });
   return v;
 };
 
@@ -104,8 +104,8 @@ export async function saveSettings(user, body) {
   const changes = {};
   for (const [k, v] of Object.entries(body || {})) {
     const s = SETTINGS[k];
-    if (!s || s.who === 'internal') throw badRequest(`Pengaturan ${k} tidak dikenal.`);
-    if (s.who === 'infraadmin' && user.role !== 'infraadmin') throw badRequest(`${s.label} hanya bisa diubah Infra Admin.`);
+    if (!s || s.who === 'internal') throw badRequest('Pengaturan {k} tidak dikenal.', { k });
+    if (s.who === 'infraadmin' && user.role !== 'infraadmin') throw badRequest('{label} hanya bisa diubah Infra Admin.', { label: s.label });
     changes[k] = s.check(v, s.label);
   }
   if (!Object.keys(changes).length) throw badRequest('Tidak ada perubahan.');

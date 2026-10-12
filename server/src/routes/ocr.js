@@ -22,7 +22,7 @@ const upload = multer({
 r.post('/', (req, res, next) => {
   upload.single('file')(req, res, async (err) => {
     try {
-      if (err?.code === 'LIMIT_FILE_SIZE') throw badRequest(`Ukuran file maksimal ${config.maxUploadMb} MB.`);
+      if (err?.code === 'LIMIT_FILE_SIZE') throw badRequest('Ukuran file maksimal {n} MB.', { n: config.maxUploadMb });
       if (err) throw err;
       await assertFeature('ocr');
       if (!req.file) throw badRequest('Pilih file yang akan dibaca.');

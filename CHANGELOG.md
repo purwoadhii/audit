@@ -2,6 +2,11 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.4.0 - 2026-10-12
+- Pilihan bahasa per pengguna: English, Bahasa Indonesia, Bahasa Melayu, 简体中文, 日本語, dan 한국어. Bahasa bawaan English.
+- Tombol bahasa ada di bilah atas setiap halaman dan di halaman login. Pilihan disimpan di akun masing-masing.
+- Asisten AI menjawab dalam bahasa pengguna.
+
 ## 1.3.0 - 2026-10-12
 - Paket lisensi Standar dan Pro. OCR dan Asisten AI hanya ada di paket Pro; menu keduanya tidak muncul di paket Standar.
 - Batas pengguna lisensi menghitung semua akun aktif kecuali Infra Admin dan satu System Admin. System Admin tambahan ikut dihitung.

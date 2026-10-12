@@ -1,3 +1,5 @@
+import { t } from '../i18n.jsx';
+
 // Ilustrasi panel kiri halaman login: clipboard audit, grafik temuan, kaca pembesar, perisai.
 export default function LoginArt() {
   return (
@@ -20,7 +22,7 @@ export default function LoginArt() {
       {/* Kartu grafik di belakang (kiri) */}
       <g className="float-slow" filter="url(#lp-sh)">
         <rect x="20" y="70" width="170" height="130" rx="16" fill="#173d55" stroke="rgba(255,255,255,.12)"/>
-        <text x="38" y="100" fill="#a9bfc9" fontSize="12" fontFamily="Segoe UI, sans-serif">Temuan per Bulan</text>
+        <text x="38" y="100" fill="#a9bfc9" fontSize="12" fontFamily="Segoe UI, sans-serif">{t('Temuan per Bulan')}</text>
         <rect x="40"  y="150" width="18" height="34" rx="4" fill="#2bb39a" opacity=".55"/>
         <rect x="68"  y="132" width="18" height="52" rx="4" fill="#2bb39a" opacity=".7"/>
         <rect x="96"  y="142" width="18" height="42" rx="4" fill="#2bb39a" opacity=".6"/>
@@ -31,7 +33,7 @@ export default function LoginArt() {
       {/* Kartu status di belakang (kanan) */}
       <g className="float-slow" filter="url(#lp-sh)">
         <rect x="390" y="250" width="160" height="118" rx="16" fill="#173d55" stroke="rgba(255,255,255,.12)"/>
-        <text x="408" y="278" fill="#a9bfc9" fontSize="12" fontFamily="Segoe UI, sans-serif">Tindak Lanjut</text>
+        <text x="408" y="278" fill="#a9bfc9" fontSize="12" fontFamily="Segoe UI, sans-serif">{t('Tindak Lanjut')}</text>
         <circle cx="440" cy="322" r="26" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="9"/>
         <circle cx="440" cy="322" r="26" fill="none" stroke="#3fd0b4" strokeWidth="9"
                 strokeDasharray="122 164" strokeLinecap="round" transform="rotate(-90 440 322)"/>
@@ -75,7 +77,7 @@ export default function LoginArt() {
         {/* tanda tangan */}
         <path d="M200 312 c10 -14 18 -14 22 0 s14 -18 22 -4 s12 -8 20 -2" stroke="#16384f" strokeWidth="2" fill="none" strokeLinecap="round"/>
         <rect x="300" y="306" width="66" height="20" rx="10" fill="#e3f6f1"/>
-        <text x="333" y="320" fill="#1e8f7a" fontSize="10.5" fontWeight="700" textAnchor="middle" fontFamily="Segoe UI, sans-serif">VERIFIED</text>
+        <text x="333" y="320" fill="#1e8f7a" fontSize="10.5" fontWeight="700" textAnchor="middle" fontFamily="Segoe UI, sans-serif">{t('VERIFIED')}</text>
       </g>
 
       {/* Kaca pembesar */}

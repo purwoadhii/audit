@@ -1,16 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { N_, t } from './i18n.jsx';
 
 // Pengaturan dari admin: nama aplikasi, tema, teks login, dan data master.
 const DEFAULTS = {
-  app_name: 'Audit Management',
-  app_tagline: 'Manajemen audit internal',
+  app_name: N_('Audit Management'),
+  app_tagline: N_('Manajemen audit internal'),
   theme: 'teal',
-  login_title: 'Selamat datang',
-  login_subtitle: 'Masukkan username dan password akun Anda.',
-  login_hero_title: 'Audit lebih rapi, temuan lebih terkendali',
-  login_hero_text: 'Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.',
-  forgot_password_text: 'Hubungi admin aplikasi untuk mengatur ulang password Anda.',
+  login_title: N_('Selamat datang'),
+  login_subtitle: N_('Masukkan username dan password akun Anda.'),
+  login_hero_title: N_('Audit lebih rapi, temuan lebih terkendali'),
+  login_hero_text: N_('Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.'),
+  forgot_password_text: N_('Hubungi admin aplikasi untuk mengatur ulang password Anda.'),
   login_background_url: '',
   app_background_url: '',
   version: '',
@@ -37,7 +38,7 @@ export function SettingsProvider({ signedIn, children }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
-    document.title = settings.app_name;
+    document.title = t(settings.app_name);
   }, [settings.theme, settings.app_name]);
 
   return <SettingsContext.Provider value={{ settings, reload }}>{children}</SettingsContext.Provider>;

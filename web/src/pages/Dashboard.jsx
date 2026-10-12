@@ -6,6 +6,7 @@ import { AUDIT_STATUS, RISKS, fmtDate, canEdit } from '../util.js';
 import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
 import { Icon } from '../components/Icons.jsx';
+import { t } from '../i18n.jsx';
 
 function Kpi({ tone, icon, label, value, sub }) {
   return (
@@ -39,55 +40,56 @@ export default function Dashboard() {
 
   if (!auditTotal && !fTotal) {
     return (
-      <Empty title={user.role === 'auditee' ? 'Belum ada temuan untuk Anda' : 'Belum ada audit'}
-        action={canEdit(user) && <button className="btn primary" onClick={() => nav('/audit?baru=1')}>Buat audit</button>}>
-        {user.role === 'auditee' ? 'Temuan yang ditugaskan kepada Anda atau unit Anda akan muncul di sini.' : 'Mulai dengan membuat audit pertama. Program kerja, temuan, dan tindak lanjut akan muncul di sini.'}
+      <Empty title={user.role === 'auditee' ? t('Belum ada temuan untuk Anda') : t('Belum ada audit')}
+        action={canEdit(user) && <button className="btn primary" onClick={() => nav('/audit?baru=1')}>{t('Buat audit')}</button>}>
+        {user.role === 'auditee' ? t('Temuan yang ditugaskan kepada Anda atau unit Anda akan muncul di sini.') : t('Mulai dengan membuat audit pertama. Program kerja, temuan, dan tindak lanjut akan muncul di sini.')}
       </Empty>
     );
   }
 
   const hour = new Date().getHours();
-  const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
+  const name = user.name.split(' ')[0];
+  const greet = hour < 11 ? t('Selamat pagi, {name}', { name }) : hour < 15 ? t('Selamat siang, {name}', { name }) : hour < 18 ? t('Selamat sore, {name}', { name }) : t('Selamat malam, {name}', { name });
   return (
     <>
       <div className="greet">
-        <h2>{greet}, {user.name.split(' ')[0]}</h2>
-        <p className="t-sub">Kondisi audit dan tindak lanjut per {fmtDate(new Date().toISOString())}.</p>
+        <h2>{greet}</h2>
+        <p className="t-sub">{t('Kondisi audit dan tindak lanjut per {date}.', { date: fmtDate(new Date().toISOString()) })}</p>
       </div>
       <div className="kpis">
-        <Kpi tone="accent" icon="audit" label="Audit berjalan" value={auditTotal - auditCount('Selesai')} sub={`dari ${auditTotal} audit`} />
-        <Kpi tone="low" icon="finding" label="Temuan terbuka" value={fOpen} sub={`dari ${fTotal} temuan`} />
-        <Kpi tone={overdue ? 'high' : 'muted'} icon="board" label="Lewat jatuh tempo" value={overdue} sub="tindak lanjut terlambat" />
-        <Kpi tone="ok" icon="shield" label="Tindak lanjut selesai" value={`${fTotal ? Math.round((fDone / fTotal) * 100) : 0}%`} sub={`${fDone} temuan ditutup`} />
+        <Kpi tone="accent" icon="audit" label={t('Audit berjalan')} value={auditTotal - auditCount('Selesai')} sub={t('dari {n} audit', { n: auditTotal })} />
+        <Kpi tone="low" icon="finding" label={t('Temuan terbuka')} value={fOpen} sub={t('dari {n} temuan', { n: fTotal })} />
+        <Kpi tone={overdue ? 'high' : 'muted'} icon="board" label={t('Lewat jatuh tempo')} value={overdue} sub={t('tindak lanjut terlambat')} />
+        <Kpi tone="ok" icon="shield" label={t('Tindak lanjut selesai')} value={`${fTotal ? Math.round((fDone / fTotal) * 100) : 0}%`} sub={t('{n} temuan ditutup', { n: fDone })} />
       </div>
       <div className="grid2">
         <div className="panel">
-          <h3>Temuan terbuka per risiko</h3>
+          <h3>{t('Temuan terbuka per risiko')}</h3>
           {RISKS.map((r) => (
-            <div className="riskbar" key={r}><span>{r}</span><div className="track"><div className="fill" style={{ width: `${(openByRisk(r) / maxR) * 100}%`, background: RISK_COLOR[r] }} /></div><span className="n">{openByRisk(r)}</span></div>
+            <div className="riskbar" key={r}><span>{t(r)}</span><div className="track"><div className="fill" style={{ width: `${(openByRisk(r) / maxR) * 100}%`, background: RISK_COLOR[r] }} /></div><span className="n">{openByRisk(r)}</span></div>
           ))}
-          <h3 style={{ marginTop: 18 }}>Status audit</h3>
+          <h3 style={{ marginTop: 18 }}>{t('Status audit')}</h3>
           {AUDIT_STATUS.map((s) => (
-            <div className="riskbar" key={s}><span>{s}</span><div className="track"><div className="fill" style={{ width: `${auditTotal ? (auditCount(s) / auditTotal) * 100 : 0}%`, background: 'var(--accent)' }} /></div><span className="n">{auditCount(s)}</span></div>
+            <div className="riskbar" key={s}><span>{t(s)}</span><div className="track"><div className="fill" style={{ width: `${auditTotal ? (auditCount(s) / auditTotal) * 100 : 0}%`, background: 'var(--accent)' }} /></div><span className="n">{auditCount(s)}</span></div>
           ))}
         </div>
         <div className="stack">
           <div className="panel">
-            <h3>Tindak lanjut terdekat</h3>
+            <h3>{t('Tindak lanjut terdekat')}</h3>
             {data.upcoming.length ? (
               <ul className="list-plain">
                 {data.upcoming.map((f) => (
                   <li key={f.id}><button onClick={() => setOpenId(f.id)}>
-                    <span><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || 'Belum ada PIC'} · {f.audit_title}</span></span>
+                    <span><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || t('Belum ada PIC')} · {f.audit_title}</span></span>
                     <span className={`num ${f.overdue ? 'overdue' : 't-sub'}`}>{fmtDate(f.due_date)}</span>
                   </button></li>
                 ))}
               </ul>
-            ) : <Empty small>Semua temuan sudah ditindaklanjuti.</Empty>}
+            ) : <Empty small>{t('Semua temuan sudah ditindaklanjuti.')}</Empty>}
           </div>
           {data.byUnit.length > 0 && (
             <div className="panel">
-              <h3>Temuan terbuka per unit</h3>
+              <h3>{t('Temuan terbuka per unit')}</h3>
               {data.byUnit.map((u) => (
                 <div className="riskbar" key={u.unit}><span title={u.unit} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.unit}</span><div className="track"><div className="fill" style={{ width: `${u.total ? (u.open / u.total) * 100 : 0}%`, background: 'var(--med)' }} /></div><span className="n">{u.open}</span></div>
               ))}

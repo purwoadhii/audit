@@ -1,3 +1,4 @@
+import { N_ } from './errors.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -188,7 +189,7 @@ async function extractOne(id) {
   try {
     const settings = await getSettings();
     const stream = await openStored(att);
-    if (!stream) throw new Error('File tidak ditemukan di penyimpanan.');
+    if (!stream) throw new Error(N_('File tidak ditemukan di penyimpanan.'));
     // OCR gambar dan PDF hasil scan hanya untuk lisensi Pro; teks biasa tetap dibaca.
     const ocr = settings.ocr_enabled && (await hasFeature('ocr'));
     const result = await extractText(await readStream(stream), att.mime, { ocr });

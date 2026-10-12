@@ -3,10 +3,12 @@
 //   sys    /sysAdmin    System Admin
 //   infra  /infraAdmin  Infra Admin
 // Pintu ditentukan dari alamat saat halaman dibuka. Pindah pintu selalu lewat tautan biasa (muat ulang halaman).
+import { N_ } from './i18n.jsx';
+
 const PORTALS = {
-  user: { base: '', label: 'Pengguna', home: '/' },
-  sys: { base: '/sysAdmin', label: 'System Admin', home: '/sysAdmin' },
-  infra: { base: '/infraAdmin', label: 'Infra Admin', home: '/infraAdmin' },
+  user: { base: '', label: N_('Pengguna'), home: '/' },
+  sys: { base: '/sysAdmin', label: N_('System Admin'), home: '/sysAdmin' },
+  infra: { base: '/infraAdmin', label: N_('Infra Admin'), home: '/infraAdmin' },
 };
 
 function detect() {

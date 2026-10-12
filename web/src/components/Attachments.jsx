@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api } from '../api.js';
 import { fmtSize } from '../util.js';
 import { Sheet, useToast } from './ui.jsx';
+import { t } from '../i18n.jsx';
 
 // Daftar file bukti dengan tombol unggah. `uploadUrl` null berarti hanya baca.
 export default function Attachments({ items, uploadUrl, canDelete, onChange }) {
@@ -26,7 +27,7 @@ export default function Attachments({ items, uploadUrl, canDelete, onChange }) {
     setBusy(true);
     try {
       await api.upload(uploadUrl, file);
-      toast('Bukti diunggah');
+      toast(t('Bukti diunggah'));
       onChange();
     } catch (err) {
       toast(err.message, 'error');
@@ -53,22 +54,22 @@ export default function Attachments({ items, uploadUrl, canDelete, onChange }) {
               <a href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">{a.filename}</a>
               <span className="t-sub num">{fmtSize(a.size)}</span>
               {['done', 'ocr'].includes(a.text_status) && (
-                <button type="button" className="btn ghost small" onClick={() => showText(a)} title="Teks yang terbaca dari file ini">
-                  {a.text_status === 'ocr' ? <span className="text-badge">OCR</span> : null} Lihat teks
+                <button type="button" className="btn ghost small" onClick={() => showText(a)} title={t('Teks yang terbaca dari file ini')}>
+                  {a.text_status === 'ocr' ? <span className="text-badge">OCR</span> : null} {t('Lihat teks')}
                 </button>
               )}
-              {a.text_status === 'pending' && <span className="t-sub">Sedang dibaca…</span>}
-              {canDelete(a) && <button type="button" className="btn ghost small" onClick={() => remove(a.id)} aria-label={`Hapus ${a.filename}`}>Hapus</button>}
+              {a.text_status === 'pending' && <span className="t-sub">{t('Sedang dibaca…')}</span>}
+              {canDelete(a) && <button type="button" className="btn ghost small" onClick={() => remove(a.id)} aria-label={t('Hapus {name}', { name: a.filename })}>{t('Hapus')}</button>}
             </li>
           ))}
         </ul>
-      ) : <div className="t-sub">Belum ada file bukti.</div>}
+      ) : <div className="t-sub">{t('Belum ada file bukti.')}</div>}
       {view && (
         <Sheet title={view.filename} onClose={() => setView(null)}>
-          {view.loading ? <div className="t-sub">Memuat…</div> : view.error ? <div className="error-text">{view.error}</div> : (
+          {view.loading ? <div className="t-sub">{t('Memuat…')}</div> : view.error ? <div className="error-text">{view.error}</div> : (
             <>
-              <p className="t-sub">{view.status === 'ocr' ? 'Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.' : 'Teks yang terbaca dari file.'}</p>
-              <div className="text-view">{view.text || 'Tidak ada teks.'}</div>
+              <p className="t-sub">{view.status === 'ocr' ? t('Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.') : t('Teks yang terbaca dari file.')}</p>
+              <div className="text-view">{view.text || t('Tidak ada teks.')}</div>
             </>
           )}
         </Sheet>
@@ -76,8 +77,8 @@ export default function Attachments({ items, uploadUrl, canDelete, onChange }) {
       {uploadUrl && (
         <div style={{ marginTop: 10 }}>
           <input ref={input} type="file" hidden onChange={upload} accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" />
-          <button type="button" className="btn" disabled={busy} onClick={() => input.current.click()}>{busy ? 'Mengunggah…' : 'Unggah bukti'}</button>
-          <span className="t-sub" style={{ marginLeft: 8 }}>PDF, gambar, Office, atau ZIP</span>
+          <button type="button" className="btn" disabled={busy} onClick={() => input.current.click()}>{busy ? t('Mengunggah…') : t('Unggah bukti')}</button>
+          <span className="t-sub" style={{ marginLeft: 8 }}>{t('PDF, gambar, Office, atau ZIP')}</span>
         </div>
       )}
     </div>

@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { slug } from '../util.js';
+import { T, t } from '../i18n.jsx';
 
-export const Pill = ({ kind, value }) => <span className={`pill ${kind}-${slug(value)}`}>{value}</span>;
+export const Pill = ({ kind, value }) => <span className={`pill ${kind}-${slug(value)}`}>{t(value)}</span>;
 export const RiskPill = ({ value }) => <Pill kind="r" value={value} />;
 export const StatusPill = ({ value }) => <Pill kind="s" value={value} />;
 
@@ -39,7 +40,7 @@ export function Sheet({ title, onClose, children, actions }) {
         <div className="sheet-head">
           <h3>{title}</h3>
           {actions}
-          <button type="button" className="btn ghost" onClick={onClose}>Tutup</button>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('Tutup')}</button>
         </div>
         {children}
       </div>
@@ -48,13 +49,13 @@ export function Sheet({ title, onClose, children, actions }) {
 }
 
 // Tombol hapus dua langkah: klik pertama meminta konfirmasi di tempat.
-export function ConfirmDelete({ label = 'Hapus', question, onConfirm, yes = 'Ya, hapus' }) {
+export function ConfirmDelete({ label = t('Hapus'), question, onConfirm, yes = t('Ya, hapus') }) {
   const [asking, setAsking] = useState(false);
   if (!asking) return <button type="button" className="btn danger" onClick={() => setAsking(true)}>{label}</button>;
   return (
     <div className="confirm">
       <span>{question}</span>
-      <button type="button" className="btn" onClick={() => setAsking(false)}>Batal</button>
+      <button type="button" className="btn" onClick={() => setAsking(false)}>{t('Batal')}</button>
       <button type="button" className="btn primary danger-fill" onClick={onConfirm}>{yes}</button>
     </div>
   );
@@ -69,15 +70,15 @@ export const Empty = ({ title, children, action, small }) => (
 );
 
 export function Loading() {
-  return <div className="empty"><b>Memuat…</b></div>;
+  return <div className="empty"><b>{t('Memuat…')}</b></div>;
 }
 
 export function ErrorBox({ error, retry }) {
   return (
     <div className="empty">
-      <b>Data tidak bisa dimuat</b>
+      <b>{t('Data tidak bisa dimuat')}</b>
       {error?.message}
-      {retry && <div className="empty-action"><button className="btn" onClick={retry}>Coba lagi</button></div>}
+      {retry && <div className="empty-action"><button className="btn" onClick={retry}>{t('Coba lagi')}</button></div>}
     </div>
   );
 }
@@ -101,4 +102,4 @@ export function useLoad(fn, deps) {
 
 // Tanda kolom wajib. Pembaca layar sudah tahu dari atribut required pada input.
 export const Req = () => <span className="req" aria-hidden="true">*</span>;
-export const ReqNote = () => <p className="form-note full">Kolom bertanda <Req /> wajib diisi.</p>;
+export const ReqNote = () => <p className="form-note full"><T k="Kolom bertanda {mark} wajib diisi." mark={<Req />} /></p>;

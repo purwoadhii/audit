@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth.jsx';
+import { I18nProvider, LangBoundary } from './i18n.jsx';
 import { SettingsProvider } from './settings.jsx';
 import { ToastProvider } from './components/ui.jsx';
 import App from './App.jsx';
@@ -14,14 +15,18 @@ function WithSettings({ children }) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <WithSettings>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </WithSettings>
-      </AuthProvider>
-    </BrowserRouter>
+    <I18nProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <LangBoundary>
+            <WithSettings>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </WithSettings>
+          </LangBoundary>
+        </AuthProvider>
+      </BrowserRouter>
+    </I18nProvider>
   </StrictMode>,
 );
