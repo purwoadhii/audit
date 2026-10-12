@@ -66,6 +66,8 @@ function UserApp() {
   const { user, logout } = useAuth();
   const { settings } = useSettings();
   const ai = useAiAvailable(user);
+  // OCR dan Asisten AI hanya untuk lisensi Pro.
+  const has = (f) => (user.features || []).includes(f);
   const seesActivity = ['auditor', 'manajemen'].includes(user.role);
   const appBg = settings.app_background_url;
   const tabs = [
@@ -73,8 +75,8 @@ function UserApp() {
     { to: '/audit', label: 'Audit', icon: 'audit' },
     { to: '/temuan', label: 'Temuan', icon: 'finding' },
     { to: '/tindak-lanjut', label: 'Tindak Lanjut', icon: 'board' },
-    { to: '/asisten', label: 'Asisten AI', icon: 'ai' },
-    { to: '/ocr', label: 'OCR', icon: 'ocr' },
+    has('ai') && { to: '/asisten', label: 'Asisten AI', icon: 'ai' },
+    has('ocr') && { to: '/ocr', label: 'OCR', icon: 'ocr' },
     seesActivity && { to: '/aktivitas', label: 'Aktivitas', icon: 'activity' },
   ].filter(Boolean);
   return (
@@ -109,8 +111,8 @@ function UserApp() {
           <Route path="/audit/:id/laporan" element={<Report />} />
           <Route path="/temuan" element={<Findings />} />
           <Route path="/tindak-lanjut" element={<Board />} />
-          <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />
-          <Route path="/ocr" element={<Ocr />} />
+          {has('ai') && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
+          {has('ocr') && <Route path="/ocr" element={<Ocr />} />}
           <Route path="/akun" element={<Account />} />
           {seesActivity && <Route path="/aktivitas/*" element={<Activity />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -195,9 +197,14 @@ function AdminApp() {
   const current = items.find((i) => loc.pathname.toLowerCase().startsWith(`${base}/${i.path}`.toLowerCase()))
     || (loc.pathname.toLowerCase().startsWith(`${base}/akun`.toLowerCase()) ? { label: 'Akun saya' } : null);
   const licensePath = `${base}/lisensi`;
-  // Muat ulang status lisensi setiap kali halaman lisensi dibuka atau ditinggalkan.
+  // Muat ulang status lisensi setiap kali halaman lisensi dibuka atau ditinggalkan, dan setelah lisensi diganti.
   const onLicensePage = loc.pathname === licensePath;
-  useEffect(() => { api.get('/admin/license').then(setLicense).catch(() => {}); }, [onLicensePage]);
+  useEffect(() => {
+    const load = () => api.get('/admin/license').then(setLicense).catch(() => {});
+    load();
+    window.addEventListener('license-changed', load);
+    return () => window.removeEventListener('license-changed', load);
+  }, [onLicensePage]);
   useEffect(() => { setOpen(false); }, [loc.pathname]);
 
   return (

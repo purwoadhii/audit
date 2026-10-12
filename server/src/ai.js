@@ -3,6 +3,7 @@ import { query } from './db.js';
 import { badRequest, HttpError } from './errors.js';
 import { sealSecret, openSecret } from './secret.js';
 import { auditScope, findingScope } from './access.js';
+import { assertFeature, hasFeature } from './license.js';
 
 // Asisten AI. Saat ini hanya memakai Cohere, dipanggil lewat format chat completions yang kompatibel OpenAI.
 // Daftar PROVIDERS tetap mendukung beberapa penyedia: bila nanti ditambah, permintaan otomatis
@@ -113,6 +114,7 @@ export async function saveAiConfig(user, body) {
 export async function aiUnavailableReason(user) {
   const c = await loadAiConfig();
   if (!WORK_ROLES.includes(user.role)) return 'role';
+  if (!(await hasFeature('ai'))) return 'license';
   if (!c.enabled) return 'disabled';
   if (!c.order.some((id) => c.providers[id].enabled && c.providers[id].key)) return 'no_key';
   if (!c.roles.includes(user.role)) return 'role';
@@ -491,6 +493,7 @@ Saat menyebut audit, temuan, atau file, sertakan tautannya dalam format [kode at
 const newId = () => crypto.randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').padEnd(9, 'x').slice(0, 9);
 
 export async function chat(user, history) {
+  await assertFeature('ai');
   if (!(await canUseAi(user))) throw new HttpError(403, 'Asisten AI tidak tersedia untuk akun ini.');
   if (!Array.isArray(history) || !history.length) throw badRequest('Pertanyaan wajib diisi.');
   const msgs = history.slice(-12).map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 4000) }));

@@ -6,6 +6,7 @@ import JSZip from 'jszip';
 import { query } from './db.js';
 import { openStored } from './storage.js';
 import { getSettings } from './settings.js';
+import { hasFeature } from './license.js';
 
 // Mengambil teks dari file bukti supaya isinya bisa dicari (termasuk oleh Asisten AI).
 // - Teks, CSV: dibaca langsung.
@@ -188,7 +189,9 @@ async function extractOne(id) {
     const settings = await getSettings();
     const stream = await openStored(att);
     if (!stream) throw new Error('File tidak ditemukan di penyimpanan.');
-    const result = await extractText(await readStream(stream), att.mime, { ocr: settings.ocr_enabled });
+    // OCR gambar dan PDF hasil scan hanya untuk lisensi Pro; teks biasa tetap dibaca.
+    const ocr = settings.ocr_enabled && (await hasFeature('ocr'));
+    const result = await extractText(await readStream(stream), att.mime, { ocr });
     const text = result?.text ? clean(result.text) : '';
     const status = !result || result.skipped ? 'none' : result.ocr ? 'ocr' : 'done';
     await query('UPDATE attachments SET text_content = ?, text_status = ? WHERE id = ?', [text || null, status, id]);

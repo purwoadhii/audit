@@ -2,6 +2,12 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.3.0 - 2026-10-12
+- Paket lisensi Standar dan Pro. OCR dan Asisten AI hanya ada di paket Pro; menu keduanya tidak muncul di paket Standar.
+- Batas pengguna lisensi menghitung semua akun aktif kecuali Infra Admin dan satu System Admin. System Admin tambahan ikut dihitung.
+- Halaman lisensi menampilkan paket, fitur, dan rincian hitungan pengguna. Peringatan lisensi langsung hilang setelah lisensi dipasang.
+- Pembuat lisensi tanpa perintah: server/scripts/pembuat-lisensi.html, dibuka di Chrome atau Edge.
+
 ## 1.2.0 - 2026-10-12
 - Tiga pintu masuk terpisah: pengguna di /, System Admin di /sysAdmin, Infra Admin di /infraAdmin. Setiap pintu punya halaman login dan sesi sendiri.
 - Infra Admin mengatur lisensi, akun System Admin, keamanan login, dan memantau aktivitas admin.

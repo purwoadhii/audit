@@ -346,7 +346,9 @@ test('lisensi dan versi', async () => {
   const pair = crypto.generateKeyPairSync('ed25519');
   const priv = pair.privateKey;
   usePublicKeyForTests(pair.publicKey);
-  const users = (await admin.get('/api/users')).data.filter((u) => u.active).length;
+  const spare = await admin.post('/api/users', { name: 'Cadangan', username: 'cadangan', email: 'cadangan@contoh.id', role: 'auditor', password: 'katasandi123' });
+  assert.equal((await admin.patch(`/api/users/${spare.data.id}`, { active: false })).status, 200);
+  const users = (await infra.get('/api/admin/license')).data.users_active;
   const small = signLicense({ customer: 'PT Kecil', max_users: 1, expires: '2099-12-31' }, priv);
   assert.match((await infra.put('/api/admin/license', { key: small })).data.error, /pengguna aktif sekarang/);
   const ok = signLicense({ customer: 'PT Contoh', max_users: users, expires: '2099-12-31' }, priv);
@@ -355,9 +357,44 @@ test('lisensi dan versi', async () => {
   assert.equal(put.data.state, 'active');
   assert.equal(put.data.customer, 'PT Contoh');
   assert.equal(put.data.users_active, users);
+  // Hitungan: semua akun aktif kecuali Infra Admin, dan satu System Admin gratis.
+  assert.ok(put.data.users_admin >= 1);
+  assert.equal(put.data.users_active, put.data.users_work + put.data.users_admin - 1);
   const full = await admin.post('/api/users', { name: 'Lebih', username: 'lebih', email: 'lebih@contoh.id', role: 'auditor', password: 'katasandi123' });
   assert.equal(full.status, 400);
   assert.match(full.data.error, /batas lisensi/);
+  assert.match((await admin.patch(`/api/users/${spare.data.id}`, { active: true })).data.error, /batas lisensi/, 'mengaktifkan lagi juga dihitung');
+  const admin2 = await infra.post('/api/users', { name: 'Admin Dua', username: 'admintambah', email: 'admintambah@contoh.id', role: 'admin', password: 'katasandi123' });
+  assert.match(admin2.data.error, /batas lisensi/, 'System Admin tambahan dihitung');
+  const infra2 = await infra.post('/api/users', { name: 'Infra Dua', username: 'infralebih', email: 'infralebih@contoh.id', role: 'infraadmin', password: 'katasandi123' });
+  assert.equal(infra2.status, 201, 'Infra Admin tidak dihitung');
+
+  // Paket: kunci tanpa paket dianggap Pro. Paket Standar menutup OCR dan Asisten AI.
+  assert.equal(put.data.edition, 'pro');
+  assert.deepEqual((await auditor.get('/api/auth/me')).data.features, ['ocr', 'ai']);
+  const std = signLicense({ customer: 'PT Contoh', edition: 'standar', max_users: 0, expires: '2099-12-31' }, priv);
+  const putStd = await infra.put('/api/admin/license', { key: std });
+  assert.equal(putStd.data.edition, 'standar');
+  assert.deepEqual(putStd.data.features, []);
+  assert.deepEqual((await auditor.get('/api/auth/me')).data.features, []);
+  assert.equal((await auditor.get('/api/ai/status')).data.reason, 'license');
+  const chat = await auditor.post('/api/ai/chat', { messages: [{ role: 'user', content: 'halo' }] });
+  assert.equal(chat.status, 403);
+  assert.match(chat.data.error, /lisensi Pro/);
+  assert.notEqual(chat.data.license, true, 'fitur Pro tidak mengeluarkan pengguna');
+  const ocrForm = new FormData();
+  ocrForm.append('file', new Blob(['halo'], { type: 'text/plain' }), 'a.txt');
+  const ocr = await auditor.post('/api/ocr', ocrForm);
+  assert.equal(ocr.status, 403);
+  assert.match(ocr.data.error, /lisensi Pro/);
+  assert.equal((await auditor.get('/api/audits')).status, 200, 'fitur lain tetap jalan');
+  const pro = signLicense({ customer: 'PT Contoh', edition: 'pro', max_users: 0, expires: '2099-12-31' }, priv);
+  assert.deepEqual((await infra.put('/api/admin/license', { key: pro })).data.features, ['ocr', 'ai']);
+  assert.equal((await auditor.post('/api/ocr', ocrForm)).status, 200);
+  const relog = await client().post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
+  assert.deepEqual(relog.data.features, ['ocr', 'ai'], 'fitur juga dikirim saat login');
+  const odd = signLicense({ customer: 'PT Contoh', edition: 'emas', max_users: 0, expires: null }, priv);
+  assert.match((await infra.put('/api/admin/license', { key: odd })).data.error, /Paket lisensi/);
 
   // Lisensi habis: pengguna dan System Admin tidak bisa masuk, Infra Admin tetap bisa.
   const old = signLicense({ customer: 'PT Contoh', max_users: 0, expires: '2020-01-01' }, priv);

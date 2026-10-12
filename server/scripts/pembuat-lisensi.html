@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pembuat Lisensi</title>
+<!--
+  Pembuat kunci lisensi Audit Management. Hanya untuk penyedia aplikasi yang memegang kunci privat.
+  Buka file ini langsung di Chrome atau Edge (klik dua kali). Semua proses berjalan di browser ini:
+  kunci privat tidak dikirim ke mana pun. Hasilnya sama dengan scripts/buat-lisensi.mjs.
+-->
+<style>
+  :root { --navy: #14213d; --teal: #0f8b8d; --bg: #f2f4f7; --line: #d8dde6; --text: #1d2433; --muted: #5d6677; --bad: #c0392b; --ok: #1e8449; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background: var(--navy); color: #fff; padding: 16px 20px; }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 2px 0 0; color: #b9c3d6; font-size: 13px; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  label { display: grid; gap: 4px; margin-bottom: 14px; font-weight: 600; font-size: 14px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 13px; }
+  input[type=text], input[type=number], input[type=date], textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; width: 100%; background: #fff; }
+  input:focus, textarea:focus { outline: 2px solid var(--teal); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .choice { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-weight: 400; margin: 0; }
+  .choice:has(input:checked) { border-color: var(--teal); background: #eaf6f6; }
+  .choice b { display: block; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+  button.primary { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; padding: 9px 16px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .inline { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+  textarea.key { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; min-height: 110px; word-break: break-all; }
+  .msg { padding: 10px 12px; border-radius: 7px; font-size: 14px; }
+  .msg.bad { background: #fdecea; color: var(--bad); }
+  .msg.ok { background: #e9f7ef; color: var(--ok); }
+  .summary { margin: 0 0 10px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; }
+  .summary dt { color: var(--muted); }
+  .summary dd { margin: 0; font-weight: 600; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { margin-bottom: 4px; }
+  code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; }
+  @media (max-width: 560px) { .row, .choices { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pembuat Lisensi Audit Management</h1>
+  <p>Kunci privat hanya dibaca di browser ini dan tidak dikirim ke mana pun.</p>
+</header>
+<main>
+  <form class="panel" id="form">
+    <h2>Isi lisensi</h2>
+    <label>Kunci privat
+      <input type="file" id="pem" accept=".pem,.txt">
+      <span class="hint">File <code>kunci-privat-lisensi.pem</code> milik penyedia aplikasi. Jangan berikan file ini ke pelanggan.</span>
+    </label>
+    <label>Nama pelanggan
+      <input type="text" id="customer" required placeholder="PT Contoh Sejahtera">
+      <span class="hint">Tampil di halaman lisensi dan di bagian bawah aplikasi pelanggan.</span>
+    </label>
+    <label style="margin-bottom:6px">Paket</label>
+    <div class="choices" style="margin-bottom:14px">
+      <label class="choice"><input type="radio" name="edition" value="standar" checked><span><b>Standar</b><span class="hint">Audit, temuan, tindak lanjut, laporan. Tanpa OCR dan Asisten AI.</span></span></label>
+      <label class="choice"><input type="radio" name="edition" value="pro"><span><b>Pro</b><span class="hint">Semua fitur Standar, ditambah OCR dan Asisten AI.</span></span></label>
+    </div>
+    <div class="row">
+      <label>Batas pengguna aktif
+        <input type="number" id="users" min="0" step="1" value="25">
+        <span class="hint">0 berarti tanpa batas. Infra Admin dan 1 System Admin tidak dihitung.</span>
+      </label>
+      <label>Berlaku sampai
+        <input type="date" id="expires">
+        <span class="inline"><input type="checkbox" id="forever"> Selamanya</span>
+        <span class="quick">
+          <button type="button" data-months="1">1 bulan</button>
+          <button type="button" data-months="6">6 bulan</button>
+          <button type="button" data-months="12">1 tahun</button>
+          <button type="button" data-months="24">2 tahun</button>
+        </span>
+      </label>
+    </div>
+    <div id="err" class="msg bad" role="alert" hidden></div>
+    <button class="primary" id="make">Buat kunci lisensi</button>
+  </form>
+
+  <section class="panel" id="result" hidden>
+    <h2>Kunci lisensi</h2>
+    <dl class="summary" id="summary"></dl>
+    <textarea class="key" id="key" readonly></textarea>
+    <div class="actions">
+      <button type="button" class="primary" id="copy">Salin kunci</button>
+      <button type="button" id="save">Simpan sebagai file</button>
+    </div>
+    <div id="verify" class="msg" style="margin-top:10px"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Cara memasang di aplikasi pelanggan</h2>
+    <ol>
+      <li>Kirim kunci lisensi (teks <code>AM1.…</code>) ke pelanggan.</li>
+      <li>Infra Admin pelanggan masuk ke <code>/infraAdmin</code>, buka menu <b>Lisensi</b>.</li>
+      <li>Tempel kunci di kolom <b>Kunci lisensi</b>, lalu klik <b>Pasang lisensi</b>.</li>
+    </ol>
+  </section>
+</main>
+<script>
+// Kunci publik yang sama dengan server/src/license.js, untuk memastikan kunci privat yang dipilih cocok.
+const PUBLIC_KEY_B64 = 'MCowBQYDK2VwAyEAGrQWhC4N7+E7JffGUu18eEKiR1FmBgGdBa81kITUMcg=';
+const PREFIX = 'AM1';
+const EDITION_LABEL = { standar: 'Standar', pro: 'Pro' };
+const $ = (id) => document.getElementById(id);
+const enc = new TextEncoder();
+
+const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fmt = (s) => new Date(`${s}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function addMonths(n) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + n);
+  return iso(d);
+}
+$('expires').value = addMonths(12);
+document.querySelectorAll('[data-months]').forEach((b) => b.addEventListener('click', () => {
+  $('forever').checked = false;
+  $('expires').disabled = false;
+  $('expires').value = addMonths(Number(b.dataset.months));
+}));
+$('forever').addEventListener('change', () => { $('expires').disabled = $('forever').checked; });
+
+function showError(text) {
+  $('err').textContent = text;
+  $('err').hidden = !text;
+}
+
+async function readPrivateKey() {
+  const file = $('pem').files[0];
+  if (!file) throw new Error('Pilih file kunci privat dulu.');
+  const pem = await file.text();
+  const m = pem.match(/-----BEGIN PRIVATE KEY-----([\s\S]+?)-----END PRIVATE KEY-----/);
+  if (!m) throw new Error('File ini bukan kunci privat (.pem) yang dikenal.');
+  try {
+    return await crypto.subtle.importKey('pkcs8', fromB64(m[1].replace(/\s+/g, '')), { name: 'Ed25519' }, false, ['sign']);
+  } catch {
+    throw new Error('Kunci privat tidak bisa dibaca. Pakai Chrome atau Edge versi terbaru, dan pastikan file-nya benar.');
+  }
+}
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  showError('');
+  $('make').disabled = true;
+  try {
+    if (!window.crypto?.subtle) throw new Error('Browser ini tidak mendukung pembuatan lisensi. Pakai Chrome atau Edge versi terbaru.');
+    const customer = $('customer').value.trim();
+    if (!customer) throw new Error('Nama pelanggan wajib diisi.');
+    const maxUsers = Number($('users').value);
+    if (!Number.isInteger(maxUsers) || maxUsers < 0) throw new Error('Batas pengguna harus angka 0 atau lebih.');
+    const forever = $('forever').checked;
+    const expires = forever ? null : $('expires').value;
+    if (!forever && !/^\d{4}-\d{2}-\d{2}$/.test(expires || '')) throw new Error('Isi tanggal berakhir, atau centang Selamanya.');
+    if (expires && expires < iso(new Date())) throw new Error('Tanggal berakhir sudah lewat.');
+    const edition = document.querySelector('input[name=edition]:checked').value;
+    const key = await readPrivateKey();
+
+    const data = {
+      v: 2,
+      id: [...crypto.getRandomValues(new Uint8Array(6))].map((x) => x.toString(16).padStart(2, '0')).join(''),
+      customer,
+      edition,
+      max_users: maxUsers,
+      expires,
+      issued: iso(new Date()),
+    };
+    const body = b64url(enc.encode(JSON.stringify(data)));
+    const signed = enc.encode(`${PREFIX}.${body}`);
+    const sig = await crypto.subtle.sign({ name: 'Ed25519' }, key, signed);
+    const license = `${PREFIX}.${body}.${b64url(sig)}`;
+
+    const pub = await crypto.subtle.importKey('spki', fromB64(PUBLIC_KEY_B64), { name: 'Ed25519' }, false, ['verify']);
+    const valid = await crypto.subtle.verify({ name: 'Ed25519' }, pub, sig, signed);
+
+    const rows = [
+      ['Pelanggan', customer],
+      ['Paket', `${EDITION_LABEL[edition]}${edition === 'pro' ? ' (dengan OCR dan Asisten AI)' : ' (tanpa OCR dan Asisten AI)'}`],
+      ['Pengguna aktif', maxUsers ? `Maksimal ${maxUsers}` : 'Tanpa batas'],
+      ['Berlaku sampai', expires ? fmt(expires) : 'Selamanya'],
+      ['ID lisensi', data.id],
+    ];
+    $('summary').replaceChildren(...rows.flatMap(([k, v]) => {
+      const dt = document.createElement('dt'); dt.textContent = k;
+      const dd = document.createElement('dd'); dd.textContent = v;
+      return [dt, dd];
+    }));
+    $('key').value = license;
+    $('verify').className = `msg ${valid ? 'ok' : 'bad'}`;
+    $('verify').textContent = valid
+      ? 'Kunci privat cocok dengan aplikasi. Lisensi ini bisa dipasang.'
+      : 'Kunci privat ini tidak cocok dengan aplikasi Audit Management. Lisensi ini akan ditolak.';
+    $('result').hidden = false;
+    $('result').dataset.name = `lisensi-${customer.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${data.id}.txt`;
+    $('result').dataset.text = `${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nKunci lisensi:\n${license}\n`;
+    $('result').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    $('make').disabled = false;
+  }
+});
+
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('key').value); } catch { $('key').select(); document.execCommand('copy'); }
+  $('copy').textContent = 'Tersalin';
+  setTimeout(() => { $('copy').textContent = 'Salin kunci'; }, 1500);
+});
+
+$('save').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([$('result').dataset.text], { type: 'text/plain' }));
+  a.download = $('result').dataset.name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>

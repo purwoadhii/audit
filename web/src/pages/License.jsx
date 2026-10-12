@@ -4,6 +4,9 @@ import { useAuth } from '../auth.jsx';
 import { fmtDate } from '../util.js';
 import { ConfirmDelete, ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
 
+export const EDITION = { standar: 'Standar', pro: 'Pro' };
+const FEATURE_LIST = [['ocr', 'OCR'], ['ai', 'Asisten AI']];
+
 export const LICENSE_STATE = {
   trial: { label: 'Masa uji coba', cls: 'med' },
   trial_expired: { label: 'Uji coba habis', cls: 'high' },
@@ -36,6 +39,7 @@ export default function License() {
     setMsg('');
     try {
       setData(await api.put('/admin/license', { key }));
+      window.dispatchEvent(new Event('license-changed'));
       setKey('');
       toast('Lisensi dipasang');
     } catch (err) {
@@ -49,6 +53,7 @@ export default function License() {
     try {
       await api.del('/admin/license');
       toast('Lisensi dilepas, aplikasi kembali ke masa uji coba');
+      window.dispatchEvent(new Event('license-changed'));
       reload();
     } catch (err) {
       toast(err.message, 'error');
@@ -63,7 +68,10 @@ export default function License() {
             <div className="t-sub">Status lisensi</div>
             <div className="license-name">{trial ? 'Belum berlisensi' : data.customer || 'Lisensi tidak terbaca'}</div>
           </div>
-          <span className={`pill tone-${st.cls}`}>{st.label}</span>
+          <span className="license-pills">
+            {data.edition && <span className={`pill edition-${data.edition}`}>{trial ? 'Uji coba Pro' : `Paket ${EDITION[data.edition]}`}</span>}
+            <span className={`pill tone-${st.cls}`}>{st.label}</span>
+          </span>
         </div>
         <div className="license-stats">
           <div>
@@ -75,6 +83,7 @@ export default function License() {
             <span className="t-sub">Pengguna aktif</span>
             <b>{data.users_active}{limit ? ` / ${limit}` : ''}</b>
             {limit ? <div className="progress"><div style={{ width: `${pct}%`, background: pct >= 100 ? 'var(--high)' : undefined }} /></div> : <small>Tanpa batas jumlah pengguna</small>}
+            <small>{data.users_work} pengguna, {data.users_admin} System Admin. Infra Admin dan {data.free_admins} System Admin tidak dihitung.</small>
           </div>
           <div>
             <span className="t-sub">{trial ? 'Dipasang sejak' : 'Diterbitkan'}</span>
@@ -82,6 +91,15 @@ export default function License() {
             {data.id && <small className="code">ID {data.id}</small>}
           </div>
         </div>
+        {data.edition && (
+          <div className="license-features">
+            <span className="t-sub">Fitur paket</span>
+            {FEATURE_LIST.map(([f, label]) => {
+              const on = (data.features || []).includes(f);
+              return <span key={f} className={`feat${on ? ' on' : ''}`}>{on ? '✓' : '✕'} {label}{on ? '' : ' (khusus Pro)'}</span>;
+            })}
+          </div>
+        )}
         {data.state === 'invalid' && <div className="notice">{data.error}</div>}
         {trial && <p className="t-sub" style={{ margin: 0 }}>Tanpa lisensi, aplikasi bisa dipakai {data.trial_days} hari sejak dipasang. Setelah itu pengguna dan System Admin tidak bisa masuk sampai lisensi dipasang. Infra Admin tetap bisa masuk.</p>}
         {!infra && <p className="t-sub" style={{ margin: 0 }}>Lisensi dipasang dan diperbarui oleh Infra Admin.</p>}
@@ -92,7 +110,7 @@ export default function License() {
           <h3 className="full" style={{ margin: 0 }}>{trial ? 'Pasang lisensi' : 'Ganti lisensi'}</h3>
           <label className="full"><span>Kunci lisensi</span>
             <textarea id="license-key" rows={4} spellCheck={false} className="mono" value={key} onChange={(e) => setKey(e.target.value)} placeholder="AM1.xxxxx.xxxxx" />
-            <span className="hint">Kunci lisensi dibuat oleh penyedia aplikasi. Isinya (pelanggan, jumlah pengguna, masa berlaku) sudah ditandatangani dan tidak bisa diubah.</span>
+            <span className="hint">Kunci lisensi dibuat oleh penyedia aplikasi. Isinya (pelanggan, paket, jumlah pengguna, masa berlaku) sudah ditandatangani dan tidak bisa diubah.</span>
           </label>
           {msg && <div className="error-text full" role="alert">{msg}</div>}
           <div className="form-foot full">

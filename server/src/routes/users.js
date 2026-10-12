@@ -56,7 +56,7 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const username = cleanUsername(req.body?.username);
   await assertFree('email', email);
   await assertFree('username', username);
-  if (WORK_ROLES.includes(role)) await assertUserSlot();
+  await assertUserSlot(role);
   const { insertId } = await query(
     'INSERT INTO users (name, username, email, password_hash, role, unit) VALUES (?,?,?,?,?,?)',
     [name, username, email, await bcrypt.hash(password, 10), role, unit],
@@ -84,9 +84,12 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   if (b.unit !== undefined) add('unit', b.unit?.trim() || null);
   if (b.active !== undefined) {
     if (id === req.user.id && !b.active) throw badRequest('Anda tidak bisa menonaktifkan akun sendiri.');
-    if (b.active && !target.active && WORK_ROLES.includes(b.role ?? target.role)) await assertUserSlot();
     add('active', Boolean(b.active));
   }
+  // Akun yang diaktifkan lagi atau berganti peran bisa menambah hitungan pengguna lisensi.
+  const willBeActive = b.active !== undefined ? Boolean(b.active) : Boolean(target.active);
+  const newRole = b.role ?? target.role;
+  if (willBeActive && (!target.active || newRole !== target.role)) await assertUserSlot(newRole, target.active ? target.role : null);
   if (b.password) {
     if (String(b.password).length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
     add('password_hash', await bcrypt.hash(String(b.password), 10));

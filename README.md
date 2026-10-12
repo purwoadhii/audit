@@ -42,7 +42,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   - Log aktivitas, riwayat login, dan sesi aktif akun admin.
   - Kondisi server dan database, kesalahan server terakhir, status penyimpanan file, pemakaian Asisten AI, dan riwayat versi.
 - Supaya pemilik akun admin tetap bisa mengerjakan audit, saat aplikasi jalan dibuat juga akun user terpisah (peran dari `ADMIN_USER_ROLE`, bawaan auditor) dengan password yang sama, username `<ADMIN_USERNAME>.user`, dan email alias `+user`, misalnya `oti.twingate+user@gmail.com`. Akun ini masuk lewat `http://localhost:3000`.
-- **Lisensi:** kunci lisensi berisi nama pelanggan, batas jumlah pengguna aktif (auditor, auditee, manajemen), dan tanggal berakhir. Kunci ditandatangani dengan kunci privat penyedia, jadi isinya tidak bisa diubah. Tanpa lisensi, aplikasi berjalan 30 hari masa uji coba sejak pertama dijalankan. Bila lisensi atau masa uji coba habis, pengguna dan System Admin tidak bisa masuk, sedangkan Infra Admin tetap bisa masuk untuk memasang lisensi baru. Admin melihat peringatan 30 hari sebelum lisensi habis.
+- **Lisensi:** kunci lisensi berisi nama pelanggan, paket (Standar atau Pro), batas jumlah pengguna aktif, dan tanggal berakhir. Paket Pro membuka OCR dan Asisten AI; paket Standar berisi semua fitur audit tanpa keduanya. Batas pengguna menghitung semua akun aktif kecuali Infra Admin dan satu System Admin (System Admin kedua dan seterusnya ikut dihitung, begitu juga akun kembar admin seperti `admin.user`). Masa uji coba membuka semua fitur Pro. Kunci ditandatangani dengan kunci privat penyedia, jadi isinya tidak bisa diubah. Tanpa lisensi, aplikasi berjalan 30 hari masa uji coba sejak pertama dijalankan. Bila lisensi atau masa uji coba habis, pengguna dan System Admin tidak bisa masuk, sedangkan Infra Admin tetap bisa masuk untuk memasang lisensi baru. Admin melihat peringatan 30 hari sebelum lisensi habis.
 - **Versi:** nomor versi tampil di halaman login dan di bawah setiap halaman. Riwayat versi ada di [CHANGELOG.md](CHANGELOG.md) dan di Infra Admin → Versi aplikasi.
 - **Pembacaan dokumen dan OCR:** teks PDF, Word, Excel, dan PowerPoint (.docx, .xlsx, .pptx) dibaca otomatis saat diunggah. Gambar dan PDF hasil scan dibaca dengan OCR (bahasa Indonesia dan Inggris, tanpa internet). Teks bisa dilihat dari tombol "Lihat teks" di daftar file dan dipakai untuk pencarian. OCR bisa dimatikan di Pengaturan. Ada juga menu **OCR** untuk user: unggah foto, scan, atau dokumen, lalu teksnya bisa disalin atau diunduh tanpa file itu disimpan.
 - **Asisten AI** (menu untuk auditor, auditee, dan manajemen): mencari audit, temuan, tindak lanjut, dan isi file atas permintaan, dengan tautan ke datanya. AI hanya melihat data yang boleh dilihat penanya. Penyedia AI yang dipakai adalah Cohere. Bila Cohere kena batas pemakaian gratis atau error, asisten tidak bisa menjawab sampai batasnya pulih. API key, model, urutan, dan peran yang boleh memakai diatur di System Admin (API key disimpan terenkripsi). Pemakaian per penyedia, batas yang tercapai, dan antrian OCR dipantau di Infra Admin.
@@ -160,12 +160,23 @@ TEST_DATABASE_URL=mysql://root:@localhost:3306/jejak_audit_test npm test
 
 Kunci lisensi dibuat dengan kunci privat penyedia. Kunci privat **tidak** disimpan di repository; simpan baik-baik dan jangan dibagikan ke pelanggan.
 
+Cara termudah: buka `server/scripts/pembuat-lisensi.html` di Chrome atau Edge (klik dua kali), pilih file kunci privat, isi nama pelanggan, paket, batas pengguna, dan tanggal berakhir, lalu klik **Buat kunci lisensi**. Semua proses berjalan di browser; kunci privat tidak dikirim ke mana pun.
+
+Lewat perintah:
+
 ```bash
 cd server
-node scripts/buat-lisensi.mjs --kunci /lokasi/kunci-privat-lisensi.pem --pelanggan "PT Contoh" --pengguna 50 --sampai 2027-12-31
+npm run lisensi -- --kunci /lokasi/kunci-privat-lisensi.pem --pelanggan "PT Contoh" --paket pro --pengguna 50 --sampai 2027-12-31
 ```
 
-`--pengguna 0` berarti tanpa batas jumlah pengguna. Tanpa `--sampai`, lisensi berlaku selamanya. Hasilnya satu baris kunci yang dipasang di Infra Admin → Lisensi.
+| Pilihan | Isi |
+|---|---|
+| `--pelanggan` | Nama pelanggan, tampil di aplikasi pelanggan |
+| `--paket` | `standar` (bawaan) atau `pro` (dengan OCR dan Asisten AI) |
+| `--pengguna` | Batas pengguna aktif. `0` berarti tanpa batas |
+| `--sampai` | Tanggal berakhir `YYYY-MM-DD`. Tanpa pilihan ini, lisensi berlaku selamanya |
+
+Hasilnya satu baris kunci (`AM1.…`) yang dipasang di Infra Admin → Lisensi. Kunci lama tanpa paket dianggap Pro.
 
 Kalau kunci privat hilang, buat pasangan kunci baru dengan `node scripts/buat-lisensi.mjs --kunci-baru kunci-privat-lisensi.pem`, lalu ganti kunci publik di `server/src/license.js`. Lisensi lama tidak berlaku lagi setelah itu.
 

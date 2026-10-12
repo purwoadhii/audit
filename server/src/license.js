@@ -4,9 +4,10 @@ import { getSettings } from './settings.js';
 import { HttpError, badRequest } from './errors.js';
 
 // Lisensi aplikasi. Kunci lisensi dibuat penyedia aplikasi dengan kunci privat (server/scripts/buat-lisensi.mjs)
-// dan diperiksa di sini dengan kunci publik, jadi isi lisensi (pelanggan, jumlah pengguna, masa berlaku)
-// tidak bisa diubah tanpa kunci privat. Infra Admin memasang kunci lisensi di /infraAdmin/lisensi.
-// Tanpa lisensi, aplikasi berjalan dalam masa uji coba TRIAL_DAYS hari sejak pertama dipasang.
+// atau server/scripts/pembuat-lisensi.html) dan diperiksa di sini dengan kunci publik, jadi isi lisensi
+// (pelanggan, paket, jumlah pengguna, masa berlaku) tidak bisa diubah tanpa kunci privat.
+// Infra Admin memasang kunci lisensi di /infraAdmin/lisensi.
+// Tanpa lisensi, aplikasi berjalan dalam masa uji coba TRIAL_DAYS hari sejak pertama dipasang, dengan fitur Pro.
 let PUBLIC_KEY = crypto.createPublicKey(`-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGrQWhC4N7+E7JffGUu18eEKiR1FmBgGdBa81kITUMcg=
 -----END PUBLIC KEY-----`);
@@ -20,6 +21,15 @@ export function usePublicKeyForTests(key) {
 const PREFIX = 'AM1';
 let cached = null;
 export const WORK_ROLES = ['auditor', 'auditee', 'manajemen'];
+
+// Paket lisensi dan fitur yang dibuka. Kunci lama tanpa paket dianggap Pro.
+export const FEATURES = { ocr: 'OCR', ai: 'Asisten AI' };
+export const EDITIONS = {
+  standar: { label: 'Standar', features: [] },
+  pro: { label: 'Pro', features: ['ocr', 'ai'] },
+};
+// Akun yang tidak dihitung dalam batas pengguna: semua Infra Admin dan satu System Admin.
+export const FREE_ADMINS = 1;
 
 const b64 = (s) => Buffer.from(s, 'base64url');
 
@@ -35,7 +45,12 @@ export function parseLicense(key) {
   try { data = JSON.parse(body.toString('utf8')); } catch { throw badRequest('Isi kunci lisensi rusak.'); }
   if (!data.customer || !Number.isInteger(data.max_users) || data.max_users < 0) throw badRequest('Isi kunci lisensi tidak lengkap.');
   if (data.expires && !/^\d{4}-\d{2}-\d{2}$/.test(data.expires)) throw badRequest('Tanggal berakhir lisensi tidak valid.');
-  return { id: data.id || null, customer: String(data.customer), max_users: data.max_users, expires: data.expires || null, issued: data.issued || null };
+  const edition = data.edition || 'pro';
+  if (!EDITIONS[edition]) throw badRequest('Paket lisensi tidak dikenal.');
+  return {
+    id: data.id || null, customer: String(data.customer), edition, features: EDITIONS[edition].features,
+    max_users: data.max_users, expires: data.expires || null, issued: data.issued || null,
+  };
 }
 
 // Dipakai skrip pembuat lisensi.
@@ -50,9 +65,17 @@ const today = () => new Date().toISOString().slice(0, 10);
 // Sisa hari termasuk hari ini; 0 berarti sudah lewat.
 const daysUntil = (date) => Math.max(0, Math.floor((Date.parse(`${date}T23:59:59.999Z`) - Date.now()) / DAY) + 1);
 
-export async function activeWorkUsers() {
-  const { rows } = await query(`SELECT COUNT(*) AS n FROM users WHERE active AND role IN (${WORK_ROLES.map(() => '?').join(',')})`, WORK_ROLES);
-  return Number(rows[0].n);
+// Pengguna yang dihitung lisensi: akun aktif selain Infra Admin, dikurangi satu System Admin.
+// Akun kembar admin (misalnya admin.user) dihitung karena dipakai sebagai pengguna biasa.
+const counted = ({ work, admins }) => work + Math.max(0, admins - FREE_ADMINS);
+async function userCounts() {
+  const { rows } = await query("SELECT role, COUNT(*) AS n FROM users WHERE active AND role <> 'infraadmin' GROUP BY role");
+  const c = { work: 0, admins: 0 };
+  for (const x of rows) c[x.role === 'admin' ? 'admins' : 'work'] += Number(x.n);
+  return c;
+}
+export async function countedUsers() {
+  return counted(await userCounts());
 }
 
 // Status lisensi saat ini:
@@ -63,19 +86,22 @@ export async function activeWorkUsers() {
 //   invalid        kunci tersimpan tidak bisa dibaca
 export async function licenseStatus({ withUsers = false } = {}) {
   const s = await getSettings();
-  const out = { trial_days: TRIAL_DAYS, install_date: s.install_date || today() };
-  if (withUsers) out.users_active = await activeWorkUsers();
+  const out = { trial_days: TRIAL_DAYS, install_date: s.install_date || today(), free_admins: FREE_ADMINS };
+  if (withUsers) {
+    const c = await userCounts();
+    Object.assign(out, { users_active: counted(c), users_work: c.work, users_admin: c.admins });
+  }
   if (!s.license_key) {
     const end = new Date(Date.parse(`${out.install_date}T00:00:00Z`) + (TRIAL_DAYS - 1) * DAY).toISOString().slice(0, 10);
     const left = daysUntil(end);
-    return { ...out, state: left > 0 ? 'trial' : 'trial_expired', expires: end, days_left: left, max_users: 0, customer: null };
+    return { ...out, state: left > 0 ? 'trial' : 'trial_expired', expires: end, days_left: left, max_users: 0, customer: null, edition: 'pro', features: EDITIONS.pro.features };
   }
   try {
     const lic = parseLicense(s.license_key);
     const left = lic.expires ? daysUntil(lic.expires) : null;
     return { ...out, ...lic, state: left === 0 ? 'expired' : 'active', days_left: left };
   } catch (err) {
-    return { ...out, state: 'invalid', error: err.message, max_users: 0, customer: null, expires: null, days_left: 0 };
+    return { ...out, state: 'invalid', error: err.message, max_users: 0, customer: null, expires: null, days_left: 0, edition: null, features: [] };
   }
 }
 
@@ -99,10 +125,29 @@ export async function assertLicensed(role) {
   throw Object.assign(new HttpError(403, msg), { license: true });
 }
 
-// Pengguna aktif (auditor, auditee, manajemen) tidak boleh melebihi batas lisensi. 0 berarti tanpa batas.
-export async function assertUserSlot() {
+// Fitur paket Pro (OCR, Asisten AI). Masa uji coba membuka semua fitur.
+export async function licenseFeatures() {
+  const st = await cachedStatus();
+  return licenseBlocks(st) ? [] : st.features || [];
+}
+export const hasFeature = async (f) => (await licenseFeatures()).includes(f);
+export async function assertFeature(f) {
+  if (await hasFeature(f)) return;
+  throw new HttpError(403, `${FEATURES[f]} hanya tersedia di lisensi Pro. Hubungi Infra Admin untuk meningkatkan lisensi.`);
+}
+
+// Batas pengguna lisensi (0 berarti tanpa batas). Dipanggil sebelum akun menjadi aktif atau berganti peran:
+// role = peran akun setelah perubahan, from = peran akun aktif sebelumnya (bila akun itu sudah aktif).
+export async function assertUserSlot(role, from = null) {
+  if (role === 'infraadmin') return;
   const st = await licenseStatus();
   if (!st.max_users) return;
-  const n = await activeWorkUsers();
-  if (n >= st.max_users) throw badRequest(`Jumlah pengguna aktif sudah mencapai batas lisensi (${st.max_users} pengguna). Nonaktifkan pengguna lain atau minta Infra Admin memperbarui lisensi.`);
+  const c = await userCounts();
+  const after = { ...c };
+  const bump = (r, d) => { if (r && r !== 'infraadmin') after[r === 'admin' ? 'admins' : 'work'] += d; };
+  bump(from, -1);
+  bump(role, 1);
+  // Perubahan yang tidak menambah hitungan selalu boleh, walaupun pemakaian sudah melewati batas.
+  if (counted(after) <= st.max_users || counted(after) <= counted(c)) return;
+  throw badRequest(`Jumlah pengguna aktif sudah mencapai batas lisensi (${st.max_users} pengguna). Nonaktifkan pengguna lain atau minta Infra Admin memperbarui lisensi.`);
 }

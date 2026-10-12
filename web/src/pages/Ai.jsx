@@ -9,6 +9,7 @@ const WORK_ROLES = ['auditor', 'auditee', 'manajemen'];
 
 // System Admin: penyedia AI, API key, urutan cadangan, dan siapa yang boleh memakai.
 export function AiSettings() {
+  const { user } = useAuth();
   const toast = useToast();
   const { data, error, loading, reload } = useLoad(() => api.get('/admin/ai'), []);
   const [f, setF] = useState(null);
@@ -104,6 +105,9 @@ export function AiSettings() {
     <>
       <form className="panel form" onSubmit={save} aria-label="Asisten AI">
         <h3 className="full" style={{ margin: 0 }}>Asisten AI</h3>
+        {!(user.features || []).includes('ai') && (
+          <div className="notice full">Lisensi saat ini Standar, jadi Asisten AI tidak muncul untuk pengguna. Pengaturan di sini tetap tersimpan dan langsung berlaku setelah lisensi Pro dipasang.</div>
+        )}
         <p className="form-note full">
           Pengguna bisa meminta AI mencari audit, temuan, dan isi file (termasuk hasil OCR). AI hanya melihat data yang boleh dilihat
           pengguna itu. Pertanyaan dan data yang ditemukan dikirim ke penyedia AI ({form.order.map((id) => form.providers[id].label).join(', ')}).
@@ -272,6 +276,7 @@ function Rich({ text }) {
 const REASON = {
   disabled: 'Asisten AI belum diaktifkan. Admin perlu mencentang "Aktifkan Asisten AI" di System Admin → Asisten AI, lalu menyimpan.',
   no_key: 'Belum ada penyedia AI dengan API key. Admin perlu mengisi API key di System Admin → Asisten AI.',
+  license: 'Asisten AI hanya tersedia di lisensi Pro. Hubungi Infra Admin untuk meningkatkan lisensi.',
   role: 'Asisten AI belum dibuka untuk peran Anda. Admin bisa mencentang peran ini di System Admin → Asisten AI.',
   error: 'Status Asisten AI tidak bisa diperiksa. Muat ulang halaman.',
 };

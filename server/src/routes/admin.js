@@ -9,7 +9,7 @@ import { recentErrors } from '../errorlog.js';
 import { getSettings, saveInternal } from '../settings.js';
 import { publicAiConfig, saveAiConfig, testProvider, providerModels, aiHealth, PROVIDERS } from '../ai.js';
 import { extractionState, requeueAll } from '../extract.js';
-import { licenseStatus, parseLicense, clearLicenseCache, activeWorkUsers } from '../license.js';
+import { licenseStatus, parseLicense, clearLicenseCache, countedUsers } from '../license.js';
 import { APP_VERSION, changelog } from '../version.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
@@ -184,8 +184,8 @@ r.post('/ocr/reprocess', requireRole('admin'), async (req, res) => {
 // ---- Lisensi (Infra Admin) ----
 async function licenseView() {
   const st = await licenseStatus({ withUsers: true });
-  const { id, customer, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, error } = st;
-  return { id, customer, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, error };
+  const { id, customer, edition, features, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, users_work, users_admin, free_admins, error } = st;
+  return { id, customer, edition, features, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, users_work, users_admin, free_admins, error };
 }
 
 r.get('/license', requireRole('admin'), async (_req, res) => {
@@ -194,13 +194,13 @@ r.get('/license', requireRole('admin'), async (_req, res) => {
 
 r.put('/license', requireRole('infraadmin'), async (req, res) => {
   const lic = parseLicense(req.body?.key);
-  const used = await activeWorkUsers();
+  const used = await countedUsers();
   if (lic.max_users && used > lic.max_users) {
     throw badRequest(`Lisensi ini untuk ${lic.max_users} pengguna, sedangkan pengguna aktif sekarang ${used}. Nonaktifkan sebagian pengguna dulu atau minta lisensi dengan batas lebih besar.`);
   }
   await saveInternal(req.user, 'license_key', String(req.body.key).trim().replace(/\s+/g, ''));
   clearLicenseCache();
-  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['license'], customer: lic.customer, expires: lic.expires, max_users: lic.max_users });
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['license'], customer: lic.customer, edition: lic.edition, expires: lic.expires, max_users: lic.max_users });
   res.json(await licenseView());
 });
 

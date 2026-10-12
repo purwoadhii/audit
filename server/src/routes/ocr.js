@@ -5,6 +5,7 @@ import { badRequest } from '../errors.js';
 import { logActivity, query } from '../db.js';
 import { getSettings } from '../settings.js';
 import { extractText } from '../extract.js';
+import { assertFeature } from '../license.js';
 
 // Menu OCR: baca teks dari file tanpa menyimpannya. File hanya diproses di memori.
 const r = Router();
@@ -23,6 +24,7 @@ r.post('/', (req, res, next) => {
     try {
       if (err?.code === 'LIMIT_FILE_SIZE') throw badRequest(`Ukuran file maksimal ${config.maxUploadMb} MB.`);
       if (err) throw err;
+      await assertFeature('ocr');
       if (!req.file) throw badRequest('Pilih file yang akan dibaca.');
       const { ocr_enabled: ocr } = await getSettings();
       const filename = Buffer.from(req.file.originalname, 'latin1').toString('utf8').slice(0, 200);

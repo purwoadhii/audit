@@ -4,7 +4,7 @@ import { BACKGROUNDS, brandingDir, mimeFor } from '../branding.js';
 import bcrypt from 'bcryptjs';
 import { query } from '../db.js';
 import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent, PORTALS, portalOf, portalForRole } from '../auth.js';
-import { assertLicensed } from '../license.js';
+import { assertLicensed, licenseFeatures } from '../license.js';
 import { APP_VERSION } from '../version.js';
 import { HttpError, badRequest, requireText } from '../errors.js';
 import { getSettings, publicSettings } from '../settings.js';
@@ -84,7 +84,7 @@ r.post('/login', async (req, res) => {
   await issueSession(req, res, user, Boolean(req.body?.remember));
   await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [user.id]);
   await recordLogin(req, login, user, true, null);
-  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit });
+  res.json({ id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, unit: user.unit, features: await licenseFeatures() });
 });
 
 r.post('/logout', async (req, res) => {
@@ -94,9 +94,9 @@ r.post('/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
-r.get('/me', requireAuth, (req, res) => {
+r.get('/me', requireAuth, async (req, res) => {
   const { id, name, username, email, role, unit } = req.user;
-  res.json({ id, name, username, email, role, unit });
+  res.json({ id, name, username, email, role, unit, features: await licenseFeatures() });
 });
 
 // Riwayat login dan sesi aktif milik pengguna sendiri.

@@ -122,6 +122,9 @@ function Section({ title, keys, data, onSaved }) {
       {keys.map((k) => (
         <Field key={k} k={k} meta={data.meta[k]} value={f[k]} themes={data.themes} locked={lockedKey(k)} onChange={(v) => setF({ ...f, [k]: v })} />
       ))}
+      {keys.includes('ocr_enabled') && !(user.features || []).includes('ocr') && (
+        <div className="notice full">Lisensi saat ini Standar, jadi OCR gambar dan PDF hasil scan tidak berjalan. OCR tersedia di lisensi Pro.</div>
+      )}
       {error && <div className="error-text full" role="alert">{error}</div>}
       {editable.length > 0 && <div className="form-foot full"><button className="btn primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan'}</button></div>}
     </form>
