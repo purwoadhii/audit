@@ -2,22 +2,27 @@ import { Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { query, logActivity } from '../db.js';
-import { requireRole, endSession } from '../auth.js';
+import { requireRole, endSession, watchedRoles } from '../auth.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
 import { config } from '../config.js';
 import { recentErrors } from '../errorlog.js';
-import { getSettings } from '../settings.js';
+import { getSettings, saveInternal } from '../settings.js';
 import { publicAiConfig, saveAiConfig, testProvider, providerModels, aiHealth, PROVIDERS } from '../ai.js';
 import { extractionState, requeueAll } from '../extract.js';
+import { licenseStatus, parseLicense, clearLicenseCache, activeWorkUsers } from '../license.js';
+import { APP_VERSION, changelog } from '../version.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
 const startedAt = new Date();
+const inList = (roles) => roles.map(() => '?').join(',');
 
 // Riwayat login: semua percobaan masuk, bisa disaring per status, pengguna, atau kata kunci.
 r.get('/logins', requireRole('admin'), async (req, res) => {
-  const where = [];
-  const params = [];
+  const roles = watchedRoles(req.user);
+  // Percobaan dengan username yang tidak terdaftar tetap ditampilkan.
+  const where = [`(u.role IN (${inList(roles)}) OR h.user_id IS NULL)`];
+  const params = [...roles];
   if (req.query.status === 'berhasil') where.push('h.success = TRUE');
   if (req.query.status === 'gagal') where.push('h.success = FALSE');
   if (req.query.user_id) { where.push('h.user_id = ?'); params.push(Number(req.query.user_id)); }
@@ -42,8 +47,9 @@ r.get('/sessions', requireRole('admin'), async (req, res) => {
     `SELECT s.id, s.user_id, u.name AS user_name, u.username, u.role, s.remember, s.ip, s.user_agent,
             s.created_at, s.last_seen_at, s.expires_at
        FROM sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.ended_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP(3)
+      WHERE s.ended_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP(3) AND u.role IN (${inList(watchedRoles(req.user))})
       ORDER BY s.last_seen_at DESC`,
+    watchedRoles(req.user),
   );
   res.json(rows.map((x) => ({ ...x, remember: Boolean(Number(x.remember)), current: x.id === req.sessionId })));
 });
@@ -53,7 +59,7 @@ r.delete('/sessions/:id', requireRole('admin'), async (req, res) => {
   if (!/^[0-9a-f]{32}$/.test(id)) throw notFound();
   const { rows } = await query('SELECT s.id, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?', [id]);
   if (!rows[0]) throw notFound();
-  if (rows[0].role === 'infraadmin' && req.user.role !== 'infraadmin') throw forbidden('Sesi Infra Admin hanya bisa diakhiri oleh Infra Admin.');
+  if (!watchedRoles(req.user).includes(rows[0].role)) throw forbidden('Sesi ini diatur oleh Infra Admin.');
   if (id === req.sessionId) throw badRequest('Gunakan tombol Keluar untuk mengakhiri sesi Anda sendiri.');
   await endSession(id, 'dipaksa_keluar');
   res.json({ ok: true });
@@ -173,6 +179,41 @@ r.post('/ocr/reprocess', requireRole('admin'), async (req, res) => {
   const queued = await requeueAll(['none', 'failed', 'pending']);
   await logActivity({ query }, req.user.id, 'update', 'setting', null, { action: 'ocr_reprocess', queued });
   res.json({ queued });
+});
+
+// ---- Lisensi (Infra Admin) ----
+async function licenseView() {
+  const st = await licenseStatus({ withUsers: true });
+  const { id, customer, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, error } = st;
+  return { id, customer, max_users, expires, issued, state, days_left, install_date, trial_days, users_active, error };
+}
+
+r.get('/license', requireRole('admin'), async (_req, res) => {
+  res.json(await licenseView());
+});
+
+r.put('/license', requireRole('infraadmin'), async (req, res) => {
+  const lic = parseLicense(req.body?.key);
+  const used = await activeWorkUsers();
+  if (lic.max_users && used > lic.max_users) {
+    throw badRequest(`Lisensi ini untuk ${lic.max_users} pengguna, sedangkan pengguna aktif sekarang ${used}. Nonaktifkan sebagian pengguna dulu atau minta lisensi dengan batas lebih besar.`);
+  }
+  await saveInternal(req.user, 'license_key', String(req.body.key).trim().replace(/\s+/g, ''));
+  clearLicenseCache();
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['license'], customer: lic.customer, expires: lic.expires, max_users: lic.max_users });
+  res.json(await licenseView());
+});
+
+r.delete('/license', requireRole('infraadmin'), async (req, res) => {
+  await saveInternal(req.user, 'license_key', '');
+  clearLicenseCache();
+  await logActivity({ query }, req.user.id, 'delete', 'setting', null, { keys: ['license'] });
+  res.json(await licenseView());
+});
+
+// ---- Versi aplikasi ----
+r.get('/version', requireRole('admin'), (_req, res) => {
+  res.json({ version: APP_VERSION, changelog: changelog() });
 });
 
 r.get('/errors', requireRole('infraadmin'), (_req, res) => {

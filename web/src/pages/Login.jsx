@@ -4,8 +4,27 @@ import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import LoginArt from '../components/LoginArt.jsx';
 import { Logo } from '../components/Icons.jsx';
+import { PORTAL, portalInfo } from '../portal.js';
 
-const SAVED_KEY = 'am_username';
+const SAVED_KEY = PORTAL === 'user' ? 'am_username' : `am_username_${PORTAL}`;
+
+// Teks halaman login untuk System Admin dan Infra Admin. Halaman login pengguna memakai teks dari Pengaturan.
+const ADMIN_TEXT = {
+  sys: {
+    title: 'Masuk System Admin',
+    lead: 'Kelola akun pengguna, template audit, dan pengaturan aplikasi.',
+    hero: 'Atur pengguna dan aplikasi dari satu tempat',
+    heroText: 'System Admin mengatur akun auditor, auditee, dan manajemen, beserta tampilan, data master, penyimpanan, dan Asisten AI.',
+    pills: ['Pengguna', 'Template', 'Pengaturan'],
+  },
+  infra: {
+    title: 'Masuk Infra Admin',
+    lead: 'Kelola lisensi, akun System Admin, dan keamanan aplikasi.',
+    hero: 'Pusat kendali aplikasi',
+    heroText: 'Infra Admin menjaga lisensi, akun System Admin, keamanan login, dan kondisi server.',
+    pills: ['Lisensi', 'Akun Admin', 'Keamanan'],
+  },
+};
 
 function readSaved() {
   try { return localStorage.getItem(SAVED_KEY) || ''; } catch { return ''; }
@@ -20,7 +39,8 @@ function Icon({ children }) {
 }
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, notice } = useAuth();
+  const admin = ADMIN_TEXT[PORTAL];
   const navigate = useNavigate();
   const { settings, reload } = useSettings();
   // Ambil ulang pengaturan saat halaman login dibuka, misalnya setelah mode perbaikan dinyalakan.
@@ -43,8 +63,8 @@ export default function Login() {
     setError('');
     try {
       await login(u, password, remember);
-      // Setelah masuk selalu mulai dari Ringkasan, supaya kondisi keseluruhan langsung terlihat.
-      navigate('/', { replace: true });
+      // Setelah masuk selalu mulai dari halaman utama pintu ini (Ringkasan untuk pengguna).
+      navigate(portalInfo.home, { replace: true });
       try {
         if (remember) localStorage.setItem(SAVED_KEY, u);
         else localStorage.removeItem(SAVED_KEY);
@@ -57,7 +77,7 @@ export default function Login() {
   }
 
   return (
-    <div className="lp">
+    <div className={`lp portal-${PORTAL}`}>
       <section
         className={`lp-hero${bg ? ' has-photo' : ''}`}
         aria-hidden="true"
@@ -65,12 +85,10 @@ export default function Login() {
       >
         {!bg && <div className="lp-art"><LoginArt /></div>}
         <div className="lp-hero-text">
-          {settings.login_hero_title && <h2>{settings.login_hero_title}</h2>}
-          {settings.login_hero_text && <p>{settings.login_hero_text}</p>}
+          {admin ? <h2>{admin.hero}</h2> : settings.login_hero_title && <h2>{settings.login_hero_title}</h2>}
+          {admin ? <p>{admin.heroText}</p> : settings.login_hero_text && <p>{settings.login_hero_text}</p>}
           <div className="lp-pills">
-            <span>Perencanaan Audit</span>
-            <span>Kertas Kerja</span>
-            <span>Temuan &amp; Tindak Lanjut</span>
+            {(admin?.pills || ['Perencanaan Audit', 'Kertas Kerja', 'Temuan & Tindak Lanjut']).map((x) => <span key={x}>{x}</span>)}
           </div>
         </div>
       </section>
@@ -80,12 +98,13 @@ export default function Login() {
           <div className="lp-inner">
             <div className="lp-brand">
               <div className="lp-brand-icon"><Logo size={52} /></div>
-              <div className="lp-brand-name">{settings.app_name}</div>
+              <div className="lp-brand-name">{settings.app_name}{admin && <span className={`portal-badge ${PORTAL}`}>{portalInfo.label}</span>}</div>
             </div>
 
-            <h1>{settings.login_title}</h1>
-            {settings.login_subtitle && <p className="lp-lead">{settings.login_subtitle}</p>}
-            {settings.maintenance && <div className="lp-maint" role="status">{settings.maintenance_message}</div>}
+            <h1>{admin ? admin.title : settings.login_title}</h1>
+            {admin ? <p className="lp-lead">{admin.lead}</p> : settings.login_subtitle && <p className="lp-lead">{settings.login_subtitle}</p>}
+            {settings.maintenance && PORTAL !== 'infra' && <div className="lp-maint" role="status">{settings.maintenance_message}</div>}
+            {notice && <div className="lp-maint" role="status">{notice}</div>}
 
             <form onSubmit={submit} noValidate>
               <label className="lp-label" htmlFor="username">Username</label>
@@ -117,7 +136,7 @@ export default function Login() {
             </form>
 
             <hr />
-            <p className="lp-foot">{settings.app_tagline || settings.app_name}</p>
+            <p className="lp-foot">{settings.app_tagline || settings.app_name}{settings.version && <> · Versi {settings.version}</>}</p>
           </div>
         </div>
       </main>

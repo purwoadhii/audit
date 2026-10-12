@@ -5,6 +5,18 @@ import { useAuth } from '../auth.jsx';
 import { AUDIT_STATUS, RISKS, fmtDate, canEdit } from '../util.js';
 import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
+import { Icon } from '../components/Icons.jsx';
+
+function Kpi({ tone, icon, label, value, sub }) {
+  return (
+    <div className={`kpi tone-${tone}`}>
+      <div className="kpi-ico"><Icon name={icon} size={20} /></div>
+      <div className="lbl">{label}</div>
+      <div className="val">{value}</div>
+      <div className="sub">{sub}</div>
+    </div>
+  );
+}
 
 const RISK_COLOR = { Tinggi: 'var(--high)', Sedang: 'var(--med)', Rendah: 'var(--low)' };
 
@@ -34,13 +46,19 @@ export default function Dashboard() {
     );
   }
 
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
   return (
     <>
+      <div className="greet">
+        <h2>{greet}, {user.name.split(' ')[0]}</h2>
+        <p className="t-sub">Kondisi audit dan tindak lanjut per {fmtDate(new Date().toISOString())}.</p>
+      </div>
       <div className="kpis">
-        <div className="kpi"><div className="lbl">Audit berjalan</div><div className="val">{auditTotal - auditCount('Selesai')}</div><div className="sub">dari {auditTotal} audit</div></div>
-        <div className="kpi"><div className="lbl">Temuan terbuka</div><div className="val">{fOpen}</div><div className="sub">dari {fTotal} temuan</div></div>
-        <div className={`kpi${overdue ? ' alert' : ''}`}><div className="lbl">Lewat jatuh tempo</div><div className="val">{overdue}</div><div className="sub">tindak lanjut terlambat</div></div>
-        <div className="kpi"><div className="lbl">Tindak lanjut selesai</div><div className="val">{fTotal ? Math.round((fDone / fTotal) * 100) : 0}%</div><div className="sub">{fDone} temuan ditutup</div></div>
+        <Kpi tone="accent" icon="audit" label="Audit berjalan" value={auditTotal - auditCount('Selesai')} sub={`dari ${auditTotal} audit`} />
+        <Kpi tone="low" icon="finding" label="Temuan terbuka" value={fOpen} sub={`dari ${fTotal} temuan`} />
+        <Kpi tone={overdue ? 'high' : 'muted'} icon="board" label="Lewat jatuh tempo" value={overdue} sub="tindak lanjut terlambat" />
+        <Kpi tone="ok" icon="shield" label="Tindak lanjut selesai" value={`${fTotal ? Math.round((fDone / fTotal) * 100) : 0}%`} sub={`${fDone} temuan ditutup`} />
       </div>
       <div className="grid2">
         <div className="panel">

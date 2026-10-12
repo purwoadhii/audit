@@ -17,6 +17,7 @@ import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import ocrRoutes from './routes/ocr.js';
 import { recordError } from './errorlog.js';
+import { APP_VERSION } from './version.js';
 
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 
@@ -44,7 +45,7 @@ export function createApp() {
     next();
   });
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, version: APP_VERSION }));
   app.use('/api/auth', authRoutes);
   app.use('/api', requireAuth);
   app.use('/api/users', userRoutes);
@@ -68,7 +69,7 @@ export function createApp() {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
-    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, ...(err.maintenance ? { maintenance: true } : {}) });
+    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, ...(err.maintenance ? { maintenance: true } : {}), ...(err.license ? { license: true } : {}) });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Data JSON tidak valid.' });
     if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ error: 'Data terkait tidak ditemukan.' });
     if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Data yang sama sudah ada.' });

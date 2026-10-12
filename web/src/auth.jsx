@@ -5,14 +5,16 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = sedang memeriksa sesi
+  const [notice, setNotice] = useState(''); // pesan untuk halaman login, misalnya lisensi habis
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
-    api.get('/auth/me').then(setUser).catch(() => setUser(null));
+    setUnauthorizedHandler((msg) => { setNotice(msg || ''); setUser(null); });
+    api.get('/auth/me').then(setUser).catch((err) => { if (err.status === 403) setNotice(err.message); setUser(null); });
   }, []);
 
   const login = useCallback(async (username, password, remember = false) => {
     const u = await api.post('/auth/login', { username, password, remember });
+    setNotice('');
     setUser(u);
   }, []);
 
@@ -21,7 +23,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, login, logout, notice }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

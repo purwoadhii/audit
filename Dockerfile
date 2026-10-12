@@ -13,6 +13,7 @@ WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 COPY server/ ./
+COPY CHANGELOG.md /app/CHANGELOG.md
 COPY --from=web /app/web/dist /app/web/dist
 RUN mkdir -p /data/uploads && chown -R node:node /data
 USER node

@@ -34,6 +34,12 @@ export async function migrate() {
   await ensureAdmin();
   await ensureAdminUser();
   await ensureInfraAdmin();
+  await ensureInstallDate();
+}
+
+// Tanggal pertama aplikasi dijalankan, untuk menghitung masa uji coba sebelum lisensi dipasang.
+async function ensureInstallDate() {
+  await pool.query("INSERT IGNORE INTO settings (k, v) VALUES ('install_date', ?)", [JSON.stringify(new Date().toISOString().slice(0, 10))]);
 }
 
 // Membuat akun admin pertama dari ADMIN_EMAIL/ADMIN_PASSWORD bila belum ada pengguna sama sekali.

@@ -3,7 +3,9 @@ import path from 'node:path';
 import { BACKGROUNDS, brandingDir, mimeFor } from '../branding.js';
 import bcrypt from 'bcryptjs';
 import { query } from '../db.js';
-import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent } from '../auth.js';
+import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent, PORTALS, portalOf, portalForRole } from '../auth.js';
+import { assertLicensed } from '../license.js';
+import { APP_VERSION } from '../version.js';
 import { HttpError, badRequest, requireText } from '../errors.js';
 import { getSettings, publicSettings } from '../settings.js';
 
@@ -22,7 +24,7 @@ async function recordLogin(req, login, user, success, reason) {
 
 // Nama aplikasi, teks login, tema, dan status perbaikan untuk halaman login (tanpa perlu masuk).
 r.get('/settings', async (_req, res) => {
-  res.json(await publicSettings());
+  res.json({ ...(await publicSettings()), version: APP_VERSION });
 });
 
 // Gambar latar dibuka tanpa login: gambar login tampil di halaman login, dan keduanya hanya gambar hiasan.
@@ -61,9 +63,22 @@ r.post('/login', async (req, res) => {
     await recordLogin(req, login, user, false, !user ? 'akun_tidak_ada' : !passOk ? 'password_salah' : 'akun_nonaktif');
     throw new HttpError(401, 'Username atau password salah.');
   }
+  // Setiap akun hanya bisa masuk lewat pintunya sendiri.
+  const portal = portalOf(req);
+  if (!PORTALS[portal].roles.includes(user.role)) {
+    await recordLogin(req, login, user, false, 'pintu_salah');
+    const right = PORTALS[portalForRole(user.role)];
+    throw new HttpError(403, right ? `Akun ini masuk lewat ${right.label} di alamat ${right.path}.` : 'Akun ini tidak bisa masuk di sini.');
+  }
   if (settings.maintenance && user.role !== 'infraadmin') {
     await recordLogin(req, login, user, false, 'perbaikan');
     throw new HttpError(503, settings.maintenance_message);
+  }
+  try {
+    await assertLicensed(user.role);
+  } catch (err) {
+    await recordLogin(req, login, user, false, 'lisensi');
+    throw err;
   }
   attempts.delete(key);
   await issueSession(req, res, user, Boolean(req.body?.remember));
@@ -75,7 +90,7 @@ r.post('/login', async (req, res) => {
 r.post('/logout', async (req, res) => {
   const payload = readToken(req);
   if (payload?.sid) await endSession(payload.sid, 'keluar');
-  clearSession(res);
+  clearSession(req, res);
   res.json({ ok: true });
 });
 

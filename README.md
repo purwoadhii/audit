@@ -10,27 +10,43 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 - **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
 - **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
 - **Masuk:** dengan username atau email. Sesi selalu berakhir saat browser ditutup. Tanpa "Ingat saya", pengguna juga otomatis keluar setelah tidak aktif (bawaan 120 menit). Dengan "Ingat saya", sesi bertahan selama browser terbuka, paling lama 7 hari.
-- **Pengguna dan peran:**
+- **Tiga pintu masuk**, masing-masing dengan halaman login dan sesi sendiri (bisa masuk bersamaan di browser yang sama):
+
+  | Alamat | Untuk | Isi |
+  | --- | --- | --- |
+  | `http://localhost:3000` | Auditor, auditee, manajemen | Ringkasan, audit, temuan, tindak lanjut, Asisten AI, OCR |
+  | `http://localhost:3000/sysAdmin` | System Admin (admin dari pihak klien) | Mengatur akun pengguna dan pengaturan aplikasi |
+  | `http://localhost:3000/infraAdmin` | Infra Admin (developer) | Mengatur lisensi, akun System Admin, dan keamanan |
+
+  Setiap akun hanya bisa masuk lewat pintunya sendiri. Infra Admin mengawasi System Admin, dan System Admin mengawasi pengguna.
+- **Peran pengguna:**
 
   | Peran | Hak akses |
   | --- | --- |
-  | Infra Admin | Developer. Semua hak System Admin, ditambah menu Infra Admin |
-  | System Admin | Admin dari pihak klien. Menu System Admin dan riwayat login |
   | Auditor | Membuat audit, mengisi program kerja, mencatat dan menutup temuan |
   | Auditee | Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, mengunggah bukti |
   | Manajemen | Melihat semua audit, temuan, laporan, dan log aktivitas tanpa mengubah |
 
-- **System Admin** (`/sysAdmin`), untuk admin dari pihak klien:
-  - Pengguna dan template.
+- **System Admin** (`/sysAdmin`):
+  - Akun pengguna (auditor, auditee, manajemen) dan template audit.
   - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login, serta gambar latar halaman setelah login.
   - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
   - Penyimpanan file bukti: di server aplikasi (lokal/on-premise; foldernya bisa diganti dari halaman ini, misalnya `D:/AuditManagement/files` atau folder NAS yang di-mapping) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
-  - Sesi aktif yang bisa dipaksa keluar.
-- **Infra Admin** (`/infraAdmin`), untuk developer: kondisi server dan database, kesalahan server terakhir, status dan pemakaian penyimpanan file, batas percobaan login, dan mode perbaikan.
-- Akun System Admin dan Infra Admin hanya melihat menu pengaturan dan Aktivitas. Infra Admin mengawasi admin, dan admin mengawasi user. Supaya pemilik akun admin tetap bisa mengerjakan audit, saat aplikasi jalan dibuat juga akun user terpisah (peran dari `ADMIN_USER_ROLE`, bawaan auditor) dengan password yang sama, username `<ADMIN_USERNAME>.user`, dan email alias `+user`, misalnya `oti.twingate+user@gmail.com`.
+  - Asisten AI dan OCR.
+  - Log aktivitas, riwayat login, dan sesi aktif pengguna dan admin, dengan tombol paksa keluar untuk sesi pengguna.
+  - Status lisensi (hanya melihat).
+- **Infra Admin** (`/infraAdmin`):
+  - Lisensi: pasang, ganti, atau lepas kunci lisensi.
+  - Akun System Admin dan Infra Admin.
+  - Keamanan: batas percobaan login dan mode perbaikan.
+  - Log aktivitas, riwayat login, dan sesi aktif akun admin.
+  - Kondisi server dan database, kesalahan server terakhir, status penyimpanan file, pemakaian Asisten AI, dan riwayat versi.
+- Supaya pemilik akun admin tetap bisa mengerjakan audit, saat aplikasi jalan dibuat juga akun user terpisah (peran dari `ADMIN_USER_ROLE`, bawaan auditor) dengan password yang sama, username `<ADMIN_USERNAME>.user`, dan email alias `+user`, misalnya `oti.twingate+user@gmail.com`. Akun ini masuk lewat `http://localhost:3000`.
+- **Lisensi:** kunci lisensi berisi nama pelanggan, batas jumlah pengguna aktif (auditor, auditee, manajemen), dan tanggal berakhir. Kunci ditandatangani dengan kunci privat penyedia, jadi isinya tidak bisa diubah. Tanpa lisensi, aplikasi berjalan 30 hari masa uji coba sejak pertama dijalankan. Bila lisensi atau masa uji coba habis, pengguna dan System Admin tidak bisa masuk, sedangkan Infra Admin tetap bisa masuk untuk memasang lisensi baru. Admin melihat peringatan 30 hari sebelum lisensi habis.
+- **Versi:** nomor versi tampil di halaman login dan di bawah setiap halaman. Riwayat versi ada di [CHANGELOG.md](CHANGELOG.md) dan di Infra Admin → Versi aplikasi.
 - **Pembacaan dokumen dan OCR:** teks PDF, Word, Excel, dan PowerPoint (.docx, .xlsx, .pptx) dibaca otomatis saat diunggah. Gambar dan PDF hasil scan dibaca dengan OCR (bahasa Indonesia dan Inggris, tanpa internet). Teks bisa dilihat dari tombol "Lihat teks" di daftar file dan dipakai untuk pencarian. OCR bisa dimatikan di Pengaturan. Ada juga menu **OCR** untuk user: unggah foto, scan, atau dokumen, lalu teksnya bisa disalin atau diunduh tanpa file itu disimpan.
 - **Asisten AI** (menu untuk auditor, auditee, dan manajemen): mencari audit, temuan, tindak lanjut, dan isi file atas permintaan, dengan tautan ke datanya. AI hanya melihat data yang boleh dilihat penanya. Penyedia AI yang dipakai adalah Cohere. Bila Cohere kena batas pemakaian gratis atau error, asisten tidak bisa menjawab sampai batasnya pulih. API key, model, urutan, dan peran yang boleh memakai diatur di System Admin (API key disimpan terenkripsi). Pemakaian per penyedia, batas yang tercapai, dan antrian OCR dipantau di Infra Admin.
-- **Aktivitas:** log aktivitas, dan untuk admin juga riwayat login (berhasil dan gagal, dengan IP dan perangkat).
+- **Aktivitas:** auditor dan manajemen melihat log aktivitas pengguna. Riwayat login (berhasil dan gagal, dengan IP dan perangkat) ada di System Admin dan Infra Admin.
 - **Log aktivitas:** setiap pembuatan, perubahan, penghapusan, dan unggahan tercatat.
 - **Pengingat email (opsional):** setiap hari, PIC menerima daftar temuan yang terlambat atau jatuh tempo dalam 7 hari.
 
@@ -139,6 +155,23 @@ Tes API berjalan terhadap database MySQL/MariaDB sungguhan dan **menghapus semua
 cd server
 TEST_DATABASE_URL=mysql://root:@localhost:3306/jejak_audit_test npm test
 ```
+
+### Membuat kunci lisensi (khusus penyedia aplikasi)
+
+Kunci lisensi dibuat dengan kunci privat penyedia. Kunci privat **tidak** disimpan di repository; simpan baik-baik dan jangan dibagikan ke pelanggan.
+
+```bash
+cd server
+node scripts/buat-lisensi.mjs --kunci /lokasi/kunci-privat-lisensi.pem --pelanggan "PT Contoh" --pengguna 50 --sampai 2027-12-31
+```
+
+`--pengguna 0` berarti tanpa batas jumlah pengguna. Tanpa `--sampai`, lisensi berlaku selamanya. Hasilnya satu baris kunci yang dipasang di Infra Admin → Lisensi.
+
+Kalau kunci privat hilang, buat pasangan kunci baru dengan `node scripts/buat-lisensi.mjs --kunci-baru kunci-privat-lisensi.pem`, lalu ganti kunci publik di `server/src/license.js`. Lisensi lama tidak berlaku lagi setelah itu.
+
+### Versi
+
+Setiap rilis: naikkan `version` di `server/package.json` dan `web/package.json`, lalu tambahkan bagian baru di atas [CHANGELOG.md](CHANGELOG.md).
 
 ## Konfigurasi
 

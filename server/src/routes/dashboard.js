@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { query, bools } from '../db.js';
-import { requireRole } from '../auth.js';
+import { requireRole, isAdmin, watchedRoles } from '../auth.js';
 import { auditScope, findingScope } from '../access.js';
 
 const r = Router();
@@ -27,10 +27,15 @@ r.get('/', async (req, res) => {
   res.json({ audits, findings, upcoming, byUnit });
 });
 
-r.get('/activity', requireRole('admin', 'manajemen', 'auditor'), async (_req, res) => {
+// Log aktivitas. Admin melihat aktivitas akun yang diawasinya: System Admin melihat pengguna dan admin,
+// Infra Admin melihat admin dan Infra Admin. Auditor dan manajemen melihat aktivitas pengguna.
+r.get('/activity', requireRole('admin', 'manajemen', 'auditor'), async (req, res) => {
+  const roles = isAdmin(req.user) ? watchedRoles(req.user) : ['auditor', 'auditee', 'manajemen'];
   const { rows } = await query(
-    `SELECT l.id, l.action, l.entity, l.entity_id, l.detail, l.created_at, u.name AS user_name
-     FROM activity_log l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.created_at DESC, l.id DESC LIMIT 100`);
+    `SELECT l.id, l.action, l.entity, l.entity_id, l.detail, l.created_at, u.name AS user_name, u.role AS user_role
+     FROM activity_log l LEFT JOIN users u ON u.id = l.user_id
+     WHERE u.role IN (${roles.map(() => '?').join(',')})
+     ORDER BY l.created_at DESC, l.id DESC LIMIT 100`, roles);
   res.json(rows.map((l) => ({ ...l, detail: l.detail ? JSON.parse(l.detail) : null })));
 });
 

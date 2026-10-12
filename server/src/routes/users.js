@@ -4,6 +4,7 @@ import { query, logActivity, bools } from '../db.js';
 import { requireRole, isAdmin } from '../auth.js';
 import { badRequest, forbidden, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
+import { WORK_ROLES, assertUserSlot } from '../license.js';
 
 const r = Router();
 const PUBLIC = 'id, name, username, email, role, unit, active, created_at, last_login_at';
@@ -14,9 +15,13 @@ function cleanUsername(v) {
   return u;
 }
 
-// Akun Infra Admin hanya boleh dibuat atau diubah oleh Infra Admin.
-function guardInfra(me, role) {
-  if (role === 'infraadmin' && me.role !== 'infraadmin') throw forbidden('Akun Infra Admin hanya bisa diatur oleh Infra Admin.');
+// Pengawasan berlapis: System Admin mengatur akun pengguna (auditor, auditee, manajemen),
+// Infra Admin mengatur akun System Admin dan Infra Admin.
+export const managedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : me.role === 'admin' ? WORK_ROLES : []);
+
+function guardRole(me, role) {
+  if (managedRoles(me).includes(role)) return;
+  throw forbidden(me.role === 'admin' ? 'Akun admin diatur oleh Infra Admin.' : 'Akun pengguna diatur oleh System Admin.');
 }
 
 async function assertFree(field, value, exceptId = 0) {
@@ -27,7 +32,8 @@ async function assertFree(field, value, exceptId = 0) {
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
 r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
   const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, active';
-  const { rows } = await query(`SELECT ${cols} FROM users ORDER BY active DESC, name`);
+  const roles = isAdmin(req.user) ? managedRoles(req.user) : WORK_ROLES;
+  const { rows } = await query(`SELECT ${cols} FROM users WHERE role IN (${roles.map(() => '?').join(',')}) ORDER BY active DESC, name`, roles);
   res.json(rows.map((u) => bools(u, 'active')));
 });
 
@@ -42,7 +48,7 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const email = requireText(req.body?.email, 'Email').toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest('Format email tidak valid.');
   const role = oneOf(req.body?.role, ROLES, 'Peran');
-  guardInfra(req.user, role);
+  guardRole(req.user, role);
   const password = requireText(req.body?.password, 'Kata sandi');
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
@@ -50,6 +56,7 @@ r.post('/', requireRole('admin'), async (req, res) => {
   const username = cleanUsername(req.body?.username);
   await assertFree('email', email);
   await assertFree('username', username);
+  if (WORK_ROLES.includes(role)) await assertUserSlot();
   const { insertId } = await query(
     'INSERT INTO users (name, username, email, password_hash, role, unit) VALUES (?,?,?,?,?,?)',
     [name, username, email, await bcrypt.hash(password, 10), role, unit],
@@ -61,8 +68,8 @@ r.post('/', requireRole('admin'), async (req, res) => {
 r.patch('/:id', requireRole('admin'), async (req, res) => {
   const id = intId(req.params.id);
   const target = await loadUser(id);
-  guardInfra(req.user, target.role);
-  if (req.body?.role !== undefined) guardInfra(req.user, req.body.role);
+  guardRole(req.user, target.role);
+  if (req.body?.role !== undefined) guardRole(req.user, req.body.role);
   const sets = [];
   const params = [];
   const add = (col, val) => { params.push(val); sets.push(`${col} = ?`); };
@@ -77,6 +84,7 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   if (b.unit !== undefined) add('unit', b.unit?.trim() || null);
   if (b.active !== undefined) {
     if (id === req.user.id && !b.active) throw badRequest('Anda tidak bisa menonaktifkan akun sendiri.');
+    if (b.active && !target.active && WORK_ROLES.includes(b.role ?? target.role)) await assertUserSlot();
     add('active', Boolean(b.active));
   }
   if (b.password) {

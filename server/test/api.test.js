@@ -24,10 +24,11 @@ const fx = await import('./fixtures.js');
 let server;
 let base;
 
-function client() {
+// portal: 'user' (/), 'sys' (/sysAdmin), atau 'infra' (/infraAdmin), sama seperti header dari browser.
+function client(portal = 'user') {
   let cookie = '';
   const call = async (method, url, body, { raw } = {}) => {
-    const headers = { 'x-requested-with': 'jejak' };
+    const headers = { 'x-requested-with': 'jejak', 'x-portal': portal };
     if (cookie) headers.cookie = cookie;
     let payload;
     if (body instanceof FormData) payload = body;
@@ -67,7 +68,7 @@ after(async () => {
   await pool.end();
 });
 
-const admin = client();
+const admin = client('sys');
 const auditor = client();
 const auditee = client();
 const other = client();
@@ -90,19 +91,20 @@ test('login admin dan menolak kata sandi salah', async () => {
 test('login dengan username dan opsi ingat saya', async () => {
   const c = client();
   const plain = await fetch(base + '/api/auth/login', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak' },
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak', 'x-portal': 'sys' },
     body: JSON.stringify({ username: 'Admin', password: 'rahasia-admin-1' }),
   });
   assert.equal(plain.status, 200);
   assert.doesNotMatch(plain.headers.get('set-cookie'), /Max-Age|Expires/i, 'cookie hanya untuk sesi browser');
   const kept = await fetch(base + '/api/auth/login', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak' },
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak', 'x-portal': 'sys' },
     body: JSON.stringify({ username: 'admin', password: 'rahasia-admin-1', remember: true }),
   });
   assert.doesNotMatch(kept.headers.get('set-cookie'), /Max-Age|Expires/i, 'ingat saya pun berakhir saat browser ditutup');
   const [rows] = await pool.query('SELECT remember, ROUND(TIMESTAMPDIFF(SECOND, created_at, expires_at) / 3600) AS h FROM sessions ORDER BY created_at DESC, remember DESC LIMIT 2');
   assert.deepEqual(rows.map((x) => [Boolean(x.remember), Number(x.h)]).sort(), [[false, 2], [true, 168]]);
   assert.equal((await c.post('/api/auth/login', { username: 'admin', password: 'salah' })).status, 401);
+  assert.match(plain.headers.get('set-cookie'), /^jejak_sys=/, 'sesi System Admin terpisah dari sesi pengguna');
 });
 
 test('admin membuat pengguna untuk setiap peran', async () => {
@@ -261,20 +263,52 @@ test('pengaturan tampilan dan data master', async () => {
   assert.equal((await auditor.post('/api/audits', { title: 'Lama', unit: 'Divisi Keuangan', type: 'Investigasi' })).status, 400);
 });
 
-test('infra admin di atas system admin', async () => {
-  const infra = client();
+test('tiga pintu masuk: Infra Admin mengatur admin, System Admin mengatur pengguna', async () => {
+  const infra = client('infra');
+  // Setiap akun hanya bisa masuk lewat pintunya sendiri.
+  const wrong = await client().post('/api/auth/login', { username: 'admin', password: 'rahasia-admin-1' });
+  assert.equal(wrong.status, 403);
+  assert.match(wrong.data.error, /\/sysAdmin/);
+  assert.match((await client('sys').post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' })).data.error, /\/infraAdmin/);
+  assert.equal((await client('infra').post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 403);
   assert.equal((await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' })).data.role, 'infraadmin');
-  assert.equal((await infra.get('/api/users')).status, 200, 'infra punya semua hak admin');
+  assert.equal((await infra.get('/api/auth/me')).status, 200);
+
+  // Cookie satu pintu tidak berlaku di pintu lain.
+  const infraCookie = (await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'jejak', 'x-portal': 'infra' }, body: JSON.stringify({ username: 'infra', password: 'rahasia-infra-1' }) })).headers.get('set-cookie').split(';')[0];
+  assert.match(infraCookie, /^jejak_infra=/);
+  const asSys = await fetch(base + '/api/auth/me', { headers: { cookie: infraCookie.replace('jejak_infra', 'jejak_sys'), 'x-portal': 'sys' } });
+  assert.equal(asSys.status, 401, 'sesi infra tidak bisa dipakai sebagai System Admin');
+
+  // Infra Admin melihat dan mengatur akun admin; System Admin melihat dan mengatur akun pengguna.
+  const infraList = (await infra.get('/api/users')).data;
+  assert.deepEqual([...new Set(infraList.map((u) => u.role))].sort(), ['admin', 'infraadmin']);
+  const adminList = (await admin.get('/api/users')).data;
+  assert.ok(adminList.every((u) => ['auditor', 'auditee', 'manajemen'].includes(u.role)));
+  const infraId = infraList.find((u) => u.role === 'infraadmin').id;
+  assert.equal((await admin.patch(`/api/users/${infraId}`, { active: false })).status, 403);
+  assert.equal((await admin.post('/api/users', { name: 'Admin 2', username: 'admin2', email: 'admin2@contoh.id', role: 'admin', password: 'katasandi123' })).status, 403);
+  assert.equal((await admin.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 403);
+  assert.equal((await infra.post('/api/users', { name: 'Admin 2', username: 'admin2', email: 'admin2@contoh.id', role: 'admin', password: 'katasandi123' })).status, 201);
+  assert.equal((await infra.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 201);
+  assert.equal((await infra.post('/api/users', { name: 'U', username: 'u9', email: 'u9@contoh.id', role: 'auditor', password: 'katasandi123' })).status, 403);
+  const admin2 = (await infra.get('/api/users')).data.find((u) => u.username === 'admin2');
+  assert.equal((await infra.patch(`/api/users/${admin2.id}`, { role: 'auditor' })).status, 403, 'akun admin tidak bisa diubah jadi akun pengguna');
+
+  // Pengawasan: riwayat login dan sesi mengikuti lapisannya.
+  const infraLogins = (await infra.get('/api/admin/logins')).data;
+  assert.ok(infraLogins.every((x) => !x.role || ['admin', 'infraadmin'].includes(x.role)));
+  const adminSessions = (await admin.get('/api/admin/sessions')).data;
+  assert.ok(adminSessions.every((x) => x.role !== 'infraadmin'));
+  const infraActivity = (await infra.get('/api/dashboard/activity')).data;
+  assert.ok(infraActivity.some((x) => x.entity === 'user' && x.user_role === 'infraadmin'));
+  assert.ok(infraActivity.every((x) => ['admin', 'infraadmin'].includes(x.user_role)));
+
   assert.equal((await admin.get('/api/admin/system')).status, 403);
   const sys = await infra.get('/api/admin/system');
   assert.equal(sys.status, 200);
   assert.ok(sys.data.database.migrations.some((m) => m.name === '004_settings_logins.sql'));
   assert.equal((await infra.get('/api/admin/errors')).status, 200);
-
-  const infraId = (await admin.get('/api/users')).data.find((u) => u.role === 'infraadmin').id;
-  assert.equal((await admin.patch(`/api/users/${infraId}`, { active: false })).status, 403);
-  assert.equal((await admin.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 403);
-  assert.equal((await infra.post('/api/users', { name: 'Dev', username: 'dev2', email: 'dev2@contoh.id', role: 'infraadmin', password: 'katasandi123' })).status, 201);
 
   // Mode perbaikan: hanya Infra Admin yang tetap bisa masuk.
   assert.equal((await infra.patch('/api/settings', { maintenance: true })).status, 200);
@@ -282,10 +316,67 @@ test('infra admin di atas system admin', async () => {
   assert.equal(down.status, 503);
   assert.equal(down.data.maintenance, true, 'browser tahu ini mode perbaikan');
   assert.equal((await client().post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 503);
-  assert.equal((await infra.get('/api/audits')).status, 200);
+  assert.equal((await infra.get('/api/admin/system')).status, 200);
   assert.equal((await client().get('/api/auth/settings')).data.maintenance, true);
   assert.equal((await infra.patch('/api/settings', { maintenance: false })).status, 200);
   assert.equal((await auditor.get('/api/audits')).status, 200);
+});
+
+test('lisensi dan versi', async () => {
+  const crypto = await import('node:crypto');
+  const { signLicense, parseLicense, usePublicKeyForTests, clearLicenseCache } = await import('../src/license.js');
+  const infra = client('infra');
+  await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
+
+  // Tanpa lisensi: masa uji coba 30 hari sejak dipasang.
+  const trial = (await infra.get('/api/admin/license')).data;
+  assert.equal(trial.state, 'trial');
+  assert.equal(trial.days_left, 30);
+  assert.equal((await auditor.put('/api/admin/license', { key: 'x' })).status, 403);
+  assert.equal((await admin.put('/api/admin/license', { key: 'x' })).status, 403, 'lisensi hanya dipasang Infra Admin');
+  assert.equal((await admin.get('/api/admin/license')).status, 200, 'System Admin bisa melihat status lisensi');
+
+  // Kunci yang tidak ditandatangani penyedia ditolak.
+  const fake = crypto.generateKeyPairSync('ed25519').privateKey;
+  const forged = signLicense({ customer: 'Palsu', max_users: 0, expires: null }, fake);
+  assert.equal((await infra.put('/api/admin/license', { key: forged })).status, 400);
+  assert.throws(() => parseLicense('AM1.abc'));
+
+  // Selama tes, aplikasi memakai kunci publik tes supaya kunci privat penyedia tidak dibutuhkan.
+  const pair = crypto.generateKeyPairSync('ed25519');
+  const priv = pair.privateKey;
+  usePublicKeyForTests(pair.publicKey);
+  const users = (await admin.get('/api/users')).data.filter((u) => u.active).length;
+  const small = signLicense({ customer: 'PT Kecil', max_users: 1, expires: '2099-12-31' }, priv);
+  assert.match((await infra.put('/api/admin/license', { key: small })).data.error, /pengguna aktif sekarang/);
+  const ok = signLicense({ customer: 'PT Contoh', max_users: users, expires: '2099-12-31' }, priv);
+  const put = await infra.put('/api/admin/license', { key: ok });
+  assert.equal(put.status, 200, JSON.stringify(put.data));
+  assert.equal(put.data.state, 'active');
+  assert.equal(put.data.customer, 'PT Contoh');
+  assert.equal(put.data.users_active, users);
+  const full = await admin.post('/api/users', { name: 'Lebih', username: 'lebih', email: 'lebih@contoh.id', role: 'auditor', password: 'katasandi123' });
+  assert.equal(full.status, 400);
+  assert.match(full.data.error, /batas lisensi/);
+
+  // Lisensi habis: pengguna dan System Admin tidak bisa masuk, Infra Admin tetap bisa.
+  const old = signLicense({ customer: 'PT Contoh', max_users: 0, expires: '2020-01-01' }, priv);
+  assert.equal((await infra.put('/api/admin/license', { key: old })).data.state, 'expired');
+  clearLicenseCache();
+  const blocked = await auditor.get('/api/audits');
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.data.license, true);
+  assert.equal((await client().post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 403);
+  assert.equal((await infra.get('/api/admin/license')).status, 200);
+  assert.equal((await infra.del('/api/admin/license')).data.state, 'trial');
+  clearLicenseCache();
+  assert.equal((await auditor.get('/api/audits')).status, 200);
+
+  // Versi dan riwayat versi.
+  assert.match((await client().get('/api/auth/settings')).data.version, /^\d+\.\d+\.\d+$/);
+  const ver = (await infra.get('/api/admin/version')).data;
+  assert.equal(ver.changelog[0].version, ver.version);
+  assert.ok(ver.changelog[0].items.length > 0);
 });
 
 test('gambar latar login dan halaman aplikasi', async () => {
@@ -338,7 +429,7 @@ test('penyimpanan file: lokal dan S3', async () => {
   assert.equal(cfg.data.driver, 'local');
   assert.equal((await auditor.get('/api/admin/storage')).status, 403);
   assert.equal((await admin.put('/api/admin/storage', { driver: 's3', s3: { bucket: 'x' } })).status, 400, 'access key wajib');
-  const infra = client();
+  const infra = client('infra');
   await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
   const st = await infra.get('/api/admin/storage/status?check=1');
   assert.equal(st.data.health.ok, true);
@@ -490,7 +581,7 @@ test('asisten AI dengan Cohere, termasuk saat batas tercapai', async () => {
     assert.equal(lim.status, 502, JSON.stringify(lim.data));
     assert.match(lim.data.error, /tidak bisa dipakai/);
 
-    const infra = client();
+    const infra = client('infra');
     await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
     const st = (await infra.get('/api/admin/ai/status')).data;
     assert.deepEqual(st.providers.map((p) => p.id), ['cohere']);

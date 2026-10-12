@@ -47,6 +47,9 @@ export const SETTINGS = {
   // Gambar latar login: nama file di folder branding. Diatur lewat endpoint unggah, bukan PATCH.
   login_background: { def: '', who: 'internal', label: 'Gambar latar login', check: optText(100) },
   app_background: { def: '', who: 'internal', label: 'Gambar latar halaman aplikasi', check: optText(100) },
+  // Lisensi: kunci dipasang Infra Admin lewat /api/admin/license. Tanggal pasang menentukan masa uji coba.
+  license_key: { def: '', who: 'internal', label: 'Kunci lisensi', check: optText(4000) },
+  install_date: { def: '', who: 'internal', label: 'Tanggal pemasangan', check: optText(10) },
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },

@@ -1,4 +1,6 @@
-// Pembungkus fetch untuk API. Sesi disimpan di cookie httpOnly oleh server.
+import { PORTAL } from './portal.js';
+
+// Pembungkus fetch untuk API. Sesi disimpan di cookie httpOnly oleh server, satu cookie per pintu masuk.
 export class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -10,7 +12,7 @@ let onUnauthorized = () => {};
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 
 async function request(method, url, body) {
-  const headers = { 'x-requested-with': 'jejak' };
+  const headers = { 'x-requested-with': 'jejak', 'x-portal': PORTAL };
   let payload;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) {
@@ -25,9 +27,10 @@ async function request(method, url, body) {
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    // 401: sesi habis. 503 dengan tanda maintenance: mode perbaikan. Keduanya kembali ke halaman login.
-    // Error lain (termasuk penyedia AI yang gagal) tidak boleh membuat pengguna keluar.
-    if ((res.status === 401 || (res.status === 503 && data?.maintenance)) && !url.startsWith('/auth/')) onUnauthorized();
+    // 401: sesi habis. 503 dengan tanda maintenance: mode perbaikan. 403 dengan tanda license: lisensi habis.
+    // Semuanya kembali ke halaman login. Error lain (termasuk penyedia AI yang gagal) tidak membuat pengguna keluar.
+    const out = res.status === 401 || (res.status === 503 && data?.maintenance) || (res.status === 403 && data?.license);
+    if (out && !url.startsWith('/auth/')) onUnauthorized(data?.license ? data.error : null);
     throw new ApiError(res.status, data?.error || 'Terjadi kesalahan.');
   }
   return data;
