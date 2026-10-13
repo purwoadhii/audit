@@ -69,7 +69,7 @@ export function adminUserIdentity(admin = config.admin) {
 
 async function ensureAdminUser() {
   const { email, password, name, userRole } = config.admin;
-  if (!email || !password || !['auditor', 'auditee', 'manajemen'].includes(userRole)) return;
+  if (!email || !password || !['superadmin', 'auditor', 'auditee', 'manajemen'].includes(userRole)) return;
   const id = adminUserIdentity();
   const [rows] = await pool.query('SELECT id FROM users WHERE username = ? OR email = ?', [id.username, id.email]);
   if (rows.length) return;

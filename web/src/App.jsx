@@ -31,7 +31,7 @@ import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
 
 // Tiga pintu masuk dengan tampilan masing-masing:
-//   /            pengguna (auditor, auditee, manajemen): menu atas untuk pekerjaan audit
+//   /            pengguna (super admin, auditor, auditee, manajemen): menu atas untuk pekerjaan audit
 //   /sysAdmin    System Admin: menu samping untuk pengguna dan pengaturan aplikasi
 //   /infraAdmin  Infra Admin: menu samping untuk lisensi, akun admin, keamanan, dan server
 export default function App() {
@@ -70,7 +70,7 @@ function UserApp() {
   const ai = useAiAvailable(user);
   // OCR dan Asisten AI hanya untuk lisensi Pro.
   const has = (f) => (user.features || []).includes(f);
-  const seesActivity = ['auditor', 'manajemen'].includes(user.role);
+  const seesActivity = ['superadmin', 'auditor', 'manajemen'].includes(user.role);
   const appBg = settings.app_background_url;
   const tabs = [
     { to: '/', label: t('Ringkasan'), icon: 'home', end: true },

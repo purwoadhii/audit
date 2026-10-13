@@ -8,12 +8,12 @@ import { assertLicensed } from './license.js';
 
 // Tiga pintu masuk dengan sesi terpisah, jadi user, System Admin, dan Infra Admin bisa masuk
 // bersamaan di browser yang sama tanpa saling menimpa:
-//   user   alamat /            auditor, auditee, manajemen
+//   user   alamat /            superadmin, auditor, auditee, manajemen
 //   sys    alamat /sysAdmin    System Admin: mengatur pengguna dan pengaturan aplikasi
 //   infra  alamat /infraAdmin  Infra Admin: mengatur lisensi, akun admin, dan keamanan
 // Browser mengirim pintu yang sedang dipakai lewat header x-portal.
 export const PORTALS = {
-  user: { cookie: 'jejak_session', roles: ['auditor', 'auditee', 'manajemen'], path: '/', label: 'halaman pengguna' },
+  user: { cookie: 'jejak_session', roles: ['superadmin', 'auditor', 'auditee', 'manajemen'], path: '/', label: 'halaman pengguna' },
   sys: { cookie: 'jejak_sys', roles: ['admin'], path: '/sysAdmin', label: 'System Admin' },
   infra: { cookie: 'jejak_infra', roles: ['infraadmin'], path: '/infraAdmin', label: 'Infra Admin' },
 };
@@ -104,7 +104,7 @@ export const requireRole = (...roles) => (req, _res, next) => {
 
 // Akun yang diawasi (riwayat login, sesi, log aktivitas): System Admin mengawasi pengguna dan sesama admin,
 // Infra Admin mengawasi admin dan sesama Infra Admin.
-export const watchedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : ['admin', 'auditor', 'auditee', 'manajemen']);
+export const watchedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : ['admin', 'superadmin', 'auditor', 'auditee', 'manajemen']);
 
 export const isAdmin = (user) => user.role === 'admin' || user.role === 'infraadmin';
-export const canEditAudit = (user) => isAdmin(user) || user.role === 'auditor';
+export const canEditAudit = (user) => isAdmin(user) || ['superadmin', 'auditor'].includes(user.role);

@@ -768,4 +768,14 @@ test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat
   // Ringkasan juga mengikuti unit.
   const dash = (await it.c.get('/api/dashboard')).data;
   assert.ok(dash, 'ringkasan bisa dibuka');
+  // Super Admin melihat dan mengerjakan audit semua unit, walaupun akunnya punya unit.
+  const sa = await mk('super.fin', 'Finance', 'superadmin');
+  assert.ok((await ids(sa.c)).includes(aFin.id) && (await ids(sa.c)).includes(aIt.id), 'Super Admin melihat semua unit');
+  assert.ok((await sa.c.get('/api/findings')).data.some((f) => f.id === fIt.data.id));
+  assert.equal((await sa.c.patch(`/api/audits/${aIt.id}`, { title: 'Audit Server 2026' })).status, 200);
+  assert.equal((await sa.c.post(`/api/audits/${aIt.id}/steps`, { text: 'Cek log backup' })).status, 201);
+  assert.equal((await sa.c.post('/api/findings', { audit_id: aIt.id, title: 'Log tidak lengkap', risk: 'Sedang' })).status, 201);
+  assert.equal((await sa.c.post('/api/audits', { title: 'Audit Jaringan', unit: 'Divisi IT', type: 'Keuangan' })).status, 201);
+  assert.equal((await sa.c.get('/api/dashboard/activity')).status, 200);
+  assert.equal((await sa.c.get('/api/admin/logins')).status, 403, 'Super Admin bukan admin sistem');
 });

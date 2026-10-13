@@ -12,10 +12,11 @@ const ROLE_HINT = {
   auditor: N_('Membuat audit, mengisi program kerja, dan mencatat temuan.'),
   auditee: N_('Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, dan mengunggah bukti.'),
   manajemen: N_('Melihat semua audit, temuan, dan laporan tanpa mengubah.'),
+  superadmin: N_('Melihat dan mengerjakan audit semua unit seperti auditor, walaupun akunnya punya unit. Tidak mengatur akun atau pengaturan.'),
 };
 
 // System Admin mengatur akun pengguna; Infra Admin mengatur akun System Admin dan Infra Admin.
-const managedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : ['auditor', 'auditee', 'manajemen']);
+const managedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : ['auditor', 'auditee', 'manajemen', 'superadmin']);
 
 export default function Users() {
   const { data, error, loading, reload } = useLoad(() => api.get('/users'), []);
@@ -33,14 +34,14 @@ export default function Users() {
         <span className="t-sub">{t('{a} aktif dari {b} akun', { a: active, b: data.length })}</span>
         <button className="btn primary" onClick={() => setEditing({})}>{infra ? t('Tambah admin') : t('Tambah pengguna')}</button>
       </div>
-      {infra && <p className="page-note"><T k="Akun System Admin masuk di {path} dan mengatur akun pengguna." path={<b>/sysAdmin</b>} /> {t('Akun pengguna (auditor, auditee, manajemen) diatur oleh System Admin.')}</p>}
+      {infra && <p className="page-note"><T k="Akun System Admin masuk di {path} dan mengatur akun pengguna." path={<b>/sysAdmin</b>} /> {t('Akun pengguna (super admin, auditor, auditee, manajemen) diatur oleh System Admin.')}</p>}
       <div className="tablebox">
         <table>
           <thead><tr><th>{t('Nama')}</th><th>{t('Username')}</th><th>{t('Email')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th><th>{t('Login terakhir')}</th><th>{t('Status')}</th></tr></thead>
           <tbody>
             {data.map((u) => (
               <tr key={u.id} className={canOpen(u) ? 'click' : ''} onClick={() => canOpen(u) && setEditing(u)}>
-                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.unit || (['auditor', 'manajemen'].includes(u.role) ? <span className="t-sub">{t('Semua unit')}</span> : '—')}</td>
+                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.role === 'superadmin' ? <span className="t-sub">{t('Semua unit')}</span> : u.unit || (['auditor', 'manajemen'].includes(u.role) ? <span className="t-sub">{t('Semua unit')}</span> : '—')}</td>
                 <td className="num t-sub">{u.last_login_at ? fmtDateTime(u.last_login_at) : t('Belum pernah')}</td>
                 <td>{u.active ? <span className="pill s-Selesai">{t('Aktif')}</span> : <span className="pill">{t('Nonaktif')}</span>}</td>
               </tr>

@@ -14,7 +14,7 @@ export const PROVIDERS = {
 };
 const IDS = Object.keys(PROVIDERS);
 const KEY = 'ai';
-const WORK_ROLES = ['auditor', 'auditee', 'manajemen'];
+const WORK_ROLES = ['superadmin', 'auditor', 'auditee', 'manajemen'];
 
 const seal = (t) => sealSecret(t, 'ai');
 const open = (b) => openSecret(b, 'ai');

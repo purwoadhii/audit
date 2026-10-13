@@ -1,5 +1,5 @@
 // Tiga pintu masuk dengan halaman login dan sesi masing-masing:
-//   user   /            auditor, auditee, manajemen
+//   user   /            super admin, auditor, auditee, manajemen
 //   sys    /sysAdmin    System Admin
 //   infra  /infraAdmin  Infra Admin
 // Pintu ditentukan dari alamat saat halaman dibuka. Pindah pintu selalu lewat tautan biasa (muat ulang halaman).

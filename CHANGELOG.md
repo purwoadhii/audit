@@ -2,6 +2,10 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.6.0 - 2026-10-13
+- Peran baru Super Admin untuk akun pengguna: melihat dan mengerjakan audit semua unit seperti auditor, walaupun akunnya punya unit.
+- Super Admin masuk di halaman pengguna dan diatur oleh System Admin. Ia tidak mengatur akun atau pengaturan aplikasi.
+
 ## 1.5.0 - 2026-10-13
 - Audit hanya terlihat oleh pengguna di unit yang sama. Auditor dan manajemen tanpa unit melihat audit semua unit.
 - Pengguna yang punya unit hanya bisa membuat audit untuk unitnya sendiri. Anggota tim dari unit lain tetap bisa melihat audit yang ia ikuti.

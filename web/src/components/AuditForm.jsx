@@ -14,7 +14,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const { settings } = useSettings();
   const { user } = useAuth();
   // Pengguna yang terikat unit hanya membuat audit untuk unitnya sendiri.
-  const myUnit = ['admin', 'infraadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
+  const myUnit = ['admin', 'infraadmin', 'superadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
   // Jenis lama tetap muncul walau sudah dihapus dari daftar di Pengaturan.
   const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);
@@ -57,7 +57,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
     }
   }
 
-  const auditors = (users.data || []).filter((u) => u.active && (u.role === 'auditor' || u.role === 'admin'));
+  const auditors = (users.data || []).filter((u) => u.active && ['auditor', 'superadmin', 'admin'].includes(u.role));
   // Anggota tim bisa dipilih dari semua pengguna aktif (kecuali akun Infra Admin developer).
   const people = (users.data || []).filter((u) => u.active && u.role !== 'infraadmin');
   const chosen = f.member_ids.map((id) => people.find((u) => u.id === id) || (audit?.members || []).find((m) => m.id === id)).filter(Boolean);

@@ -15,6 +15,7 @@ export const ROLES = translated({
   auditor: N_('Auditor'),
   auditee: N_('Auditee'),
   manajemen: N_('Manajemen'),
+  superadmin: N_('Super Admin'),
 });
 
 export function fmtDate(s) {
@@ -45,7 +46,7 @@ export function fmtSize(n) {
 
 export const slug = (v) => String(v ?? '').replace(/\s+/g, '-');
 export const isAdmin = (user) => user?.role === 'admin' || user?.role === 'infraadmin';
-export const canEdit = (user) => isAdmin(user) || user?.role === 'auditor';
+export const canEdit = (user) => isAdmin(user) || ['superadmin', 'auditor'].includes(user?.role);
 
 // Ringkas user agent menjadi "Chrome · Windows" untuk riwayat login dan sesi.
 export function device(ua) {

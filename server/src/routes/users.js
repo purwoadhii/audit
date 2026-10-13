@@ -15,7 +15,7 @@ function cleanUsername(v) {
   return u;
 }
 
-// Pengawasan berlapis: System Admin mengatur akun pengguna (auditor, auditee, manajemen),
+// Pengawasan berlapis: System Admin mengatur akun pengguna (super admin, auditor, auditee, manajemen),
 // Infra Admin mengatur akun System Admin dan Infra Admin.
 export const managedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : me.role === 'admin' ? WORK_ROLES : []);
 
@@ -30,7 +30,7 @@ async function assertFree(field, value, exceptId = 0) {
 }
 
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
-r.get('/', requireRole('admin', 'auditor', 'manajemen'), async (req, res) => {
+r.get('/', requireRole('admin', 'superadmin', 'auditor', 'manajemen'), async (req, res) => {
   const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, active';
   const roles = isAdmin(req.user) ? managedRoles(req.user) : WORK_ROLES;
   const { rows } = await query(`SELECT ${cols} FROM users WHERE role IN (${roles.map(() => '?').join(',')}) ORDER BY active DESC, name`, roles);

@@ -9,7 +9,7 @@ import { nextCode } from '../codes.js';
 import { parseTemplate } from './templates.js';
 
 const r = Router();
-const editors = requireRole('admin', 'auditor');
+const editors = requireRole('admin', 'superadmin', 'auditor');
 
 const LIST_SQL = `
   SELECT a.id, a.code, a.title, a.unit, a.type, a.lead_id, u.name AS lead_name, a.team,

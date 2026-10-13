@@ -1,5 +1,5 @@
 // Aturan siapa melihat apa.
-// - System Admin dan Infra Admin: semua audit dan temuan.
+// - System Admin, Infra Admin dan Super Admin: semua audit dan temuan. Unit Super Admin tidak membatasi apa pun.
 // - Auditor dan manajemen tanpa unit: semua audit dan temuan (misalnya tim audit internal pusat).
 // - Auditor dan manajemen dengan unit: audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim,
 //   dan temuan di audit itu atau yang ditugaskan kepadanya.
@@ -9,7 +9,7 @@
 
 const unitOf = (user) => String(user.unit || '').trim() || null;
 
-export const seesAllUnits = (user) => ['admin', 'infraadmin'].includes(user.role) || (user.role !== 'auditee' && !unitOf(user));
+export const seesAllUnits = (user) => ['admin', 'infraadmin', 'superadmin'].includes(user.role) || (user.role !== 'auditee' && !unitOf(user));
 
 export const sameUnit = (user, unit) => String(unit || '').trim().toLowerCase() === String(unitOf(user) || '').toLowerCase();
 

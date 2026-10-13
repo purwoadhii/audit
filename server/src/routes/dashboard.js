@@ -29,8 +29,8 @@ r.get('/', async (req, res) => {
 
 // Log aktivitas. Admin melihat aktivitas akun yang diawasinya: System Admin melihat pengguna dan admin,
 // Infra Admin melihat admin dan Infra Admin. Auditor dan manajemen melihat aktivitas pengguna.
-r.get('/activity', requireRole('admin', 'manajemen', 'auditor'), async (req, res) => {
-  const roles = isAdmin(req.user) ? watchedRoles(req.user) : ['auditor', 'auditee', 'manajemen'];
+r.get('/activity', requireRole('admin', 'superadmin', 'manajemen', 'auditor'), async (req, res) => {
+  const roles = isAdmin(req.user) ? watchedRoles(req.user) : ['superadmin', 'auditor', 'auditee', 'manajemen'];
   // Pengguna yang terikat unit hanya melihat aktivitas pengguna di unitnya.
   const unit = seesAllUnits(req.user) ? null : String(req.user.unit).trim();
   const { rows } = await query(

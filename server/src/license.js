@@ -20,7 +20,7 @@ export function usePublicKeyForTests(key) {
 }
 const PREFIX = 'AM1';
 let cached = null;
-export const WORK_ROLES = ['auditor', 'auditee', 'manajemen'];
+export const WORK_ROLES = ['superadmin', 'auditor', 'auditee', 'manajemen'];
 
 // Paket lisensi dan fitur yang dibuka. Kunci lama tanpa paket dianggap Pro.
 export const FEATURES = { ocr: 'OCR', ai: 'Asisten AI' };

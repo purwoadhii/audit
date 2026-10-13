@@ -9,7 +9,7 @@ import { N_, T, t, tText, localeTag } from '../i18n.jsx';
 // Hasil tes dari server bisa terdiri dari beberapa potongan pesan.
 const resultText = (r) => (r?.parts ? r.parts.map((x) => tText(x)).join(' ') : tText(r?.message));
 
-const WORK_ROLES = ['auditor', 'auditee', 'manajemen'];
+const WORK_ROLES = ['auditor', 'auditee', 'manajemen', 'superadmin'];
 
 // System Admin: penyedia AI, API key, urutan cadangan, dan siapa yang boleh memakai.
 export function AiSettings() {
