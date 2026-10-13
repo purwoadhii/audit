@@ -6,6 +6,7 @@ import { STEP_RESULTS, canEdit, fmtDate, slug, teamText } from '../util.js';
 import { Empty, ErrorBox, Loading, RiskPill, StatusPill, useLoad, useToast } from '../components/ui.jsx';
 import AuditForm from '../components/AuditForm.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
+import FindingBatchSheet from '../components/FindingBatchSheet.jsx';
 import Attachments from '../components/Attachments.jsx';
 import { T, t } from '../i18n.jsx';
 
@@ -18,12 +19,15 @@ export default function AuditDetail() {
   const { data: a, error, loading, reload, setData } = useLoad(() => api.get(`/audits/${id}`), [id]);
   const [editing, setEditing] = useState(false);
   const [sheet, setSheet] = useState(null); // { id } atau { preset }
+  const [batch, setBatch] = useState(null); // 'temuan' atau 'isu': tab yang dibuka di form tambah sekaligus
   const [newStep, setNewStep] = useState('');
 
   if (loading && !a) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
 
   const done = a.steps.filter((s) => s.result !== 'Belum diuji').length;
+  const findings = a.findings.filter((f) => f.kind !== 'isu');
+  const issues = a.findings.filter((f) => f.kind === 'isu');
 
   async function updateStep(step, patch) {
     try {
@@ -66,6 +70,8 @@ export default function AuditDetail() {
             <span><T k="Ketua tim {name}" name={<b>{a.lead_name || '—'}</b>} /></span>
             <span><T k="Anggota {names}" names={<b>{teamText(a)}</b>} /></span>
             <span><T k="Periode {period}" period={<b>{fmtDate(a.start_date)} – {fmtDate(a.end_date)}</b>} /></span>
+            <span><T k="Jumlah temuan {n}" n={<b>{findings.length}</b>} /></span>
+            <span><T k="Jumlah isu {n}" n={<b>{issues.length}</b>} /></span>
           </div>
           {a.scope && <p className="t-sub" style={{ margin: '8px 0 0', maxWidth: '70ch', whiteSpace: 'pre-wrap' }}>{a.scope}</p>}
         </div>
@@ -119,22 +125,38 @@ export default function AuditDetail() {
           <div className="panel"><h3>{t('Tentang audit ini')}</h3><p className="t-sub" style={{ margin: 0 }}>{t('Anda melihat temuan yang ditugaskan kepada Anda atau unit Anda. Klik temuan untuk memberi tanggapan dan mengunggah bukti.')}</p></div>
         )}
         <div className="panel">
-          <h3>{t('Temuan · {n}', { n: a.findings.length })}</h3>
-          {a.findings.length ? (
-            <ul className="list-plain">
-              {a.findings.map((f) => (
-                <li key={f.id}><button onClick={() => setSheet({ id: f.id })}>
-                  <span><span className="code">{f.code}</span><br /><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || t('Belum ada PIC')} · {t(f.status)}</span></span>
-                  <span><RiskPill value={f.risk} /></span>
-                </button></li>
-              ))}
-            </ul>
-          ) : <Empty small>{t('Belum ada temuan.')}</Empty>}
-          {editor && <div style={{ marginTop: 12 }}><button className="btn primary" onClick={() => setSheet({ preset: { audit_id: a.id } })}>{t('Catat temuan')}</button></div>}
+          <FindingList title={t('Temuan · {n}', { n: findings.length })} items={findings} empty={t('Belum ada temuan.')} onOpen={(f) => setSheet({ id: f.id })} />
+          <div style={{ height: 16 }} />
+          <FindingList title={t('Isu · {n}', { n: issues.length })} items={issues} empty={t('Belum ada isu.')} onOpen={(f) => setSheet({ id: f.id })} />
+          {editor && (
+            <div className="actions" style={{ marginTop: 12 }}>
+              <button className="btn primary" onClick={() => setBatch('temuan')}>{t('Tambah temuan')}</button>
+              <button className="btn" onClick={() => setBatch('isu')}>{t('Tambah isu')}</button>
+            </div>
+          )}
         </div>
       </div>
       {editing && <AuditForm audit={a} onClose={() => setEditing(false)} onSaved={reload} onDeleted={() => nav('/audit')} />}
+      {batch && <FindingBatchSheet audit={a} initialKind={batch} onClose={() => setBatch(null)} onSaved={reload} />}
       {sheet && <FindingSheet id={sheet.id} preset={sheet.preset} onClose={() => setSheet(null)} onChanged={reload} />}
+    </>
+  );
+}
+
+function FindingList({ title, items, empty, onOpen }) {
+  return (
+    <>
+      <h3>{title}</h3>
+      {items.length ? (
+        <ul className="list-plain">
+          {items.map((f) => (
+            <li key={f.id}><button onClick={() => onOpen(f)}>
+              <span><span className="code">{f.code}</span><br /><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || t('Belum ada PIC')} · {t(f.status)}</span></span>
+              <span><RiskPill value={f.risk} /></span>
+            </button></li>
+          ))}
+        </ul>
+      ) : <Empty small>{empty}</Empty>}
     </>
   );
 }

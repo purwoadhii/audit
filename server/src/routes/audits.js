@@ -16,8 +16,10 @@ const LIST_SQL = `
          a.start_date, a.end_date, a.status, a.scope, a.created_at, a.updated_at,
          (SELECT COUNT(*) FROM audit_steps s WHERE s.audit_id = a.id) AS steps_total,
          (SELECT COUNT(*) FROM audit_steps s WHERE s.audit_id = a.id AND s.result <> 'Belum diuji') AS steps_done,
-         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id) AS findings_total,
-         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.status <> 'Selesai') AS findings_open
+         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'temuan') AS findings_total,
+         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'temuan' AND f.status <> 'Selesai') AS findings_open,
+         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'isu') AS issues_total,
+         (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'isu' AND f.status <> 'Selesai') AS issues_open
   FROM audits a LEFT JOIN users u ON u.id = a.lead_id`;
 
 const STEP_COLS = 'id, position, text, result, note, updated_at';
@@ -126,7 +128,7 @@ r.get('/:id', async (req, res) => {
     (await query(`SELECT ${STEP_COLS} FROM audit_steps WHERE audit_id = ? ORDER BY position, id`, [id])).rows;
   const fs = findingScope(req.user, 'f', 'a');
   const findings = (await query(
-    `SELECT f.id, f.code, f.title, f.risk, f.status, f.due_date, f.owner_id, u.name AS owner_name, f.step_id,
+    `SELECT f.id, f.code, f.kind, f.title, f.risk, f.status, f.due_date, f.owner_id, u.name AS owner_name, f.step_id,
             f.\`condition\`, f.criteria, f.cause, f.effect, f.recommendation, f.response
      FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id
      WHERE f.audit_id = ? AND ${fs.sql} ORDER BY f.code`, [id, ...fs.params])).rows;

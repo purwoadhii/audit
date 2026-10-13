@@ -9,7 +9,9 @@ export default function Report() {
   const { data: a, error, loading, reload } = useLoad(() => api.get(`/audits/${id}`), [id]);
   if (loading && !a) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
-  const count = (r) => a.findings.filter((f) => f.risk === r).length;
+  const findings = a.findings.filter((f) => f.kind !== 'isu');
+  const issues = a.findings.filter((f) => f.kind === 'isu');
+  const count = (list, r) => list.filter((f) => f.risk === r).length;
   const done = a.steps.filter((s) => s.result !== 'Belum diuji').length;
   return (
     <>
@@ -42,22 +44,15 @@ export default function Report() {
           </table>
         </div>
         <h2>{t('Temuan dan rekomendasi')}</h2>
-        <p>{t('{n} temuan: risiko tinggi {high}, sedang {med}, rendah {low}.', { n: a.findings.length, high: count('Tinggi'), med: count('Sedang'), low: count('Rendah') })}</p>
-        {a.findings.map((f, i) => (
-          <div className="finding" key={f.id}>
-            <div className="code">{f.code}</div>
-            <b>{i + 1}. {f.title}</b> <span className="t-sub">· {t('Risiko {risk}', { risk: t(f.risk) })} · {t(f.status)}</span>
-            <dl>
-              <dt>{t('Kondisi')}</dt><dd>{f.condition || '—'}</dd>
-              <dt>{t('Kriteria')}</dt><dd>{f.criteria || '—'}</dd>
-              <dt>{t('Sebab')}</dt><dd>{f.cause || '—'}</dd>
-              <dt>{t('Akibat')}</dt><dd>{f.effect || '—'}</dd>
-              <dt>{t('Rekomendasi')}</dt><dd>{f.recommendation || '—'}</dd>
-              <dt>{t('Tanggapan')}</dt><dd>{f.response || '—'}</dd>
-              <dt>{t('PIC / batas')}</dt><dd>{f.owner_name || '—'} / {fmtDate(f.due_date)}</dd>
-            </dl>
-          </div>
-        ))}
+        <p>{t('{n} temuan: risiko tinggi {high}, sedang {med}, rendah {low}.', { n: findings.length, high: count(findings, 'Tinggi'), med: count(findings, 'Sedang'), low: count(findings, 'Rendah') })}</p>
+        <Items list={findings} />
+        {issues.length > 0 && (
+          <>
+            <h2>{t('Isu')}</h2>
+            <p>{t('{n} isu: risiko tinggi {high}, sedang {med}, rendah {low}.', { n: issues.length, high: count(issues, 'Tinggi'), med: count(issues, 'Sedang'), low: count(issues, 'Rendah') })}</p>
+            <Items list={issues} />
+          </>
+        )}
         <div className="sign">
           <span>{t('Ketua Tim Audit')}<div />{a.lead_name || ''}</span>
           <span>{t('Pimpinan {unit}', { unit: a.unit })}<div /></span>
@@ -65,4 +60,22 @@ export default function Report() {
       </article>
     </>
   );
+}
+
+function Items({ list }) {
+  return list.map((f, i) => (
+    <div className="finding" key={f.id}>
+      <div className="code">{f.code}</div>
+      <b>{i + 1}. {f.title}</b> <span className="t-sub">· {t('Risiko {risk}', { risk: t(f.risk) })} · {t(f.status)}</span>
+      <dl>
+        <dt>{t('Kondisi')}</dt><dd>{f.condition || '—'}</dd>
+        <dt>{t('Kriteria')}</dt><dd>{f.criteria || '—'}</dd>
+        <dt>{t('Sebab')}</dt><dd>{f.cause || '—'}</dd>
+        <dt>{t('Akibat')}</dt><dd>{f.effect || '—'}</dd>
+        <dt>{t('Rekomendasi')}</dt><dd>{f.recommendation || '—'}</dd>
+        <dt>{t('Tanggapan')}</dt><dd>{f.response || '—'}</dd>
+        <dt>{t('PIC / batas')}</dt><dd>{f.owner_name || '—'} / {fmtDate(f.due_date)}</dd>
+      </dl>
+    </div>
+  ));
 }

@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { FINDING_STATUS, RISKS, canEdit, fmtDate } from '../util.js';
+import { FINDING_KINDS, FINDING_STATUS, RISKS, canEdit, fmtDate } from '../util.js';
 import { Empty, ErrorBox, Loading, RiskPill, StatusPill, useLoad } from '../components/ui.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
 import { t } from '../i18n.jsx';
 
 export default function Findings() {
   const { user } = useAuth();
-  const [filter, setFilter] = useState({ q: '', status: '', risk: '', audit: '', overdue: false });
+  const [filter, setFilter] = useState({ q: '', kind: '', status: '', risk: '', audit: '', overdue: false });
   const { data, error, loading, reload } = useLoad(() => api.get('/findings'), []);
   // ?id= dari tautan Asisten AI langsung membuka temuan itu.
   const [params, setParams] = useSearchParams();
@@ -29,6 +29,7 @@ export default function Findings() {
   const rows = useMemo(() => {
     const q = filter.q.toLowerCase();
     return (data || []).filter((f) =>
+      (!filter.kind || f.kind === filter.kind) &&
       (!filter.status || f.status === filter.status) &&
       (!filter.risk || f.risk === filter.risk) &&
       (!filter.audit || String(f.audit_id) === filter.audit) &&
@@ -39,11 +40,12 @@ export default function Findings() {
   return (
     <>
       <div className="bar">
-        <h2>{user.role === 'auditee' ? t('Temuan untuk Anda') : t('Temuan')}</h2>
+        <h2>{user.role === 'auditee' ? t('Temuan dan isu untuk Anda') : t('Temuan dan isu')}</h2>
         {canEdit(user) && <button className="btn primary" onClick={() => setSheet({ preset: {} })}>{t('Catat temuan')}</button>}
       </div>
       <div className="filters">
         <input id="f-q" placeholder={t('Cari judul, PIC, atau kondisi')} value={filter.q} onChange={set('q')} />
+        <select id="f-kind-filter" aria-label={t('Jenis')} value={filter.kind} onChange={set('kind')}><option value="">{t('Temuan dan isu')}</option>{Object.entries(FINDING_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         <select id="f-status-filter" aria-label={t('Status')} value={filter.status} onChange={set('status')}><option value="">{t('Semua status')}</option>{FINDING_STATUS.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select>
         <select id="f-risk-filter" aria-label={t('Risiko')} value={filter.risk} onChange={set('risk')}><option value="">{t('Semua risiko')}</option>{RISKS.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select>
         <select id="f-audit-filter" aria-label={t('Audit')} value={filter.audit} onChange={set('audit')}><option value="">{t('Semua audit')}</option>{audits.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
@@ -54,12 +56,12 @@ export default function Findings() {
       ) : (
         <div className="tablebox">
           <table>
-            <thead><tr><th>{t('No.')}</th><th>{t('Temuan')}</th><th>{t('Risiko')}</th><th>{t('PIC')}</th><th>{t('Batas waktu')}</th><th>{t('Status')}</th></tr></thead>
+            <thead><tr><th>{t('No.')}</th><th>{t('Judul')}</th><th>{t('Risiko')}</th><th>{t('PIC')}</th><th>{t('Batas waktu')}</th><th>{t('Status')}</th></tr></thead>
             <tbody>
               {rows.map((f) => (
                 <tr key={f.id} className="click" onClick={() => setSheet({ id: f.id })}>
                   <td className="code">{f.code}</td>
-                  <td><div className="t-title">{f.title}</div><div className="t-sub">{f.audit_title} · {f.audit_unit}</div></td>
+                  <td><div className="t-title">{f.title}</div><div className="t-sub">{FINDING_KINDS[f.kind]} · {f.audit_title} · {f.audit_unit}</div></td>
                   <td><RiskPill value={f.risk} /></td>
                   <td>{f.owner_name || '—'}</td>
                   <td className={`num ${f.overdue ? 'overdue' : ''}`}>{fmtDate(f.due_date)}{f.overdue ? ` · ${t('terlambat')}` : ''}</td>

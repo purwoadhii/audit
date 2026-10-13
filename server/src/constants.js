@@ -3,6 +3,8 @@ import { N_ } from './errors.js';
 export const ROLES = ['infraadmin', 'admin', 'superadmin', 'auditor', 'auditee', 'manajemen'];
 export const AUDIT_STATUS = ['Perencanaan', 'Pelaksanaan', 'Pelaporan', 'Selesai'];
 export const FINDING_STATUS = ['Terbuka', 'Dalam proses', 'Menunggu verifikasi', 'Selesai'];
+// Jenis catatan audit: temuan atau isu.
+export const FINDING_KINDS = ['temuan', 'isu'];
 export const RISKS = ['Tinggi', 'Sedang', 'Rendah'];
 export const STEP_RESULTS = ['Belum diuji', 'Sesuai', 'Tidak sesuai', 'Tidak berlaku'];
 // Jenis audit bawaan; ditandai N_ supaya ikut diterjemahkan selama admin belum mengubahnya.

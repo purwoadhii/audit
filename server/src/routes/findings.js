@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { query, tx, logActivity, bools } from '../db.js';
 import { canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId } from '../errors.js';
-import { FINDING_STATUS, RISKS, AUDITEE_STATUS } from '../constants.js';
+import { FINDING_STATUS, FINDING_KINDS, RISKS, AUDITEE_STATUS } from '../constants.js';
 import { auditScope, findingScope } from '../access.js';
 import { nextCode } from '../codes.js';
 
@@ -30,6 +30,7 @@ r.get('/', async (req, res) => {
   const add = (sql, ...vals) => { params.push(...vals); where.push(sql); };
   if (q.status && FINDING_STATUS.includes(q.status)) add('f.status = ?', q.status);
   if (q.risk && RISKS.includes(q.risk)) add('f.risk = ?', q.risk);
+  if (q.kind && FINDING_KINDS.includes(q.kind)) add('f.kind = ?', q.kind);
   if (q.audit_id) add('f.audit_id = ?', intId(q.audit_id));
   if (q.mine === '1') add('f.owner_id = ?', req.user.id);
   if (q.overdue === '1') where.push("f.status <> 'Selesai' AND f.due_date < CURRENT_DATE");
@@ -55,37 +56,72 @@ r.get('/:id', async (req, res) => {
   res.json({ ...finding, logs, attachments });
 });
 
+// Memeriksa isian satu temuan atau isu baru.
+function newFinding(b) {
+  const kind = b.kind === undefined ? 'temuan' : oneOf(b.kind, FINDING_KINDS, 'Jenis');
+  return {
+    kind,
+    title: requireText(b.title, kind === 'isu' ? 'Judul isu' : 'Judul temuan'),
+    risk: oneOf(b.risk, RISKS, 'Tingkat risiko'),
+    status: b.status ? oneOf(b.status, FINDING_STATUS, 'Status') : 'Terbuka',
+    due: dateOrNull(b.due_date, 'Batas waktu'),
+    ownerId: b.owner_id ? intId(b.owner_id) : null,
+    stepId: b.step_id ? intId(b.step_id) : null,
+    texts: TEXT_FIELDS.map((k) => String(b[k] || '').trim()),
+  };
+}
+
+async function assertAudit(c, user, auditId) {
+  const as = auditScope(user, 'a');
+  const a = await c.query(`SELECT 1 FROM audits a WHERE a.id = ? AND ${as.sql}`, [auditId, ...as.params]);
+  if (!a.rowCount) throw badRequest('Audit tidak ditemukan.');
+}
+
+async function insertFinding(c, user, auditId, n) {
+  if (n.stepId) {
+    const s = await c.query('SELECT 1 FROM audit_steps WHERE id = ? AND audit_id = ?', [n.stepId, auditId]);
+    if (!s.rowCount) throw badRequest('Langkah tidak ada di audit ini.');
+  }
+  const code = await nextCode(c, n.kind === 'isu' ? 'ISU' : 'TMN');
+  const { insertId } = await c.query(
+    `INSERT INTO findings (code, kind, audit_id, step_id, title, risk, status, due_date, owner_id,
+       ${TEXT_FIELDS.map(col).join(', ')}, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [code, n.kind, auditId, n.stepId, n.title, n.risk, n.status, n.due, n.ownerId, ...n.texts, user.id],
+  );
+  await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
+    [insertId, user.id, n.kind === 'isu' ? 'Isu dicatat' : 'Temuan dicatat', n.status]);
+  await logActivity(c, user.id, 'create', 'finding', insertId, { code, title: n.title });
+  return insertId;
+}
+
 r.post('/', async (req, res) => {
   if (!canEditAudit(req.user)) throw forbidden();
   const b = req.body || {};
   const auditId = intId(b.audit_id);
-  const title = requireText(b.title, 'Judul temuan');
-  const risk = oneOf(b.risk, RISKS, 'Tingkat risiko');
-  const status = b.status ? oneOf(b.status, FINDING_STATUS, 'Status') : 'Terbuka';
-  const due = dateOrNull(b.due_date, 'Batas waktu');
-  const ownerId = b.owner_id ? intId(b.owner_id) : null;
-  const stepId = b.step_id ? intId(b.step_id) : null;
-  const texts = TEXT_FIELDS.map((k) => String(b[k] || '').trim());
+  const n = newFinding(b);
   const id = await tx(async (c) => {
-    const as = auditScope(req.user, 'a');
-    const a = await c.query(`SELECT 1 FROM audits a WHERE a.id = ? AND ${as.sql}`, [auditId, ...as.params]);
-    if (!a.rowCount) throw badRequest('Audit tidak ditemukan.');
-    if (stepId) {
-      const s = await c.query('SELECT 1 FROM audit_steps WHERE id = ? AND audit_id = ?', [stepId, auditId]);
-      if (!s.rowCount) throw badRequest('Langkah tidak ada di audit ini.');
-    }
-    const code = await nextCode(c, 'TMN');
-    const { insertId } = await c.query(
-      `INSERT INTO findings (code, audit_id, step_id, title, risk, status, due_date, owner_id,
-         ${TEXT_FIELDS.map(col).join(', ')}, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [code, auditId, stepId, title, risk, status, due, ownerId, ...texts, req.user.id],
-    );
-    await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)', [insertId, req.user.id, 'Temuan dicatat', status]);
-    await logActivity(c, req.user.id, 'create', 'finding', insertId, { code, title });
-    return insertId;
+    await assertAudit(c, req.user, auditId);
+    return insertFinding(c, req.user, auditId, n);
   });
   res.status(201).json(await loadFinding(req.user, id));
+});
+
+// Menambah beberapa temuan dan isu sekaligus ke satu audit. Semua tersimpan, atau tidak satu pun.
+r.post('/batch', async (req, res) => {
+  if (!canEditAudit(req.user)) throw forbidden();
+  const b = req.body || {};
+  const auditId = intId(b.audit_id);
+  if (!Array.isArray(b.items) || !b.items.length) throw badRequest('Isi minimal satu temuan atau isu.');
+  if (b.items.length > 50) throw badRequest('Paling banyak 50 temuan dan isu sekali simpan.');
+  const items = b.items.map((x) => newFinding({ ...x, step_id: undefined }));
+  const ids = await tx(async (c) => {
+    await assertAudit(c, req.user, auditId);
+    const out = [];
+    for (const n of items) out.push(await insertFinding(c, req.user, auditId, n));
+    return out;
+  });
+  res.status(201).json({ ids });
 });
 
 r.patch('/:id', async (req, res) => {

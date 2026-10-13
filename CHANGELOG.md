@@ -2,6 +2,11 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.7.0 - 2026-10-13
+- Jenis catatan baru: Isu, di samping Temuan. Isu bernomor ISU-tahun-urut dan punya isian serta tindak lanjut yang sama dengan temuan.
+- Tombol Tambah temuan dan Tambah isu di halaman audit membuka form dengan tab Temuan dan Isu. Beberapa temuan dan isu bisa diisi lalu disimpan sekaligus.
+- Daftar audit dan halaman audit menampilkan jumlah temuan dan jumlah isu. Laporan audit memisahkan bagian temuan dan isu.
+
 ## 1.6.0 - 2026-10-13
 - Peran baru Super Admin untuk akun pengguna: melihat dan mengerjakan audit semua unit seperti auditor, walaupun akunnya punya unit.
 - Super Admin masuk di halaman pengguna dan diatur oleh System Admin. Ia tidak mengatur akun atau pengaturan aplikasi.

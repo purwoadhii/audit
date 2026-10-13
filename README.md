@@ -6,7 +6,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 
 - **Ringkasan:** audit berjalan, temuan terbuka, tindak lanjut terlambat, dan grafik temuan per risiko dan per unit.
 - **Audit:** audit dibuat dari template program kerja, lalu hasil tiap langkah dicatat (Sesuai, Tidak sesuai, Tidak berlaku) beserta catatan dan kertas kerja.
-- **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan.
+- **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan. Selain temuan, auditor bisa mencatat **isu** (nomor ISU-…) dengan isian dan tindak lanjut yang sama. Di halaman audit, beberapa temuan dan isu bisa ditambahkan sekaligus lewat form bertab Temuan/Isu, dan jumlah keduanya tampil di daftar audit.
 - **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
 - **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
 - **Masuk:** dengan username atau email. Sesi selalu berakhir saat browser ditutup. Tanpa "Ingat saya", pengguna juga otomatis keluar setelah tidak aktif (bawaan 120 menit). Dengan "Ingat saya", sesi bertahan selama browser terbuka, paling lama 7 hari.

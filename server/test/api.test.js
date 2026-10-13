@@ -779,3 +779,34 @@ test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat
   assert.equal((await sa.c.get('/api/dashboard/activity')).status, 200);
   assert.equal((await sa.c.get('/api/admin/logins')).status, 403, 'Super Admin bukan admin sistem');
 });
+
+test('menambah beberapa temuan dan isu sekaligus, dan jumlahnya per audit', async () => {
+  const a = (await auditor.post('/api/audits', { title: 'Audit Pajak', unit: 'Divisi Keuangan', type: 'Keuangan' })).data;
+  const items = [
+    { kind: 'temuan', title: 'PPh 23 terlambat disetor', risk: 'Tinggi', condition: 'Tiga bulan terlambat' },
+    { kind: 'temuan', title: 'Faktur pajak tidak lengkap', risk: 'Sedang' },
+    { kind: 'isu', title: 'Staf pajak belum ikut pelatihan', risk: 'Rendah', status: 'Dalam proses' },
+  ];
+  const res = await auditor.post('/api/findings/batch', { audit_id: a.id, items });
+  assert.equal(res.status, 201, JSON.stringify(res.data));
+  assert.equal(res.data.ids.length, 3);
+
+  const listed = (await auditor.get('/api/audits')).data.find((x) => x.id === a.id);
+  assert.equal(listed.findings_total, 2);
+  assert.equal(listed.issues_total, 1);
+  assert.equal(listed.issues_open, 1);
+  const detail = (await auditor.get(`/api/audits/${a.id}`)).data;
+  const issue = detail.findings.find((f) => f.kind === 'isu');
+  assert.match(issue.code, /^ISU-\d{4}-\d{3}$/);
+  assert.match(detail.findings.find((f) => f.kind === 'temuan').code, /^TMN-/);
+  assert.equal((await auditor.get('/api/findings?kind=isu')).data.filter((f) => f.audit_id === a.id).length, 1);
+
+  // Satu isian salah membatalkan semuanya.
+  const bad = await auditor.post('/api/findings/batch', { audit_id: a.id, items: [{ title: 'Oke', risk: 'Rendah' }, { kind: 'isu', title: ' ', risk: 'Rendah' }] });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.data.key, '{label} wajib diisi.');
+  assert.equal((await auditor.get(`/api/audits/${a.id}`)).data.findings.length, 3, 'tidak ada yang tersimpan sebagian');
+  assert.equal((await auditor.post('/api/findings/batch', { audit_id: a.id, items: [] })).status, 400);
+  assert.equal((await auditor.post('/api/findings/batch', { audit_id: a.id, items: [{ kind: 'lain', title: 'X', risk: 'Rendah' }] })).status, 400);
+  assert.equal((await auditee.post('/api/findings/batch', { audit_id: a.id, items })).status, 403);
+});

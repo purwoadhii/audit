@@ -34,7 +34,7 @@ export default function Audits() {
         <div className="filters"><input id="audit-q" placeholder={t('Cari judul, unit, atau ketua tim')} value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div className="tablebox">
           <table>
-            <thead><tr><th>{t('No.')}</th><th>{t('Audit')}</th><th>{t('Ketua tim')}</th><th>{t('Periode')}</th><th>{t('Program kerja')}</th><th>{t('Temuan')}</th><th>{t('Status')}</th></tr></thead>
+            <thead><tr><th>{t('No.')}</th><th>{t('Audit')}</th><th>{t('Ketua tim')}</th><th>{t('Periode')}</th><th>{t('Program kerja')}</th><th>{t('Temuan')}</th><th>{t('Isu')}</th><th>{t('Status')}</th></tr></thead>
             <tbody>
               {rows.map((a) => {
                 const pct = a.steps_total ? Math.round((a.steps_done / a.steps_total) * 100) : 0;
@@ -46,11 +46,12 @@ export default function Audits() {
                     <td className="num">{fmtDate(a.start_date)} – {fmtDate(a.end_date)}</td>
                     <td><div className="progress"><div style={{ width: `${pct}%` }} /></div><div className="t-sub num">{t('{done}/{total} langkah', { done: a.steps_done, total: a.steps_total })}</div></td>
                     <td className="num">{a.findings_total} <span className="t-sub">{t('({n} terbuka)', { n: a.findings_open })}</span></td>
+                    <td className="num">{a.issues_total} <span className="t-sub">{t('({n} terbuka)', { n: a.issues_open })}</span></td>
                     <td><StatusPill value={a.status} /></td>
                   </tr>
                 );
               })}
-              {!rows.length && <tr><td colSpan={7}><Empty small>{t('Tidak ada audit yang cocok.')}</Empty></td></tr>}
+              {!rows.length && <tr><td colSpan={8}><Empty small>{t('Tidak ada audit yang cocok.')}</Empty></td></tr>}
             </tbody>
           </table>
         </div>

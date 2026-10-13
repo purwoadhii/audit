@@ -66,6 +66,8 @@ nav.tabs a.active { color:#fff; border-bottom-color:var(--bright); }
 nav.subtabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px; }
 nav.subtabs a { padding:7px 14px; border-radius:999px; font-weight:600; font-size:13px; color:var(--muted); text-decoration:none; background:var(--surface); border:1px solid var(--line); }
 nav.subtabs a.active { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+nav.subtabs button { padding:7px 14px; border-radius:999px; font:inherit; font-weight:600; font-size:13px; color:var(--muted); background:var(--surface); border:1px solid var(--line); cursor:pointer; }
+nav.subtabs button.active { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
 .maint { background:var(--med-soft); color:var(--med); text-align:center; font-weight:700; font-size:13px; padding:8px 16px; }
 .bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
 .bar h2 { font-family:var(--f-display); font-size:20px; margin:0 auto 0 0; text-wrap:balance; }
@@ -154,6 +156,10 @@ tbody tr.click:hover td { background:var(--sunk); }
 .form label, label.field { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--muted); }
 .hint { font-weight:500; font-size:11.5px; }
 .fs { grid-column:1/-1; border:1px solid var(--line); border-radius:10px; padding:12px; display:grid; gap:10px; background:var(--surface); margin:0; }
+.fs.two { grid-template-columns:1fr 1fr; }
+.fs.two .full { grid-column:1/-1; }
+.fs-head { display:flex; justify-content:flex-end; margin-top:-8px; }
+.sticky-foot { position:sticky; bottom:-28px; background:var(--bg); padding:12px 0; border-top:1px solid var(--line); z-index:1; }
 .fs legend { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); padding:0 6px; }
 .form-foot { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; align-items:center; }
 .form-foot .left { margin-right:auto; }
@@ -289,7 +295,7 @@ tbody tr.click:hover td { background:var(--sunk); }
 @media (max-width:560px) {
   .wrap, .appbar-in { padding-inline:16px; }
   .brand small { display:none; }
-  .form { grid-template-columns:1fr; }
+  .form, .fs.two { grid-template-columns:1fr; }
   .step { grid-template-columns:24px minmax(0,1fr); }
   .step .act { grid-column:2; }
   .sheet { padding-inline:16px; }

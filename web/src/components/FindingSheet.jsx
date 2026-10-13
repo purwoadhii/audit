@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { AUDITEE_STATUS, FINDING_STATUS, RISKS, canEdit, fmtDateTime } from '../util.js';
+import { AUDITEE_STATUS, FINDING_KINDS, FINDING_STATUS, RISKS, canEdit, fmtDateTime } from '../util.js';
 import { ConfirmDelete, Req, ReqNote, ErrorBox, Loading, RiskPill, Sheet, StatusPill, useLoad, useToast } from './ui.jsx';
 import Attachments from './Attachments.jsx';
 import { N_, t } from '../i18n.jsx';
@@ -29,7 +29,7 @@ export default function FindingSheet({ id, preset, onClose, onChanged }) {
   const finding = detail.data;
   const refresh = () => { detail.reload(); onChanged?.(); };
   return (
-    <Sheet title={isNew ? t('Temuan baru') : finding.code} onClose={onClose}>
+    <Sheet title={isNew ? t('Temuan atau isu baru') : `${finding.code} · ${FINDING_KINDS[finding.kind]}`} onClose={onClose}>
       {editor ? (
         <EditorForm key={finding?.updated_at || 'new'} finding={finding} preset={preset} audits={audits.data || []}
           users={(users.data || []).filter((u) => u.active)} onSaved={() => { onChanged?.(); if (isNew) onClose(); else detail.reload(); }}
@@ -56,6 +56,7 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
   const isNew = !finding;
   const src = finding || {};
   const [f, setF] = useState(() => ({
+    kind: src.kind || preset?.kind || 'temuan',
     title: src.title ?? preset?.title ?? '',
     audit_id: src.audit_id ?? preset?.audit_id ?? '',
     risk: src.risk || 'Sedang',
@@ -76,10 +77,11 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
     setBusy(true);
     setError('');
     try {
-      const body = { ...f, audit_id: Number(auditId), owner_id: f.owner_id ? Number(f.owner_id) : null, due_date: f.due_date || null };
+      const { kind, ...rest } = f;
+      const body = { ...rest, ...(isNew ? { kind } : {}), audit_id: Number(auditId), owner_id: f.owner_id ? Number(f.owner_id) : null, due_date: f.due_date || null };
       if (isNew && preset?.step_id) body.step_id = preset.step_id;
       const saved = isNew ? await api.post('/findings', body) : await api.patch(`/findings/${finding.id}`, body);
-      toast(isNew ? t('Temuan dicatat dan masuk papan tindak lanjut') : t('Temuan disimpan'));
+      toast(isNew ? (kind === 'isu' ? t('Isu dicatat dan masuk papan tindak lanjut') : t('Temuan dicatat dan masuk papan tindak lanjut')) : t('Perubahan disimpan'));
       onSaved(saved);
     } catch (err) {
       setError(err.message);
@@ -91,7 +93,7 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
   async function remove() {
     try {
       await api.del(`/findings/${finding.id}`);
-      toast(t('Temuan dihapus'));
+      toast(f.kind === 'isu' ? t('Isu dihapus') : t('Temuan dihapus'));
       onDeleted();
     } catch (err) {
       setError(err.message);
@@ -101,7 +103,8 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
   return (
     <form className="form" onSubmit={submit}>
       <ReqNote />
-      <label className="full"><span>{t('Judul temuan')} <Req /></span><input id="f-title" required value={f.title} onChange={set('title')} /></label>
+      {isNew && <label className="full"><span>{t('Jenis')} <Req /></span><select id="f-kind" value={f.kind} onChange={set('kind')}>{Object.entries(FINDING_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
+      <label className="full"><span>{f.kind === 'isu' ? t('Judul isu') : t('Judul temuan')} <Req /></span><input id="f-title" required value={f.title} onChange={set('title')} /></label>
       <label><span>{t('Audit')} <Req /></span><select id="f-audit" required value={auditId} onChange={set('audit_id')}>{audits.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.title}</option>)}</select></label>
       <label><span>{t('Tingkat risiko')} <Req /></span><select id="f-risk" value={f.risk} onChange={set('risk')}>{RISKS.map((r) => <option key={r} value={r}>{t(r)}</option>)}</select></label>
       <fieldset className="fs">
@@ -117,8 +120,8 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
       <label className="full">{t('Tanggapan auditee')}<textarea id="f-response" value={f.response} onChange={set('response')} /></label>
       {error && <div className="error-text full" role="alert">{error}</div>}
       <div className="form-foot full">
-        {!isNew && <span className="left"><ConfirmDelete question={t('Hapus temuan ini beserta riwayat dan buktinya?')} onConfirm={remove} /></span>}
-        <button className="btn primary" disabled={busy}>{isNew ? t('Simpan temuan') : t('Simpan perubahan')}</button>
+        {!isNew && <span className="left"><ConfirmDelete question={f.kind === 'isu' ? t('Hapus isu ini beserta riwayat dan buktinya?') : t('Hapus temuan ini beserta riwayat dan buktinya?')} onConfirm={remove} /></span>}
+        <button className="btn primary" disabled={busy}>{isNew ? (f.kind === 'isu' ? t('Simpan isu') : t('Simpan temuan')) : t('Simpan perubahan')}</button>
       </div>
     </form>
   );
