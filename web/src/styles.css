@@ -543,8 +543,7 @@ nav.tabs a.active { background:rgba(255,255,255,.08); }
 .lang-menu { position:relative; display:inline-block; }
 .lang-btn { gap:6px; }
 .lang-btn span { font-weight:700; letter-spacing:.02em; }
-.lang-list { position:absolute; right:0; top:calc(100% + 6px); z-index:60; min-width:190px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(12,24,40,.18); padding:6px; display:grid; gap:2px; }
-.lang-menu.up .lang-list { top:auto; bottom:calc(100% + 6px); left:0; right:auto; }
+.lang-list { z-index:200; min-width:190px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(12,24,40,.18); padding:6px; display:grid; gap:2px; }
 .lang-list button { display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; text-align:left; border:0; background:none; padding:8px 10px; border-radius:7px; font:500 14px var(--f-body); color:var(--ink); cursor:pointer; }
 .lang-list button:hover, .lang-list button:focus-visible { background:var(--sunk); }
 .lang-list button[aria-checked="true"] { font-weight:700; color:var(--accent, var(--ink)); }
