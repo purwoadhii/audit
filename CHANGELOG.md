@@ -2,6 +2,10 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.5.0 - 2026-10-13
+- Audit hanya terlihat oleh pengguna di unit yang sama. Auditor dan manajemen tanpa unit melihat audit semua unit.
+- Pengguna yang punya unit hanya bisa membuat audit untuk unitnya sendiri. Anggota tim dari unit lain tetap bisa melihat audit yang ia ikuti.
+
 ## 1.4.1 - 2026-10-13
 - Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.
 

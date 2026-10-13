@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { query, bools } from '../db.js';
 import { requireRole, isAdmin, watchedRoles } from '../auth.js';
-import { auditScope, findingScope } from '../access.js';
+import { auditScope, findingScope, seesAllUnits } from '../access.js';
 
 const r = Router();
 const countIf = (cond) => `CAST(SUM(CASE WHEN ${cond} THEN 1 ELSE 0 END) AS SIGNED)`;
@@ -31,11 +31,13 @@ r.get('/', async (req, res) => {
 // Infra Admin melihat admin dan Infra Admin. Auditor dan manajemen melihat aktivitas pengguna.
 r.get('/activity', requireRole('admin', 'manajemen', 'auditor'), async (req, res) => {
   const roles = isAdmin(req.user) ? watchedRoles(req.user) : ['auditor', 'auditee', 'manajemen'];
+  // Pengguna yang terikat unit hanya melihat aktivitas pengguna di unitnya.
+  const unit = seesAllUnits(req.user) ? null : String(req.user.unit).trim();
   const { rows } = await query(
     `SELECT l.id, l.action, l.entity, l.entity_id, l.detail, l.created_at, u.name AS user_name, u.role AS user_role
      FROM activity_log l LEFT JOIN users u ON u.id = l.user_id
-     WHERE u.role IN (${roles.map(() => '?').join(',')})
-     ORDER BY l.created_at DESC, l.id DESC LIMIT 100`, roles);
+     WHERE u.role IN (${roles.map(() => '?').join(',')})${unit ? ' AND TRIM(u.unit) = ?' : ''}
+     ORDER BY l.created_at DESC, l.id DESC LIMIT 100`, unit ? [...roles, unit] : roles);
   res.json(rows.map((l) => ({ ...l, detail: l.detail ? JSON.parse(l.detail) : null })));
 });
 

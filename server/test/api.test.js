@@ -710,3 +710,62 @@ test('bahasa per pengguna dan pesan error yang bisa diterjemahkan', async () => 
   assert.equal(bad.data.key, '{label} wajib diisi.');
   assert.deepEqual(bad.data.vars, { label: 'Nama' });
 });
+
+test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat semua', async () => {
+  await auditor.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
+  const mk = async (username, unit, role = 'auditor') => {
+    const r = await admin.post('/api/users', { name: username, username, email: `${username}@contoh.id`, role, unit, password: 'katasandi123' });
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    const c = client();
+    assert.equal((await c.post('/api/auth/login', { username, password: 'katasandi123' })).status, 200);
+    return { c, id: r.data.id };
+  };
+  const fin = await mk('aud.finance', 'Finance');
+  const it = await mk('aud.it', 'Divisi IT');
+  const mgrIt = await mk('mgr.it', 'Divisi IT', 'manajemen');
+
+  // Auditor tanpa unit (pusat) membuat audit untuk dua unit.
+  const aFinRes = await auditor.post('/api/audits', { title: 'Audit Kas Finance', unit: 'Finance', type: 'Keuangan' });
+  assert.equal(aFinRes.status, 201, JSON.stringify(aFinRes.data));
+  const aFin = aFinRes.data;
+  const aItRes = await auditor.post('/api/audits', { title: 'Audit Server', unit: 'Divisi IT', type: 'Keuangan' });
+  assert.equal(aItRes.status, 201, JSON.stringify(aItRes.data));
+  const aIt = aItRes.data;
+  const fIt = await auditor.post('/api/findings', { audit_id: aIt.id, title: 'Backup tidak diuji', risk: 'Tinggi' });
+  assert.equal(fIt.status, 201);
+
+  const ids = async (c) => (await c.get('/api/audits')).data.map((a) => a.id);
+  assert.ok((await ids(auditor)).includes(aFin.id) && (await ids(auditor)).includes(aIt.id), 'tanpa unit melihat semua');
+  assert.ok((await ids(fin.c)).includes(aFin.id));
+  assert.ok(!(await ids(fin.c)).includes(aIt.id), 'Finance tidak melihat audit Divisi IT');
+  assert.ok((await ids(it.c)).includes(aIt.id) && !(await ids(it.c)).includes(aFin.id));
+  assert.ok((await ids(mgrIt.c)).includes(aIt.id) && !(await ids(mgrIt.c)).includes(aFin.id), 'manajemen juga mengikuti unit');
+
+  // Audit unit lain tidak bisa dibuka, diubah, dihapus, atau ditambah temuan.
+  assert.equal((await fin.c.get(`/api/audits/${aIt.id}`)).status, 404);
+  assert.equal((await fin.c.patch(`/api/audits/${aIt.id}`, { title: 'Ubah' })).status, 404);
+  assert.equal((await fin.c.del(`/api/audits/${aIt.id}`)).status, 404);
+  assert.equal((await fin.c.post(`/api/audits/${aIt.id}/steps`, { text: 'Langkah' })).status, 404);
+  assert.equal((await fin.c.post('/api/findings', { audit_id: aIt.id, title: 'X', risk: 'Rendah' })).status, 400);
+  assert.equal((await fin.c.get(`/api/findings/${fIt.data.id}`)).status, 404);
+  assert.ok(!(await fin.c.get('/api/findings')).data.some((f) => f.id === fIt.data.id));
+  assert.equal((await fin.c.del(`/api/findings/${fIt.data.id}`)).status, 404);
+  assert.ok((await it.c.get('/api/findings')).data.some((f) => f.id === fIt.data.id));
+
+  // Pengguna berunit hanya membuat audit untuk unitnya sendiri.
+  const wrong = await fin.c.post('/api/audits', { title: 'Audit IT oleh Finance', unit: 'Divisi IT', type: 'Keuangan' });
+  assert.equal(wrong.status, 400);
+  assert.match(wrong.data.error, /unit Anda sendiri \(Finance\)/);
+  const own = await fin.c.post('/api/audits', { title: 'Audit Piutang', unit: ' finance ', type: 'Keuangan' });
+  assert.equal(own.status, 201, 'unit dibandingkan tanpa beda huruf besar dan spasi');
+  assert.equal((await fin.c.patch(`/api/audits/${own.data.id}`, { unit: 'Divisi IT' })).status, 400);
+
+  // Anggota tim dari unit lain ikut melihat audit itu.
+  assert.equal((await auditor.patch(`/api/audits/${aIt.id}`, { member_ids: [fin.id] })).status, 200);
+  assert.ok((await ids(fin.c)).includes(aIt.id), 'anggota tim melihat audit');
+  assert.equal((await fin.c.get(`/api/audits/${aIt.id}`)).status, 200);
+
+  // Ringkasan juga mengikuti unit.
+  const dash = (await it.c.get('/api/dashboard')).data;
+  assert.ok(dash, 'ringkasan bisa dibuka');
+});

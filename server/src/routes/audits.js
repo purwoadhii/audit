@@ -4,7 +4,7 @@ import { requireRole } from '../auth.js';
 import { badRequest, notFound, requireText, oneOf, dateOrNull, intId } from '../errors.js';
 import { AUDIT_STATUS, STEP_RESULTS } from '../constants.js';
 import { getSettings } from '../settings.js';
-import { auditScope, findingScope } from '../access.js';
+import { auditScope, findingScope, sameUnit, seesAllUnits } from '../access.js';
 import { nextCode } from '../codes.js';
 import { parseTemplate } from './templates.js';
 
@@ -67,6 +67,12 @@ async function saveMembers(db, auditId, ids) {
   for (const uid of ids) await db.query('INSERT INTO audit_members (audit_id, user_id) VALUES (?,?)', [auditId, uid]);
 }
 
+// Pengguna yang terikat unit hanya bisa membuat audit untuk unitnya sendiri, atau memindahkannya ke unitnya.
+function assertOwnUnit(user, unit) {
+  if (seesAllUnits(user) || sameUnit(user, unit)) return;
+  throw badRequest('Anda hanya bisa memakai unit Anda sendiri ({unit}) untuk audit.', { unit: String(user.unit).trim() });
+}
+
 async function loadAudit(user, id) {
   const scope = auditScope(user, 'a');
   const { rows } = await query(`${LIST_SQL} WHERE a.id = ? AND ${scope.sql}`, [id, ...scope.params]);
@@ -87,6 +93,7 @@ r.get('/', async (req, res) => {
 
 r.post('/', editors, async (req, res) => {
   const f = auditFields(req.body || {}, false, (await getSettings()).audit_types);
+  assertOwnUnit(req.user, f.unit);
   const templateId = req.body?.template_id ? intId(req.body.template_id) : null;
   const members = await memberIds(req.body?.member_ids);
   const id = await tx(async (c) => {
@@ -131,9 +138,9 @@ r.get('/:id', async (req, res) => {
 
 r.patch('/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
-  const { rows: cur } = await query('SELECT type FROM audits WHERE id = ?', [id]);
-  const f = auditFields(req.body || {}, true, [...(await getSettings()).audit_types, cur[0]?.type]);
-  if (!cur[0]) throw notFound('Audit tidak ditemukan.');
+  const cur = await loadAudit(req.user, id);
+  const f = auditFields(req.body || {}, true, [...(await getSettings()).audit_types, cur.type]);
+  if (f.unit !== undefined && !sameUnit({ unit: cur.unit }, f.unit)) assertOwnUnit(req.user, f.unit);
   const members = await memberIds(req.body?.member_ids);
   const keys = Object.keys(f);
   if (!keys.length && members === undefined) throw badRequest('Tidak ada perubahan.');
@@ -150,10 +157,9 @@ r.patch('/:id', editors, async (req, res) => {
 
 r.delete('/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
-  const { rows } = await query('SELECT code FROM audits WHERE id = ?', [id]);
-  if (!rows[0]) throw notFound('Audit tidak ditemukan.');
+  const { code } = await loadAudit(req.user, id);
   await query('DELETE FROM audits WHERE id = ?', [id]);
-  await logActivity({ query }, req.user.id, 'delete', 'audit', id, { code: rows[0].code });
+  await logActivity({ query }, req.user.id, 'delete', 'audit', id, { code });
   res.json({ ok: true });
 });
 
@@ -167,8 +173,7 @@ async function loadStep(auditId, stepId) {
 r.post('/:id/steps', editors, async (req, res) => {
   const id = intId(req.params.id);
   const text = requireText(req.body?.text, 'Langkah pengujian');
-  const exists = await query('SELECT 1 FROM audits WHERE id = ?', [id]);
-  if (!exists.rowCount) throw notFound('Audit tidak ditemukan.');
+  await loadAudit(req.user, id);
   const { rows } = await query('SELECT COALESCE(MAX(position) + 1, 0) AS pos FROM audit_steps WHERE audit_id = ?', [id]);
   const { insertId } = await query("INSERT INTO audit_steps (audit_id, position, text, note) VALUES (?,?,?,'')", [id, rows[0].pos, text]);
   res.status(201).json(await loadStep(id, insertId));
@@ -184,12 +189,14 @@ r.patch('/:id/steps/:stepId', editors, async (req, res) => {
   if (b.result !== undefined) { params.push(oneOf(b.result, STEP_RESULTS, 'Hasil')); sets.push('result = ?'); }
   if (b.note !== undefined) { params.push(String(b.note)); sets.push('note = ?'); }
   if (!sets.length) throw badRequest('Tidak ada perubahan.');
+  await loadAudit(req.user, id);
   await loadStep(id, stepId);
   await query(`UPDATE audit_steps SET ${sets.join(', ')}, updated_at = NOW(3) WHERE id = ? AND audit_id = ?`, [...params, stepId, id]);
   res.json(await loadStep(id, stepId));
 });
 
 r.delete('/:id/steps/:stepId', editors, async (req, res) => {
+  await loadAudit(req.user, intId(req.params.id));
   const { rowCount } = await query('DELETE FROM audit_steps WHERE id = ? AND audit_id = ?', [intId(req.params.stepId), intId(req.params.id)]);
   if (!rowCount) throw notFound('Langkah tidak ditemukan.');
   res.json({ ok: true });

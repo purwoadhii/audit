@@ -551,3 +551,4 @@ nav.tabs a.active { background:rgba(255,255,255,.08); }
 .lp-lang { position:absolute; top:16px; right:16px; z-index:5; }
 .usermenu .lang-btn { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
 .usermenu .lang-btn:hover { background:rgba(255,255,255,.16); }
+.form input[readonly] { background:var(--sunk); color:var(--muted); cursor:default; }

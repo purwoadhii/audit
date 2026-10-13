@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { AUDIT_STATUS, ROLES } from '../util.js';
 import { useSettings } from '../settings.jsx';
+import { useAuth } from '../auth.jsx';
 import { ConfirmDelete, Req, ReqNote, Sheet, useLoad, useToast } from './ui.jsx';
 import { t } from '../i18n.jsx';
 
@@ -11,12 +12,15 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const isNew = !audit;
   const toast = useToast();
   const { settings } = useSettings();
+  const { user } = useAuth();
+  // Pengguna yang terikat unit hanya membuat audit untuk unitnya sendiri.
+  const myUnit = ['admin', 'infraadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
   // Jenis lama tetap muncul walau sudah dihapus dari daftar di Pengaturan.
   const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
   const [f, setF] = useState(() => ({
-    title: audit?.title || '', unit: audit?.unit || '', type: audit?.type || settings.audit_types[0] || '',
+    title: audit?.title || '', unit: audit?.unit || myUnit, type: audit?.type || settings.audit_types[0] || '',
     lead_id: audit?.lead_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
     end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '',
   }));
@@ -63,7 +67,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
       <form className="form" onSubmit={submit}>
         <ReqNote />
         <label className="full"><span>{t('Judul audit')} <Req /></span><input id="a-title" required value={f.title} onChange={set('title')} placeholder={t('Audit Pengadaan Barang Semester II')} /></label>
-        <label><span>{t('Unit yang diaudit')} <Req /></span><input id="a-unit" required list="unit-list" value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><datalist id="unit-list">{settings.units.map((u) => <option key={u} value={u} />)}</datalist><span className="hint">{t('Auditee di unit ini bisa melihat temuannya.')}</span></label>
+        <label><span>{t('Unit yang diaudit')} <Req /></span><input id="a-unit" required list="unit-list" value={f.unit} onChange={set('unit')} readOnly={Boolean(myUnit)} placeholder={t('Divisi Pengadaan')} /><datalist id="unit-list">{settings.units.map((u) => <option key={u} value={u} />)}</datalist><span className="hint">{myUnit ? t('Audit hanya bisa dibuat untuk unit Anda.') : t('Auditee di unit ini bisa melihat temuannya.')}</span></label>
         <label><span>{t('Jenis audit')} <Req /></span><select id="a-type" required value={f.type} onChange={set('type')}><option value="">{t('Pilih jenis')}</option>{types.map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></label>
         <label>{t('Ketua tim')}<select id="a-lead" value={f.lead_id} onChange={set('lead_id')}><option value="">{t('Pilih auditor')}</option>{auditors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
         <div className="group full">

@@ -3,7 +3,7 @@ import { query, tx, logActivity, bools } from '../db.js';
 import { canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId } from '../errors.js';
 import { FINDING_STATUS, RISKS, AUDITEE_STATUS } from '../constants.js';
-import { findingScope } from '../access.js';
+import { auditScope, findingScope } from '../access.js';
 import { nextCode } from '../codes.js';
 
 const r = Router();
@@ -67,7 +67,8 @@ r.post('/', async (req, res) => {
   const stepId = b.step_id ? intId(b.step_id) : null;
   const texts = TEXT_FIELDS.map((k) => String(b[k] || '').trim());
   const id = await tx(async (c) => {
-    const a = await c.query('SELECT 1 FROM audits WHERE id = ?', [auditId]);
+    const as = auditScope(req.user, 'a');
+    const a = await c.query(`SELECT 1 FROM audits a WHERE a.id = ? AND ${as.sql}`, [auditId, ...as.params]);
     if (!a.rowCount) throw badRequest('Audit tidak ditemukan.');
     if (stepId) {
       const s = await c.query('SELECT 1 FROM audit_steps WHERE id = ? AND audit_id = ?', [stepId, auditId]);
@@ -128,10 +129,9 @@ r.patch('/:id', async (req, res) => {
 r.delete('/:id', async (req, res) => {
   if (!canEditAudit(req.user)) throw forbidden();
   const id = intId(req.params.id);
-  const { rows } = await query('SELECT code FROM findings WHERE id = ?', [id]);
-  if (!rows[0]) throw notFound('Temuan tidak ditemukan.');
+  const { code } = await loadFinding(req.user, id);
   await query('DELETE FROM findings WHERE id = ?', [id]);
-  await logActivity({ query }, req.user.id, 'delete', 'finding', id, { code: rows[0].code });
+  await logActivity({ query }, req.user.id, 'delete', 'finding', id, { code });
   res.json({ ok: true });
 });
 

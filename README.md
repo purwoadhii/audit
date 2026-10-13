@@ -25,7 +25,9 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   | --- | --- |
   | Auditor | Membuat audit, mengisi program kerja, mencatat dan menutup temuan |
   | Auditee | Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, mengunggah bukti |
-  | Manajemen | Melihat semua audit, temuan, laporan, dan log aktivitas tanpa mengubah |
+  | Manajemen | Melihat audit, temuan, laporan, dan log aktivitas tanpa mengubah |
+
+  **Batas unit:** auditor dan manajemen yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim, dan temuan di audit itu. Mereka hanya bisa membuat audit untuk unitnya sendiri, dan log aktivitas yang terlihat hanya dari pengguna di unitnya. Auditor dan manajemen tanpa unit (misalnya tim audit internal pusat) melihat audit semua unit. Unit diatur di System Admin → Pengguna.
 
 - **System Admin** (`/sysAdmin`):
   - Akun pengguna (auditor, auditee, manajemen) dan template audit.
