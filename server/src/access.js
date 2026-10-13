@@ -1,5 +1,5 @@
 // Aturan siapa melihat apa.
-// - System Admin, Infra Admin dan Super Admin: semua audit dan temuan. Unit Super Admin tidak membatasi apa pun.
+// - System Admin, Infra Admin dan Super User: semua audit dan temuan. Unit Super User tidak membatasi apa pun.
 // - Auditor dan manajemen tanpa unit: semua audit dan temuan (misalnya tim audit internal pusat).
 // - Auditor dan manajemen dengan unit: audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim,
 //   dan temuan di audit itu atau yang ditugaskan kepadanya.

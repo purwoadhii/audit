@@ -2,6 +2,9 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.7.1 - 2026-10-13
+- Peran Super Admin berganti nama menjadi Super User. Hak aksesnya tidak berubah.
+
 ## 1.7.0 - 2026-10-13
 - Jenis catatan baru: Isu, di samping Temuan. Isu bernomor ISU-tahun-urut dan punya isian serta tindak lanjut yang sama dengan temuan.
 - Tombol Tambah temuan dan Tambah isu di halaman audit membuka form dengan tab Temuan dan Isu. Beberapa temuan dan isu bisa diisi lalu disimpan sekaligus.

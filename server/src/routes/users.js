@@ -15,7 +15,7 @@ function cleanUsername(v) {
   return u;
 }
 
-// Pengawasan berlapis: System Admin mengatur akun pengguna (super admin, auditor, auditee, manajemen),
+// Pengawasan berlapis: System Admin mengatur akun pengguna (super user, auditor, auditee, manajemen),
 // Infra Admin mengatur akun System Admin dan Infra Admin.
 export const managedRoles = (me) => (me.role === 'infraadmin' ? ['admin', 'infraadmin'] : me.role === 'admin' ? WORK_ROLES : []);
 

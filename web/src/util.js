@@ -15,7 +15,7 @@ export const ROLES = translated({
   auditor: N_('Auditor'),
   auditee: N_('Auditee'),
   manajemen: N_('Manajemen'),
-  superadmin: N_('Super Admin'),
+  superadmin: N_('Super User'),
 });
 // Jenis catatan audit: temuan atau isu.
 export const FINDING_KINDS = translated({ temuan: N_('Temuan'), isu: N_('Isu') });

@@ -31,7 +31,7 @@ import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
 
 // Tiga pintu masuk dengan tampilan masing-masing:
-//   /            pengguna (super admin, auditor, auditee, manajemen): menu atas untuk pekerjaan audit
+//   /            pengguna (super user, auditor, auditee, manajemen): menu atas untuk pekerjaan audit
 //   /sysAdmin    System Admin: menu samping untuk pengguna dan pengaturan aplikasi
 //   /infraAdmin  Infra Admin: menu samping untuk lisensi, akun admin, keamanan, dan server
 export default function App() {

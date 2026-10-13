@@ -34,7 +34,7 @@ export default function Users() {
         <span className="t-sub">{t('{a} aktif dari {b} akun', { a: active, b: data.length })}</span>
         <button className="btn primary" onClick={() => setEditing({})}>{infra ? t('Tambah admin') : t('Tambah pengguna')}</button>
       </div>
-      {infra && <p className="page-note"><T k="Akun System Admin masuk di {path} dan mengatur akun pengguna." path={<b>/sysAdmin</b>} /> {t('Akun pengguna (super admin, auditor, auditee, manajemen) diatur oleh System Admin.')}</p>}
+      {infra && <p className="page-note"><T k="Akun System Admin masuk di {path} dan mengatur akun pengguna." path={<b>/sysAdmin</b>} /> {t('Akun pengguna (super user, auditor, auditee, manajemen) diatur oleh System Admin.')}</p>}
       <div className="tablebox">
         <table>
           <thead><tr><th>{t('Nama')}</th><th>{t('Username')}</th><th>{t('Email')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th><th>{t('Login terakhir')}</th><th>{t('Status')}</th></tr></thead>
