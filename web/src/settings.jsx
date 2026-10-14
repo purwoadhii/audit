@@ -18,6 +18,7 @@ const DEFAULTS = {
   maintenance: false,
   maintenance_message: '',
   units: [],
+  unit_scope: false,
   audit_types: ['Keuangan', 'Operasional', 'Kepatuhan', 'Teknologi Informasi', 'Pengadaan', 'Investigasi'],
 };
 

@@ -17,7 +17,7 @@ import Users from './pages/Users.jsx';
 import Templates from './pages/Templates.jsx';
 import Activity from './pages/Activity.jsx';
 import Account from './pages/Account.jsx';
-import Settings from './pages/Settings.jsx';
+import Settings, { SampleData } from './pages/Settings.jsx';
 import Logins from './pages/Logins.jsx';
 import Sessions from './pages/Sessions.jsx';
 import System from './pages/System.jsx';
@@ -140,6 +140,7 @@ const ADMIN_NAV = {
       { path: 'pengaturan', label: N_('Pengaturan'), icon: 'settings', el: <Settings /> },
       { path: 'penyimpanan', label: N_('Penyimpanan file'), icon: 'storage', el: <StorageSettings /> },
       { path: 'ai', label: N_('Asisten AI'), icon: 'ai', el: <AiSettings /> },
+      { path: 'data-contoh', label: N_('Data contoh'), icon: 'sample', el: <SampleData /> },
     ] },
     { title: N_('Pengawasan'), items: [
       { path: 'aktivitas', label: N_('Log aktivitas'), icon: 'activity', el: <Activity /> },

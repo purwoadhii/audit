@@ -6,7 +6,7 @@ import { assertUserSlot } from './license.js';
 import { nextCode } from './codes.js';
 import { removeFilesOf } from './files.js';
 
-// Data contoh untuk mencoba aplikasi: empat akun, empat audit di tiga unit, program kerja, temuan, dan isu.
+// Data contoh untuk mencoba aplikasi: satu akun untuk setiap peran pengguna, empat audit di tiga unit, program kerja, temuan, dan isu.
 // Id yang dibuat disimpan di pengaturan sample_data, jadi semuanya bisa dihapus lagi sekaligus.
 export const SAMPLE_PASSWORD = 'contoh12345';
 
@@ -15,6 +15,7 @@ const USERS = [
   { key: 'keuangan', name: 'Kartika Keuangan (contoh)', username: 'contoh.keuangan', role: 'auditee', unit: 'Divisi Keuangan' },
   { key: 'pengadaan', name: 'Prasetyo Pengadaan (contoh)', username: 'contoh.pengadaan', role: 'auditee', unit: 'Divisi Pengadaan' },
   { key: 'manajemen', name: 'Maya Manajemen (contoh)', username: 'contoh.manajemen', role: 'manajemen', unit: null },
+  { key: 'superuser', name: 'Surya Super User (contoh)', username: 'contoh.superuser', role: 'superadmin', unit: 'Divisi IT' },
 ];
 
 // Tanggal relatif terhadap hari ini supaya data selalu terlihat baru (ada yang berjalan dan ada yang terlambat).

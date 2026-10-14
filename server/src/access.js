@@ -1,15 +1,16 @@
 // Aturan siapa melihat apa.
-// - System Admin, Infra Admin dan Super User: semua audit dan temuan. Unit Super User tidak membatasi apa pun.
-// - Auditor dan manajemen tanpa unit: semua audit dan temuan (misalnya tim audit internal pusat).
-// - Auditor dan manajemen dengan unit: audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim,
-//   dan temuan di audit itu atau yang ditugaskan kepadanya.
+// - System Admin, Infra Admin dan Super User: semua audit dan temuan.
+// - Auditor dan manajemen: semua audit dan temuan, kecuali System Admin mengaktifkan "Batasi audit per unit".
+//   Saat aktif, yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim,
+//   dan temuan di audit itu atau yang ditugaskan kepadanya. Yang tanpa unit tetap melihat semua.
 // - auditee: hanya audit untuk unitnya, dan temuan yang ditugaskan kepadanya atau ke unitnya.
 // Setiap fungsi mengembalikan potongan SQL dengan placeholder ? dan nilainya, berurutan.
 // Unit dibandingkan tanpa spasi di awal dan akhir.
 
 const unitOf = (user) => String(user.unit || '').trim() || null;
 
-export const seesAllUnits = (user) => ['admin', 'infraadmin', 'superadmin'].includes(user.role) || (user.role !== 'auditee' && !unitOf(user));
+export const seesAllUnits = (user) => ['admin', 'infraadmin', 'superadmin'].includes(user.role)
+  || (user.role !== 'auditee' && (!user.unit_scope || !unitOf(user)));
 
 export const sameUnit = (user, unit) => String(unit || '').trim().toLowerCase() === String(unitOf(user) || '').toLowerCase();
 

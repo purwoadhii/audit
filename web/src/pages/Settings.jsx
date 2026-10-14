@@ -14,7 +14,7 @@ const THEME_COLOR = {
 
 const SECTIONS = [
   { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
-  { title: N_('Data master'), keys: ['units', 'audit_types'] },
+  { title: N_('Data master'), keys: ['units', 'audit_types', 'unit_scope'] },
   { title: N_('Dokumen'), keys: ['ocr_enabled'] },
   { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
@@ -28,6 +28,7 @@ const INFRA_SECTIONS = [
 const HINT = {
   units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
   audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
+  unit_scope: N_('Saat aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya. Saat mati, semua auditor dan manajemen melihat audit semua unit. Auditee selalu hanya melihat temuan untuk unitnya.'),
   session_idle_minutes: N_('Tanpa "Ingat saya", pengguna otomatis keluar bila tidak aktif selama ini.'),
   remember_max_days: N_('Dengan "Ingat saya", sesi bertahan sampai browser ditutup, paling lama sekian hari.'),
   max_login_attempts: N_('Percobaan gagal per username dan alamat IP dalam 15 menit sebelum login dikunci.'),
@@ -231,7 +232,7 @@ function BackgroundSection({ kind, onSaved }) {
 }
 
 // Data contoh untuk mencoba aplikasi: diisi sekali klik dan dihapus lagi sekaligus.
-function SampleSection() {
+export function SampleData() {
   const toast = useToast();
   const { data, error, loading, reload } = useLoad(() => api.get('/admin/sample-data'), []);
   const [busy, setBusy] = useState(false);
@@ -255,7 +256,7 @@ function SampleSection() {
       <h3 className="full" style={{ margin: 0 }}>{t('Data contoh')}</h3>
       {loading && !data ? <Loading /> : error ? <ErrorBox error={error} retry={reload} /> : (
         <>
-          <p className="full form-note">{t('Isi aplikasi dengan contoh untuk mencoba: 4 akun pengguna, 4 audit di tiga unit, program kerja, temuan, dan isu. Semua data contoh bisa dihapus lagi sekaligus.')}</p>
+          <p className="full form-note">{t('Isi aplikasi dengan contoh untuk mencoba: 5 akun pengguna (satu untuk setiap peran), 4 audit di tiga unit, program kerja, temuan, dan isu. Semua data contoh bisa dihapus lagi sekaligus.')}</p>
           {data.exists && (
             <p className="full form-note"><T k="Akun contoh: {users}. Kata sandi semuanya {password}. Masuk di halaman pengguna." users={<b>{data.users.join(', ')}</b>} password={<b>{data.password}</b>} /></p>
           )}
@@ -286,7 +287,6 @@ export default function Settings({ infra = false }) {
       <BackgroundSection kind="login" onSaved={saved} />
       <BackgroundSection kind="app" onSaved={saved} />
       {SECTIONS.slice(1).map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}
-      <SampleSection />
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const { settings } = useSettings();
   const { user } = useAuth();
   // Pengguna yang terikat unit hanya membuat audit untuk unitnya sendiri.
-  const myUnit = ['admin', 'infraadmin', 'superadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
+  const myUnit = !settings.unit_scope || ['admin', 'infraadmin', 'superadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
   // Jenis lama tetap muncul walau sudah dihapus dari daftar di Pengaturan.
   const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);

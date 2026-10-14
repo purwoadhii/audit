@@ -711,7 +711,7 @@ test('bahasa per pengguna dan pesan error yang bisa diterjemahkan', async () => 
   assert.deepEqual(bad.data.vars, { label: 'Nama' });
 });
 
-test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat semua', async () => {
+test('batas audit per unit bisa diaktifkan; pengguna tanpa unit tetap melihat semua', async () => {
   await auditor.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' });
   const mk = async (username, unit, role = 'auditor') => {
     const r = await admin.post('/api/users', { name: username, username, email: `${username}@contoh.id`, role, unit, password: 'katasandi123' });
@@ -735,6 +735,11 @@ test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat
   assert.equal(fIt.status, 201);
 
   const ids = async (c) => (await c.get('/api/audits')).data.map((a) => a.id);
+  // Bawaan: tidak dibatasi per unit, semua auditor dan manajemen melihat semua audit.
+  assert.ok((await ids(fin.c)).includes(aIt.id), 'tanpa batas unit, Finance melihat audit Divisi IT');
+  assert.equal((await fin.c.post(`/api/audits/${aIt.id}/steps`, { text: 'Langkah bebas' })).status, 201);
+  assert.equal((await admin.patch('/api/settings', { unit_scope: true })).status, 200);
+
   assert.ok((await ids(auditor)).includes(aFin.id) && (await ids(auditor)).includes(aIt.id), 'tanpa unit melihat semua');
   assert.ok((await ids(fin.c)).includes(aFin.id));
   assert.ok(!(await ids(fin.c)).includes(aIt.id), 'Finance tidak melihat audit Divisi IT');
@@ -778,6 +783,10 @@ test('audit hanya terlihat oleh pengguna di unitnya; pengguna tanpa unit melihat
   assert.equal((await sa.c.post('/api/audits', { title: 'Audit Jaringan', unit: 'Divisi IT', type: 'Keuangan' })).status, 201);
   assert.equal((await sa.c.get('/api/dashboard/activity')).status, 200);
   assert.equal((await sa.c.get('/api/admin/logins')).status, 403, 'Super User bukan admin sistem');
+
+  // Dimatikan lagi: Finance kembali melihat semua audit.
+  assert.equal((await admin.patch('/api/settings', { unit_scope: false })).status, 200);
+  assert.ok((await ids(fin.c)).includes(aIt.id));
 });
 
 test('menambah beberapa temuan dan isu sekaligus, dan jumlahnya per audit', async () => {

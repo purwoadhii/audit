@@ -87,6 +87,8 @@ export async function requireAuth(req, _res, next) {
       await query(`UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP(3)${extend} WHERE id = ?`, params);
     }
     const { sid, remember, expires_at: _e, ended_at: _x, last_seen_at: _l, ...user } = row;
+    // Dipakai aturan akses (access.js) untuk menentukan apakah audit dibatasi per unit.
+    user.unit_scope = Boolean(s.unit_scope);
     req.user = user;
     req.sessionId = sid;
     next();

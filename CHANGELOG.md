@@ -2,8 +2,12 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.9.0 - 2026-10-14
+- Audit tidak lagi dibatasi per unit secara bawaan: semua auditor dan manajemen melihat audit semua unit. Batas per unit bisa dinyalakan lagi di System Admin → Pengaturan → Data master.
+- Data contoh punya menu sendiri di System Admin, dan kini ada akun contoh Super User.
+
 ## 1.8.0 - 2026-10-14
-- Data contoh di System Admin → Pengaturan: sekali klik mengisi 4 akun pengguna, 4 audit di tiga unit, program kerja, temuan, dan isu. Tombol Hapus data contoh menghapus semuanya lagi.
+- Data contoh di System Admin → Data contoh: sekali klik mengisi 5 akun pengguna (satu untuk setiap peran), 4 audit di tiga unit, program kerja, temuan, dan isu. Tombol Hapus data contoh menghapus semuanya lagi.
 - Akun pengguna bisa dihapus dari form ubah akun. Temuan dan riwayatnya tetap ada tanpa nama pengguna.
 - Menghapus audit atau temuan sekarang ikut menghapus file buktinya dari penyimpanan.
 

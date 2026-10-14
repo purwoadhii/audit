@@ -55,6 +55,8 @@ export const SETTINGS = {
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
+  // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
+  unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
   // Dokumen (System Admin)
   ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
   // Keamanan login (System Admin)

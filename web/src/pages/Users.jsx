@@ -22,7 +22,10 @@ export default function Users() {
   const { data, error, loading, reload } = useLoad(() => api.get('/users'), []);
   const [editing, setEditing] = useState(null);
   const { user: me } = useAuth();
+  const { settings } = useSettings();
   const infra = me.role === 'infraadmin';
+  // "Semua unit" hanya bermakna bila audit dibatasi per unit; Super User selalu melihat semua.
+  const allUnits = (u) => u.role === 'superadmin' || (settings.unit_scope && ['auditor', 'manajemen'].includes(u.role) && !u.unit);
   const canOpen = () => true;
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
@@ -41,7 +44,7 @@ export default function Users() {
           <tbody>
             {data.map((u) => (
               <tr key={u.id} className={canOpen(u) ? 'click' : ''} onClick={() => canOpen(u) && setEditing(u)}>
-                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{u.role === 'superadmin' ? <span className="t-sub">{t('Semua unit')}</span> : u.unit || (['auditor', 'manajemen'].includes(u.role) ? <span className="t-sub">{t('Semua unit')}</span> : '—')}</td>
+                <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{allUnits(u) ? <span className="t-sub">{t('Semua unit')}</span> : u.unit || '—'}</td>
                 <td className="num t-sub">{u.last_login_at ? fmtDateTime(u.last_login_at) : t('Belum pernah')}</td>
                 <td>{u.active ? <span className="pill s-Selesai">{t('Aktif')}</span> : <span className="pill">{t('Nonaktif')}</span>}</td>
               </tr>
@@ -101,7 +104,7 @@ function UserForm({ user, onClose, onSaved }) {
         <label><span>{t('Username')} <Req /></span><input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">{t('Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.')}</span></label>
         <label><span>{t('Email')} <Req /></span><input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
         <label><span>{t('Peran')} <Req /></span><select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{t(ROLE_HINT[f.role])}</span></label>
-        {managedRoles(me).includes('auditee') && <label><span>{t('Unit')} {f.role === 'auditee' && <Req />}</span><input id="u-unit" required={f.role === 'auditee'} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">{t('Wajib untuk auditee. Pengguna dengan unit hanya melihat audit unitnya. Kosongkan supaya bisa melihat audit semua unit.')}</span></label>}
+        {managedRoles(me).includes('auditee') && <label><span>{t('Unit')} {f.role === 'auditee' && <Req />}</span><input id="u-unit" required={f.role === 'auditee'} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">{settings.unit_scope ? t('Wajib untuk auditee. Pengguna dengan unit hanya melihat audit unitnya. Kosongkan supaya bisa melihat audit semua unit.') : t('Wajib untuk auditee. Auditee hanya melihat temuan untuk unitnya.')}</span></label>}
         <label className="full"><span>{isNew ? <>{t('Kata sandi awal')} <Req /></> : t('Atur ulang kata sandi')}</span><input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? t('Minimal 8 karakter') : t('Kosongkan bila tidak diubah')} /></label>
         {!isNew && user.id !== me.id && (
           <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><input id="u-active" type="checkbox" style={{ width: 'auto' }} checked={f.active} onChange={set('active')} />{t('Akun aktif')}</label>
