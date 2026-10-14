@@ -171,6 +171,7 @@
   "Data tidak bisa dimuat": "Data tidak dapat dimuatkan",
   "Data tidak ditemukan.": "Data tidak ditemui.",
   "Database": "Pangkalan data",
+  "Database dibuat otomatis saat aplikasi dijalankan bila belum ada, jadi tidak lagi berhenti dengan pesan Unknown database.": "Pangkalan data dicipta secara automatik semasa aplikasi dijalankan jika belum wujud, jadi aplikasi tidak lagi berhenti dengan mesej Unknown database.",
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "Dengan \"Ingat saya\", sesi kekal sehingga pelayar ditutup, paling lama sekian hari.",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "Pembangun. Log masuk di /infraAdmin. Mengurus lesen, akaun System Admin, keselamatan dan keadaan pelayan.",
   "Di S3": "Di S3",

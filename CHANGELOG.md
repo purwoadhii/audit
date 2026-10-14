@@ -2,6 +2,9 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.7.2 - 2026-10-14
+- Database dibuat otomatis saat aplikasi dijalankan bila belum ada, jadi tidak lagi berhenti dengan pesan Unknown database.
+
 ## 1.7.1 - 2026-10-13
 - Peran Super Admin berganti nama menjadi Super User. Hak aksesnya tidak berubah.
 

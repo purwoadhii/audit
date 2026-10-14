@@ -171,6 +171,7 @@
   "Data tidak bisa dimuat": "Data couldn't be loaded",
   "Data tidak ditemukan.": "Data not found.",
   "Database": "Database",
+  "Database dibuat otomatis saat aplikasi dijalankan bila belum ada, jadi tidak lagi berhenti dengan pesan Unknown database.": "The database is now created automatically when the app starts if it doesn't exist yet, so the app no longer stops with an Unknown database message.",
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "With \"Remember me\", the session lasts until the browser is closed, for up to this many days.",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "Developer. Signs in at /infraAdmin. Manages the license, System Admin accounts, security, and server health.",
   "Di S3": "On S3",

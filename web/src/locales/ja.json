@@ -171,6 +171,7 @@
   "Data tidak bisa dimuat": "データを読み込めません",
   "Data tidak ditemukan.": "データが見つかりません。",
   "Database": "データベース",
+  "Database dibuat otomatis saat aplikasi dijalankan bila belum ada, jadi tidak lagi berhenti dengan pesan Unknown database.": "データベースがまだない場合はアプリ起動時に自動で作成されるため、Unknown database のメッセージで停止しなくなりました。",
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "「ログイン状態を保持」を使用すると、ブラウザーを閉じるまで（最長でこの日数）セッションが維持されます。",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "開発者です。/infraAdmin からサインインします。ライセンス、System Admin アカウント、セキュリティ、サーバーの状態を管理します。",
   "Di S3": "S3 上",

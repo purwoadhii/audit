@@ -8,7 +8,28 @@ import { config } from './config.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
+// Membuat database bila belum ada, misalnya saat pertama kali dijalankan di XAMPP.
+async function ensureDatabase() {
+  const url = new URL(config.databaseUrl);
+  const name = decodeURIComponent(url.pathname.replace(/^\//, ''));
+  if (!name) return;
+  try {
+    await (await mysql.createConnection({ uri: config.databaseUrl })).end();
+  } catch (e) {
+    if (e.code !== 'ER_BAD_DB_ERROR') throw e;
+    url.pathname = '/';
+    const conn = await mysql.createConnection({ uri: url.toString() });
+    try {
+      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${name.replace(/`/g, '``')}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    } finally {
+      await conn.end();
+    }
+    console.log(`Database ${name} belum ada di ${url.host}, jadi dibuat baru (masih kosong).`);
+  }
+}
+
 export async function migrate() {
+  await ensureDatabase();
   // Koneksi khusus agar satu file migrasi bisa berisi banyak perintah SQL.
   const conn = await mysql.createConnection({ uri: config.databaseUrl, multipleStatements: true, charset: 'utf8mb4' });
   try {

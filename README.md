@@ -72,7 +72,7 @@ Cocok untuk Windows. Yang perlu dipasang:
 Langkah:
 
 1. Buka **XAMPP Control Panel**, klik **Start** pada **Apache** dan **MySQL**.
-2. Buka http://localhost/phpmyadmin, klik **New** (Baru), isi nama database `jejak_audit`, pilih collation `utf8mb4_unicode_ci`, lalu klik **Create**. Tabelnya tidak perlu dibuat manual, aplikasi membuatnya sendiri.
+2. (Opsional) Buka http://localhost/phpmyadmin, klik **New** (Baru), isi nama database `jejak_audit`, pilih collation `utf8mb4_unicode_ci`, lalu klik **Create**. Bila database belum ada, aplikasi membuatnya sendiri saat pertama dijalankan. Tabelnya juga tidak perlu dibuat manual.
 3. Buka Command Prompt atau PowerShell, lalu ambil kodenya:
 
    ```bash
