@@ -31,7 +31,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   **Batas unit** (bisa dinyalakan di System Admin → Pengaturan → Data master, bawaan mati): auditor dan manajemen yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim, dan temuan di audit itu. Mereka hanya bisa membuat audit untuk unitnya sendiri, dan log aktivitas yang terlihat hanya dari pengguna di unitnya. Auditor dan manajemen tanpa unit (misalnya tim audit internal pusat) dan Super User melihat audit semua unit. Unit diatur di System Admin → Pengguna.
 
 - **System Admin** (`/sysAdmin`):
-  - Data contoh untuk mencoba aplikasi (menu Data contoh): 5 akun pengguna, satu untuk setiap peran (`contoh.auditor`, `contoh.keuangan`, `contoh.pengadaan`, `contoh.manajemen`, `contoh.superuser`, kata sandi `contoh12345`), 4 audit, temuan, dan isu. Semua bisa dihapus lagi sekaligus. Hapus data contoh sebelum aplikasi dipakai sungguhan, karena kata sandinya diketahui umum.
+  - Data awal (menu Data awal): sekali klik mengisi 12 akun dengan nama realistis (Kepala SPI sebagai Super User, 3 auditor, 2 direksi, dan kepala 6 divisi sebagai auditee), 7 audit di 6 divisi lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut. Semua akun memakai satu kata sandi awal acak yang tampil di halaman itu; email akun memakai alias + dari email admin. Semuanya bisa dihapus lagi sekaligus tanpa menyentuh data lain.
   - Akun pengguna (super user, auditor, auditee, manajemen) dan template audit.
   - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login, serta gambar latar halaman setelah login.
   - Data master (daftar unit, jenis audit) dan batas waktu sesi login.

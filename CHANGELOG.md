@@ -2,6 +2,10 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.10.0 - 2026-10-14
+- Data contoh diganti menjadi Data awal yang realistis: 12 akun (tim audit internal, direksi, dan kepala divisi), 7 audit di 6 divisi, lengkap dengan temuan, isu, dan riwayat tindak lanjut. Tidak ada lagi nama atau username contoh.
+- Semua akun data awal memakai kata sandi awal acak yang tampil di menu Data awal, bersama daftar akunnya. Tombol Hapus data awal menghapus semuanya lagi.
+
 ## 1.9.0 - 2026-10-14
 - Audit tidak lagi dibatasi per unit secara bawaan: semua auditor dan manajemen melihat audit semua unit. Batas per unit bisa dinyalakan lagi di System Admin → Pengaturan → Data master.
 - Data contoh punya menu sendiri di System Admin, dan kini ada akun contoh Super User.

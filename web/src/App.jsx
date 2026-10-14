@@ -140,7 +140,7 @@ const ADMIN_NAV = {
       { path: 'pengaturan', label: N_('Pengaturan'), icon: 'settings', el: <Settings /> },
       { path: 'penyimpanan', label: N_('Penyimpanan file'), icon: 'storage', el: <StorageSettings /> },
       { path: 'ai', label: N_('Asisten AI'), icon: 'ai', el: <AiSettings /> },
-      { path: 'data-contoh', label: N_('Data contoh'), icon: 'sample', el: <SampleData /> },
+      { path: 'data-awal', label: N_('Data awal'), icon: 'sample', el: <SampleData /> },
     ] },
     { title: N_('Pengawasan'), items: [
       { path: 'aktivitas', label: N_('Log aktivitas'), icon: 'activity', el: <Activity /> },

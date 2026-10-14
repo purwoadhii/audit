@@ -4,6 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import { ConfirmDelete, ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
 import { N_, T, t } from '../i18n.jsx';
+import { ROLES } from '../util.js';
 
 const THEME_LABEL = { teal: N_('Teal'), biru: N_('Biru'), hijau: N_('Hijau'), ungu: N_('Ungu'), merah: N_('Merah'), oranye: N_('Oranye') };
 // Contoh warna: bilah atas dan aksen tiap tema.
@@ -231,7 +232,7 @@ function BackgroundSection({ kind, onSaved }) {
   );
 }
 
-// Data contoh untuk mencoba aplikasi: diisi sekali klik dan dihapus lagi sekaligus.
+// Data awal yang realistis (akun tim audit, direksi, PIC divisi, dan audit berjalan): diisi sekali klik dan bisa dihapus lagi sekaligus.
 export function SampleData() {
   const toast = useToast();
   const { data, error, loading, reload } = useLoad(() => api.get('/admin/sample-data'), []);
@@ -243,7 +244,7 @@ export function SampleData() {
     try {
       if (action === 'create') await api.post('/admin/sample-data', {});
       else await api.del('/admin/sample-data');
-      toast(action === 'create' ? t('Data contoh ditambahkan') : t('Data contoh dihapus'));
+      toast(action === 'create' ? t('Data awal ditambahkan') : t('Data awal dihapus'));
       reload();
     } catch (err) {
       setFail(err.message);
@@ -251,24 +252,34 @@ export function SampleData() {
       setBusy(false);
     }
   }
+  if (loading && !data) return <Loading />;
+  if (error) return <ErrorBox error={error} retry={reload} />;
   return (
-    <section className="panel form" aria-label={t('Data contoh')}>
-      <h3 className="full" style={{ margin: 0 }}>{t('Data contoh')}</h3>
-      {loading && !data ? <Loading /> : error ? <ErrorBox error={error} retry={reload} /> : (
-        <>
-          <p className="full form-note">{t('Isi aplikasi dengan contoh untuk mencoba: 5 akun pengguna (satu untuk setiap peran), 4 audit di tiga unit, program kerja, temuan, dan isu. Semua data contoh bisa dihapus lagi sekaligus.')}</p>
-          {data.exists && (
-            <p className="full form-note"><T k="Akun contoh: {users}. Kata sandi semuanya {password}. Masuk di halaman pengguna." users={<b>{data.users.join(', ')}</b>} password={<b>{data.password}</b>} /></p>
-          )}
-          <div className="full actions">
-            {data.exists
-              ? <ConfirmDelete label={t('Hapus data contoh')} question={t('Hapus semua audit, temuan, isu, dan akun contoh?')} onConfirm={() => run('remove')} />
-              : <button type="button" className="btn primary" disabled={busy} onClick={() => run('create')}>{t('Isi data contoh')}</button>}
-          </div>
-          {fail && <div className="error-text full" role="alert">{fail}</div>}
-        </>
+    <div className="settings-grid">
+      <section className="panel form" aria-label={t('Data awal')}>
+        <h3 className="full" style={{ margin: 0 }}>{t('Data awal')}</h3>
+        <p className="full form-note">{t('Isi aplikasi dengan data awal yang siap dipakai: {users} akun (tim audit internal, direksi, dan kepala divisi), {audits} audit di {units} divisi lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut. Semua data awal bisa dihapus lagi sekaligus tanpa menyentuh data lain.', data.planned)}</p>
+        {data.exists && (
+          <p className="full form-note"><T k="Semua akun di bawah memakai kata sandi awal {password}. Masuk di halaman pengguna, lalu minta setiap pengguna mengganti kata sandinya di menu Akun saya." password={<b className="code">{data.password || '—'}</b>} /></p>
+        )}
+        <div className="full actions">
+          {data.exists
+            ? <ConfirmDelete label={t('Hapus data awal')} question={t('Hapus semua audit, temuan, isu, dan akun dari data awal?')} onConfirm={() => run('remove')} />
+            : <button type="button" className="btn primary" disabled={busy} onClick={() => run('create')}>{busy ? t('Memproses…') : t('Isi data awal')}</button>}
+        </div>
+        {fail && <div className="error-text full" role="alert">{fail}</div>}
+      </section>
+      {data.exists && data.users.length > 0 && (
+        <div className="tablebox">
+          <table>
+            <thead><tr><th>{t('Nama')}</th><th>{t('Jabatan')}</th><th>{t('Username')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th></tr></thead>
+            <tbody>{data.users.map((u) => (
+              <tr key={u.id}><td className="t-title">{u.name}</td><td>{u.title}</td><td className="code">{u.username}</td><td>{ROLES[u.role]}</td><td>{u.unit || '—'}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
       )}
-    </section>
+    </div>
   );
 }
 

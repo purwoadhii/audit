@@ -820,25 +820,31 @@ test('menambah beberapa temuan dan isu sekaligus, dan jumlahnya per audit', asyn
   assert.equal((await auditee.post('/api/findings/batch', { audit_id: a.id, items })).status, 403);
 });
 
-test('data contoh bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async () => {
+test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async () => {
   assert.equal((await auditor.post('/api/admin/sample-data', {})).status, 403);
   const made = await admin.post('/api/admin/sample-data', {});
   assert.equal(made.status, 201, JSON.stringify(made.data));
   assert.equal(made.data.exists, true);
+  assert.equal(made.data.users.length, 12);
+  assert.ok(made.data.users.every((u) => !/contoh|demo|test/i.test(`${u.name} ${u.username}`)), 'nama dan username realistis');
+  assert.match(made.data.password, /^[\w-]{10}$/);
+  assert.ok((await admin.get('/api/settings')).data.values.units.includes('Divisi SDM'), 'unit ditambahkan ke data master');
   assert.equal((await admin.post('/api/admin/sample-data', {})).status, 400, 'tidak bisa diisi dua kali');
 
   const c = client();
-  assert.equal((await c.post('/api/auth/login', { username: 'contoh.auditor', password: 'contoh12345' })).status, 200);
+  assert.equal((await c.post('/api/auth/login', { username: 'rina.wulandari', password: made.data.password })).status, 200);
   const audits = (await c.get('/api/audits')).data.filter((a) => a.title.startsWith('Audit Pengadaan Barang'));
   assert.equal(audits.length, 1);
   assert.equal(audits[0].findings_total, 2);
   assert.equal(audits[0].issues_total, 1);
+  assert.equal(made.data.audits, 7);
 
   const gone = await admin.del('/api/admin/sample-data');
   assert.equal(gone.status, 200);
   assert.equal(gone.data.exists, false);
   const users = (await admin.get('/api/users')).data;
-  assert.ok(!users.some((u) => u.username?.startsWith('contoh.')), 'akun contoh terhapus');
+  assert.ok(!users.some((u) => u.username === 'rina.wulandari'), 'akun data awal terhapus');
+  assert.ok(!(await admin.get('/api/settings')).data.values.units.includes('Divisi SDM'), 'unit tambahan ikut dihapus');
   assert.ok(!(await auditor.get('/api/audits')).data.some((a) => a.title.startsWith('Audit Pengadaan Barang')), 'audit contoh terhapus');
   assert.equal((await c.get('/api/audits')).status, 401, 'sesi akun contoh ikut berakhir');
 

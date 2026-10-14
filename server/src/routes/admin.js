@@ -221,7 +221,7 @@ r.get('/errors', requireRole('infraadmin'), (_req, res) => {
   res.json(recentErrors());
 });
 
-// Data contoh untuk mencoba aplikasi, bisa diisi dan dihapus lagi oleh System Admin.
+// Data awal yang realistis, bisa diisi dan dihapus lagi oleh System Admin.
 r.get('/sample-data', requireRole('admin'), async (_req, res) => res.json(await sampleStatus()));
 r.post('/sample-data', requireRole('admin'), async (req, res) => res.status(201).json(await createSample(req.user)));
 r.delete('/sample-data', requireRole('admin'), async (req, res) => res.json(await removeSample(req.user)));
