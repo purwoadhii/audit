@@ -1,13 +1,14 @@
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ROLES, device, fmtDateTime } from '../util.js';
-import { ConfirmDelete, Empty, ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
+import { ConfirmDelete, Empty, ErrorBox, Loading, Pager, useLoad, usePaged, useToast } from '../components/ui.jsx';
 import { t } from '../i18n.jsx';
 
 export default function Sessions() {
   const { user } = useAuth();
   const toast = useToast();
   const { data, error, loading, reload } = useLoad(() => api.get('/admin/sessions'), []);
+  const paged = usePaged(data || [], '');
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
 
@@ -28,7 +29,7 @@ export default function Sessions() {
         <div className="tablebox"><table>
           <thead><tr><th>{t('Pengguna')}</th><th>{t('Perangkat')}</th><th>{t('Alamat IP')}</th><th>{t('Masuk')}</th><th>{t('Terakhir aktif')}</th><th>{t('Jenis')}</th><th /></tr></thead>
           <tbody>
-            {data.map((s) => (
+            {paged.rows.map((s) => (
               <tr key={s.id}>
                 <td className="t-title">{s.user_name}<div className="t-sub">{s.username} · {ROLES[s.role]}</div></td>
                 <td title={s.user_agent || ''}>{device(s.user_agent)}</td>
@@ -46,6 +47,7 @@ export default function Sessions() {
           </tbody>
         </table></div>
       )}
+      {data.length > 0 && <Pager paged={paged} />}
     </>
   );
 }

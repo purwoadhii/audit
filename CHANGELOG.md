@@ -2,6 +2,13 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.11.0 - 2026-10-14
+- Daftar audit dan daftar temuan punya kolom Aksi untuk mengubah dan menghapus langsung dari tabel, dengan konfirmasi sebelum menghapus.
+- Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.
+- Filter daftar temuan kini satu baris, termasuk pilihan Terlambat saja.
+- Papan tindak lanjut punya pencarian dan filter (jenis, risiko, audit, terlambat), dan setiap kolom menampilkan 5 kartu per halaman.
+- Log aktivitas punya pencarian dan filter pengguna, aktivitas, dan jenis data, serta menampilkan hingga 1000 aktivitas terakhir. Daftar pengguna punya pencarian dan filter peran serta status.
+
 ## 1.10.0 - 2026-10-14
 - Data contoh diganti menjadi Data awal yang realistis: 12 akun (tim audit internal, direksi, dan kepala divisi), 7 audit di 6 divisi, lengkap dengan temuan, isu, dan riwayat tindak lanjut. Tidak ada lagi nama atau username contoh.
 - Semua akun data awal memakai kata sandi awal acak yang tampil di menu Data awal, bersama daftar akunnya. Tombol Hapus data awal menghapus semuanya lagi.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { ROLES, LOGIN_REASON, device, fmtDateTime } from '../util.js';
-import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
+import { Empty, ErrorBox, Loading, Pager, useLoad, usePaged } from '../components/ui.jsx';
 import { t } from '../i18n.jsx';
 
 export default function Logins() {
@@ -12,6 +12,7 @@ export default function Logins() {
     () => api.get(`/admin/logins?${new URLSearchParams({ status, q: query })}`),
     [status, query],
   );
+  const paged = usePaged(data || [], `${status}|${query}`);
   return (
     <>
       <div className="bar"><h2>{t('Riwayat login')}</h2><span className="t-sub">{t('200 percobaan terakhir')}</span></div>
@@ -28,7 +29,7 @@ export default function Logins() {
         <div className="tablebox"><table>
           <thead><tr><th>{t('Waktu')}</th><th>{t('Pengguna')}</th><th>{t('Username dipakai')}</th><th>{t('Hasil')}</th><th>{t('Alamat IP')}</th><th>{t('Perangkat')}</th></tr></thead>
           <tbody>
-            {data.map((l) => (
+            {paged.rows.map((l) => (
               <tr key={l.id}>
                 <td className="num t-sub">{fmtDateTime(l.created_at)}</td>
                 <td>{l.user_name ? <>{l.user_name}<div className="t-sub">{ROLES[l.role]}</div></> : '—'}</td>
@@ -41,6 +42,7 @@ export default function Logins() {
           </tbody>
         </table></div>
       )}
+      {data?.length > 0 && <Pager paged={paged} />}
     </>
   );
 }

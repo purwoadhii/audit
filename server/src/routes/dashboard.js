@@ -37,7 +37,7 @@ r.get('/activity', requireRole('admin', 'superadmin', 'manajemen', 'auditor'), a
     `SELECT l.id, l.action, l.entity, l.entity_id, l.detail, l.created_at, u.name AS user_name, u.role AS user_role
      FROM activity_log l LEFT JOIN users u ON u.id = l.user_id
      WHERE u.role IN (${roles.map(() => '?').join(',')})${unit ? ' AND TRIM(u.unit) = ?' : ''}
-     ORDER BY l.created_at DESC, l.id DESC LIMIT 100`, unit ? [...roles, unit] : roles);
+     ORDER BY l.created_at DESC, l.id DESC LIMIT 1000`, unit ? [...roles, unit] : roles);
   res.json(rows.map((l) => ({ ...l, detail: l.detail ? JSON.parse(l.detail) : null })));
 });
 

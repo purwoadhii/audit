@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ROLES, fmtDateTime } from '../util.js';
 import { N_, T, t } from '../i18n.jsx';
 import { useSettings } from '../settings.jsx';
-import { ConfirmDelete, ErrorBox, Loading, Req, ReqNote, Sheet, useLoad, useToast } from '../components/ui.jsx';
+import { ConfirmDelete, Empty, ErrorBox, Loading, Pager, Req, ReqNote, Sheet, useLoad, usePaged, useToast } from '../components/ui.jsx';
 
 const ROLE_HINT = {
   infraadmin: N_('Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.'),
@@ -27,6 +27,16 @@ export default function Users() {
   // "Semua unit" hanya bermakna bila audit dibatasi per unit; Super User selalu melihat semua.
   const allUnits = (u) => u.role === 'superadmin' || (settings.unit_scope && ['auditor', 'manajemen'].includes(u.role) && !u.unit);
   const canOpen = () => true;
+  const [filter, setFilter] = useState({ q: '', role: '', status: '' });
+  const set = (k) => (e) => setFilter({ ...filter, [k]: e.target.value });
+  const rows = useMemo(() => {
+    const q = filter.q.toLowerCase();
+    return (data || []).filter((u) =>
+      (!filter.role || u.role === filter.role) &&
+      (!filter.status || (filter.status === 'aktif') === Boolean(u.active)) &&
+      (!q || `${u.name} ${u.username || ''} ${u.email} ${u.unit || ''}`.toLowerCase().includes(q)));
+  }, [data, filter]);
+  const paged = usePaged(rows, JSON.stringify(filter));
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
   const active = data.filter((u) => u.active).length;
@@ -38,20 +48,27 @@ export default function Users() {
         <button className="btn primary" onClick={() => setEditing({})}>{infra ? t('Tambah admin') : t('Tambah pengguna')}</button>
       </div>
       {infra && <p className="page-note"><T k="Akun System Admin masuk di {path} dan mengatur akun pengguna." path={<b>/sysAdmin</b>} /> {t('Akun pengguna (super user, auditor, auditee, manajemen) diatur oleh System Admin.')}</p>}
+      <div className="filters one-line">
+        <input id="u-q" placeholder={t('Cari nama, username, email, atau unit')} value={filter.q} onChange={set('q')} />
+        <select id="u-role-filter" aria-label={t('Peran')} value={filter.role} onChange={set('role')}><option value="">{t('Semua peran')}</option>{managedRoles(me).map((r) => <option key={r} value={r}>{ROLES[r]}</option>)}</select>
+        <select id="u-status-filter" aria-label={t('Status')} value={filter.status} onChange={set('status')}><option value="">{t('Semua status')}</option><option value="aktif">{t('Aktif')}</option><option value="nonaktif">{t('Nonaktif')}</option></select>
+      </div>
       <div className="tablebox">
         <table>
           <thead><tr><th>{t('Nama')}</th><th>{t('Username')}</th><th>{t('Email')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th><th>{t('Login terakhir')}</th><th>{t('Status')}</th></tr></thead>
           <tbody>
-            {data.map((u) => (
+            {paged.rows.map((u) => (
               <tr key={u.id} className={canOpen(u) ? 'click' : ''} onClick={() => canOpen(u) && setEditing(u)}>
                 <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{allUnits(u) ? <span className="t-sub">{t('Semua unit')}</span> : u.unit || '—'}</td>
                 <td className="num t-sub">{u.last_login_at ? fmtDateTime(u.last_login_at) : t('Belum pernah')}</td>
                 <td>{u.active ? <span className="pill s-Selesai">{t('Aktif')}</span> : <span className="pill">{t('Nonaktif')}</span>}</td>
               </tr>
             ))}
+            {!rows.length && <tr><td colSpan={7}><Empty small>{t('Tidak ada akun yang cocok dengan filter.')}</Empty></td></tr>}
           </tbody>
         </table>
       </div>
+      <Pager paged={paged} />
       {editing && <UserForm user={editing.id ? editing : null} onClose={() => setEditing(null)} onSaved={reload} />}
     </>
   );
