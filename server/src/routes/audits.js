@@ -6,6 +6,7 @@ import { AUDIT_STATUS, STEP_RESULTS } from '../constants.js';
 import { getSettings } from '../settings.js';
 import { auditScope, findingScope, sameUnit, seesAllUnits } from '../access.js';
 import { nextCode } from '../codes.js';
+import { removeFilesOf } from '../files.js';
 import { parseTemplate } from './templates.js';
 
 const r = Router();
@@ -160,6 +161,7 @@ r.patch('/:id', editors, async (req, res) => {
 r.delete('/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
   const { code } = await loadAudit(req.user, id);
+  await removeFilesOf('t.audit_id = ? OR t.finding_id IN (SELECT id FROM findings WHERE audit_id = ?)', [id, id]);
   await query('DELETE FROM audits WHERE id = ?', [id]);
   await logActivity({ query }, req.user.id, 'delete', 'audit', id, { code });
   res.json({ ok: true });

@@ -2,6 +2,11 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.8.0 - 2026-10-14
+- Data contoh di System Admin → Pengaturan: sekali klik mengisi 4 akun pengguna, 4 audit di tiga unit, program kerja, temuan, dan isu. Tombol Hapus data contoh menghapus semuanya lagi.
+- Akun pengguna bisa dihapus dari form ubah akun. Temuan dan riwayatnya tetap ada tanpa nama pengguna.
+- Menghapus audit atau temuan sekarang ikut menghapus file buktinya dari penyimpanan.
+
 ## 1.7.2 - 2026-10-14
 - Database dibuat otomatis saat aplikasi dijalankan bila belum ada, jadi tidak lagi berhenti dengan pesan Unknown database.
 

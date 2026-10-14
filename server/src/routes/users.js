@@ -111,4 +111,15 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   res.json(await loadUser(id));
 });
 
+// Menghapus akun. Riwayatnya (temuan, log, aktivitas) tetap ada tanpa nama pengguna; sesi dan keanggotaan tim ikut terhapus.
+r.delete('/:id', requireRole('admin'), async (req, res) => {
+  const id = intId(req.params.id);
+  if (id === req.user.id) throw badRequest('Anda tidak bisa menghapus akun sendiri.');
+  const target = await loadUser(id);
+  guardRole(req.user, target.role);
+  await query('DELETE FROM users WHERE id = ?', [id]);
+  await logActivity({ query }, req.user.id, 'delete', 'user', id, { email: target.email, role: target.role });
+  res.json({ ok: true });
+});
+
 export default r;

@@ -50,6 +50,8 @@ export const SETTINGS = {
   // Lisensi: kunci dipasang Infra Admin lewat /api/admin/license. Tanggal pasang menentukan masa uji coba.
   license_key: { def: '', who: 'internal', label: 'Kunci lisensi', check: optText(4000) },
   install_date: { def: '', who: 'internal', label: 'Tanggal pemasangan', check: optText(10) },
+  // Id pengguna dan audit dari tombol Isi data contoh, supaya bisa dihapus lagi sekaligus.
+  sample_data: { def: null, who: 'internal', label: 'Data contoh', check: (v) => v },
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },

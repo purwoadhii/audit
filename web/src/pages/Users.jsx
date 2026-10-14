@@ -4,7 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { ROLES, fmtDateTime } from '../util.js';
 import { N_, T, t } from '../i18n.jsx';
 import { useSettings } from '../settings.jsx';
-import { ErrorBox, Loading, Req, ReqNote, Sheet, useLoad, useToast } from '../components/ui.jsx';
+import { ConfirmDelete, ErrorBox, Loading, Req, ReqNote, Sheet, useLoad, useToast } from '../components/ui.jsx';
 
 const ROLE_HINT = {
   infraadmin: N_('Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.'),
@@ -81,6 +81,18 @@ function UserForm({ user, onClose, onSaved }) {
     }
   }
 
+  async function remove() {
+    setError('');
+    try {
+      await api.del(`/users/${user.id}`);
+      toast(t('Akun dihapus'));
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <Sheet title={isNew ? (me.role === 'infraadmin' ? t('Admin baru') : t('Pengguna baru')) : user.name} onClose={onClose}>
       <form className="form" onSubmit={submit}>
@@ -95,7 +107,7 @@ function UserForm({ user, onClose, onSaved }) {
           <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><input id="u-active" type="checkbox" style={{ width: 'auto' }} checked={f.active} onChange={set('active')} />{t('Akun aktif')}</label>
         )}
         {error && <div className="error-text full" role="alert">{error}</div>}
-        <div className="form-foot full"><button type="button" className="btn" onClick={onClose}>{t('Batal')}</button><button className="btn primary">{t('Simpan')}</button></div>
+        <div className="form-foot full">{!isNew && user.id !== me.id && <span className="left"><ConfirmDelete label={t('Hapus akun')} question={t('Hapus akun ini? Temuan dan riwayatnya tetap ada tanpa nama pengguna. Nonaktifkan saja bila akun mungkin dipakai lagi.')} onConfirm={remove} /></span>}<button type="button" className="btn" onClick={onClose}>{t('Batal')}</button><button className="btn primary">{t('Simpan')}</button></div>
       </form>
     </Sheet>
   );

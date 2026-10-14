@@ -11,6 +11,7 @@ import { publicAiConfig, saveAiConfig, testProvider, providerModels, aiHealth, P
 import { extractionState, requeueAll } from '../extract.js';
 import { licenseStatus, parseLicense, clearLicenseCache, countedUsers } from '../license.js';
 import { APP_VERSION, changelog } from '../version.js';
+import { sampleStatus, createSample, removeSample } from '../sample.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
@@ -219,5 +220,10 @@ r.get('/version', requireRole('admin'), (_req, res) => {
 r.get('/errors', requireRole('infraadmin'), (_req, res) => {
   res.json(recentErrors());
 });
+
+// Data contoh untuk mencoba aplikasi, bisa diisi dan dihapus lagi oleh System Admin.
+r.get('/sample-data', requireRole('admin'), async (_req, res) => res.json(await sampleStatus()));
+r.post('/sample-data', requireRole('admin'), async (req, res) => res.status(201).json(await createSample(req.user)));
+r.delete('/sample-data', requireRole('admin'), async (req, res) => res.json(await removeSample(req.user)));
 
 export default r;

@@ -5,6 +5,7 @@ import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId 
 import { FINDING_STATUS, FINDING_KINDS, RISKS, AUDITEE_STATUS } from '../constants.js';
 import { auditScope, findingScope } from '../access.js';
 import { nextCode } from '../codes.js';
+import { removeFilesOf } from '../files.js';
 
 const r = Router();
 const TEXT_FIELDS = ['condition', 'criteria', 'cause', 'effect', 'recommendation', 'response'];
@@ -166,6 +167,7 @@ r.delete('/:id', async (req, res) => {
   if (!canEditAudit(req.user)) throw forbidden();
   const id = intId(req.params.id);
   const { code } = await loadFinding(req.user, id);
+  await removeFilesOf('t.finding_id = ?', [id]);
   await query('DELETE FROM findings WHERE id = ?', [id]);
   await logActivity({ query }, req.user.id, 'delete', 'finding', id, { code });
   res.json({ ok: true });

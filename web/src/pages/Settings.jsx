@@ -230,6 +230,47 @@ function BackgroundSection({ kind, onSaved }) {
   );
 }
 
+// Data contoh untuk mencoba aplikasi: diisi sekali klik dan dihapus lagi sekaligus.
+function SampleSection() {
+  const toast = useToast();
+  const { data, error, loading, reload } = useLoad(() => api.get('/admin/sample-data'), []);
+  const [busy, setBusy] = useState(false);
+  const [fail, setFail] = useState('');
+  async function run(action) {
+    setBusy(true);
+    setFail('');
+    try {
+      if (action === 'create') await api.post('/admin/sample-data', {});
+      else await api.del('/admin/sample-data');
+      toast(action === 'create' ? t('Data contoh ditambahkan') : t('Data contoh dihapus'));
+      reload();
+    } catch (err) {
+      setFail(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel form" aria-label={t('Data contoh')}>
+      <h3 className="full" style={{ margin: 0 }}>{t('Data contoh')}</h3>
+      {loading && !data ? <Loading /> : error ? <ErrorBox error={error} retry={reload} /> : (
+        <>
+          <p className="full form-note">{t('Isi aplikasi dengan contoh untuk mencoba: 4 akun pengguna, 4 audit di tiga unit, program kerja, temuan, dan isu. Semua data contoh bisa dihapus lagi sekaligus.')}</p>
+          {data.exists && (
+            <p className="full form-note"><T k="Akun contoh: {users}. Kata sandi semuanya {password}. Masuk di halaman pengguna." users={<b>{data.users.join(', ')}</b>} password={<b>{data.password}</b>} /></p>
+          )}
+          <div className="full actions">
+            {data.exists
+              ? <ConfirmDelete label={t('Hapus data contoh')} question={t('Hapus semua audit, temuan, isu, dan akun contoh?')} onConfirm={() => run('remove')} />
+              : <button type="button" className="btn primary" disabled={busy} onClick={() => run('create')}>{t('Isi data contoh')}</button>}
+          </div>
+          {fail && <div className="error-text full" role="alert">{fail}</div>}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function Settings({ infra = false }) {
   const { reload: reloadApp } = useSettings();
   const { data, error, loading, reload } = useLoad(() => api.get('/settings'), []);
@@ -245,6 +286,7 @@ export default function Settings({ infra = false }) {
       <BackgroundSection kind="login" onSaved={saved} />
       <BackgroundSection kind="app" onSaved={saved} />
       {SECTIONS.slice(1).map((s) => <Section key={s.title} {...s} data={data} onSaved={saved} />)}
+      <SampleSection />
     </div>
   );
 }

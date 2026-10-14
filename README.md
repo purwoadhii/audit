@@ -31,6 +31,7 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
   **Batas unit:** auditor dan manajemen yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim, dan temuan di audit itu. Mereka hanya bisa membuat audit untuk unitnya sendiri, dan log aktivitas yang terlihat hanya dari pengguna di unitnya. Auditor dan manajemen tanpa unit (misalnya tim audit internal pusat) dan Super User melihat audit semua unit. Unit diatur di System Admin → Pengguna.
 
 - **System Admin** (`/sysAdmin`):
+  - Data contoh untuk mencoba aplikasi (Pengaturan → Data contoh): 4 akun pengguna (`contoh.auditor`, `contoh.keuangan`, `contoh.pengadaan`, `contoh.manajemen`, kata sandi `contoh12345`), 4 audit, temuan, dan isu. Semua bisa dihapus lagi sekaligus. Hapus data contoh sebelum aplikasi dipakai sungguhan, karena kata sandinya diketahui umum.
   - Akun pengguna (super user, auditor, auditee, manajemen) dan template audit.
   - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login, serta gambar latar halaman setelah login.
   - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
