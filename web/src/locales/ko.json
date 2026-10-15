@@ -177,6 +177,7 @@
   "Daftar model": "모델 목록",
   "Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.": "긴 목록을 페이지로 나눴습니다(10, 25, 50, 100행): 감사, 발견사항, 활동 로그, 사용자, 로그인 기록, 활성 세션.",
   "Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.": "상단 바의 언어 목록이 더 이상 잘리지 않아 모든 언어를 선택할 수 있습니다.",
+  "Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.": "부서 선택 목록(및 AI 어시스턴트의 모델 목록)이 이제 다른 드롭다운처럼 항상 흰색으로 표시됩니다. 이전에는 Windows 다크 테마를 따라 검은색으로 보였습니다.",
   "Daftar unit": "부서 목록",
   "Dalam proses": "진행 중",
   "Data": "데이터",

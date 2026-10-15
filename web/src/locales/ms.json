@@ -177,6 +177,7 @@
   "Daftar model": "Senarai model",
   "Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.": "Senarai panjang dibahagikan kepada halaman (10, 25, 50 atau 100 baris): audit, penemuan, log aktiviti, pengguna, sejarah log masuk dan sesi aktif.",
   "Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.": "Senarai pilihan bahasa di bar atas tidak lagi terpotong, jadi semua bahasa boleh dipilih.",
+  "Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.": "Senarai pilihan unit (dan model dalam Pembantu AI) kini sentiasa putih seperti dropdown lain. Sebelum ini senarai ini mengikut tema gelap Windows dan kelihatan hitam.",
   "Daftar unit": "Senarai unit",
   "Dalam proses": "Dalam proses",
   "Data": "Data",

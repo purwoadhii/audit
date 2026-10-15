@@ -177,6 +177,7 @@
   "Daftar model": "モデル一覧",
   "Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.": "長い一覧をページに分割しました（10、25、50、100 行）：監査、指摘事項、アクティビティログ、ユーザー、ログイン履歴、アクティブなセッション。",
   "Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.": "上部バーの言語リストが途切れなくなり、すべての言語を選択できるようになりました。",
+  "Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.": "部門の候補リスト（および AI アシスタントのモデル一覧）を、他のドロップダウンと同じく常に白で表示するようにしました。以前は Windows のダークテーマに合わせて黒く表示されていました。",
   "Daftar unit": "部門一覧",
   "Dalam proses": "対応中",
   "Data": "データ",

@@ -2,6 +2,9 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.11.2 - 2026-10-15
+- Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.
+
 ## 1.11.1 - 2026-10-15
 - Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.
 

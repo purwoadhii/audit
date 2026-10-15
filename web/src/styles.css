@@ -101,6 +101,11 @@ textarea { min-height:64px; resize:vertical; }
 .row-confirm { position:fixed; z-index:40; width:260px; white-space:normal; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.14); padding:12px; font-size:13px; color:var(--ink); cursor:default; }
 .row-confirm p { margin:0 0 10px; color:var(--high); }
 .row-confirm div { display:flex; gap:6px; justify-content:flex-end; }
+/* Daftar saran isian (pengganti datalist): selalu putih seperti dropdown lain. */
+.combo { position:relative; display:block; }
+.combo-list { position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:30; margin:0; padding:4px; list-style:none; max-height:240px; overflow-y:auto; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-weight:400; }
+.combo-list li { display:flex; justify-content:space-between; gap:10px; padding:7px 10px; border-radius:7px; cursor:pointer; }
+.combo-list li.active { background:color-mix(in srgb, var(--accent) 12%, #fff); }
 th.act-col, td.act-col { width:1%; text-align:right; }
 .col-pager { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:4px; font-size:12px; }
 .kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }

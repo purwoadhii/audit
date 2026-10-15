@@ -4,6 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { ROLES, fmtDateTime } from '../util.js';
 import { N_, T, t } from '../i18n.jsx';
 import { useSettings } from '../settings.jsx';
+import ComboInput from '../components/ComboInput.jsx';
 import { ConfirmDelete, Empty, ErrorBox, Loading, Pager, Req, ReqNote, Sheet, useLoad, usePaged, useToast } from '../components/ui.jsx';
 
 const ROLE_HINT = {
@@ -121,7 +122,7 @@ function UserForm({ user, onClose, onSaved }) {
         <label><span>{t('Username')} <Req /></span><input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">{t('Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.')}</span></label>
         <label><span>{t('Email')} <Req /></span><input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
         <label><span>{t('Peran')} <Req /></span><select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{t(ROLE_HINT[f.role])}</span></label>
-        {managedRoles(me).includes('auditee') && <label><span>{t('Unit')} {f.role === 'auditee' && <Req />}</span><input id="u-unit" required={f.role === 'auditee'} list="unit-list-u" value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><datalist id="unit-list-u">{settings.units.map((x) => <option key={x} value={x} />)}</datalist><span className="hint">{settings.unit_scope ? t('Wajib untuk auditee. Pengguna dengan unit hanya melihat audit unitnya. Kosongkan supaya bisa melihat audit semua unit.') : t('Wajib untuk auditee. Auditee hanya melihat temuan untuk unitnya.')}</span></label>}
+        {managedRoles(me).includes('auditee') && <label><span>{t('Unit')} {f.role === 'auditee' && <Req />}</span><ComboInput id="u-unit" required={f.role === 'auditee'} options={settings.units} value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><span className="hint">{settings.unit_scope ? t('Wajib untuk auditee. Pengguna dengan unit hanya melihat audit unitnya. Kosongkan supaya bisa melihat audit semua unit.') : t('Wajib untuk auditee. Auditee hanya melihat temuan untuk unitnya.')}</span></label>}
         <label className="full"><span>{isNew ? <>{t('Kata sandi awal')} <Req /></> : t('Atur ulang kata sandi')}</span><input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? t('Minimal 8 karakter') : t('Kosongkan bila tidak diubah')} /></label>
         {!isNew && user.id !== me.id && (
           <label className="full" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><input id="u-active" type="checkbox" style={{ width: 'auto' }} checked={f.active} onChange={set('active')} />{t('Akun aktif')}</label>

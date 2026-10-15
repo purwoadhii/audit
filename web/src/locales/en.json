@@ -177,6 +177,7 @@
   "Daftar model": "List models",
   "Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.": "Long lists are split into pages (10, 25, 50, or 100 rows): audits, findings, activity log, users, login history, and active sessions.",
   "Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.": "The language list in the top bar is no longer cut off, so every language can be selected.",
+  "Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.": "The unit suggestion list (and the model list in AI Assistant) is now always white like the other dropdowns. It used to follow the Windows dark theme and appear black.",
   "Daftar unit": "Unit list",
   "Dalam proses": "In progress",
   "Data": "Data",

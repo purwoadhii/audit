@@ -177,6 +177,7 @@
   "Daftar model": "模型列表",
   "Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.": "长列表改为分页显示（每页 10、25、50 或 100 行）：审计、审计发现、活动日志、用户、登录记录和活动会话。",
   "Daftar pilihan bahasa di bilah atas tidak lagi terpotong, jadi semua bahasa bisa dipilih.": "顶部栏中的语言列表不再被截断，所有语言都可以选择。",
+  "Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.": "单位候选列表（以及 AI 助手中的模型列表）现在始终为白色，与其他下拉列表一致。之前它会跟随 Windows 深色主题显示为黑色。",
   "Daftar unit": "单位列表",
   "Dalam proses": "进行中",
   "Data": "数据",

@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ROLES, fmtDateTime } from '../util.js';
 import { ErrorBox, Loading, useLoad, useToast } from '../components/ui.jsx';
+import ComboInput from '../components/ComboInput.jsx';
 import { N_, T, t, tText, localeTag } from '../i18n.jsx';
 
 // Hasil tes dari server bisa terdiri dari beberapa potongan pesan.
@@ -151,8 +152,7 @@ export function AiSettings() {
                 {p.key_unreadable && <span className="hint bad-text">{t('API key lama tidak bisa dibaca karena JWT_SECRET berubah. Isi ulang.')}</span>}
               </label>
               <label>{t('Model')}
-                <input id={`ai-model-${id}`} list={`ai-models-${id}`} value={p.model} onChange={(e) => setP(id, 'model', e.target.value)} placeholder={p.default_model} />
-                <datalist id={`ai-models-${id}`}>{(l?.models || []).map((m) => <option key={m.id} value={m.id}>{m.free ? t('gratis') : ''}</option>)}</datalist>
+                <ComboInput id={`ai-model-${id}`} options={(l?.models || []).map((m) => ({ value: m.id, note: m.free ? t('gratis') : '' }))} value={p.model} onChange={(e) => setP(id, 'model', e.target.value)} placeholder={p.default_model} />
                 <span className="hint">
                   {l?.busy ? t('Mengambil daftar model…')
                     : l?.ok ? <>{t('{n} model tersedia, pilih dari kolom ini.', { n: l.models.length })}{l.recommended && <> <T k="Disarankan: {model}" model={<button type="button" className="linkbtn" onClick={() => setP(id, 'model', l.recommended)}>{l.recommended}</button>} /></>}</>
