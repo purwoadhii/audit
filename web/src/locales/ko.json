@@ -196,6 +196,7 @@
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "\"로그인 상태 유지\"를 선택하면 브라우저를 닫을 때까지 세션이 유지되며, 최대 이 일수만큼 유지됩니다.",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "개발자입니다. /infraAdmin에서 로그인하며, 라이선스, System Admin 계정, 보안, 서버 상태를 관리합니다.",
   "Di S3": "S3",
+  "Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.": "사용자 페이지 상단 바에서 이름 아래에 역할 없이 부서만 표시됩니다.",
   "Di server lokal": "로컬 서버",
   "Dibaca dengan OCR": "OCR로 읽음",
   "Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.": "OCR로 읽었습니다. 중요한 숫자와 이름은 원본 파일과 대조하여 확인하세요.",

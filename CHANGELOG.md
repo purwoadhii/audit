@@ -2,6 +2,9 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.11.1 - 2026-10-15
+- Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.
+
 ## 1.11.0 - 2026-10-14
 - Daftar audit dan daftar temuan punya kolom Aksi untuk mengubah dan menghapus langsung dari tabel, dengan konfirmasi sebelum menghapus.
 - Daftar panjang dibagi per halaman (10, 25, 50, atau 100 baris): audit, temuan, log aktivitas, pengguna, riwayat login, dan sesi aktif.

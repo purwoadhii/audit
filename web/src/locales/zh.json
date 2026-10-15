@@ -196,6 +196,7 @@
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "勾选“记住我”后，会话在浏览器关闭前保持有效，最长保持此天数。",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "开发方。在 /infraAdmin 登录。管理许可证、System Admin 账号、安全设置和服务器状态。",
   "Di S3": "在 S3",
+  "Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.": "用户页面顶部栏中，姓名下方现在只显示部门或单位，不再显示角色。",
   "Di server lokal": "在本地服务器",
   "Dibaca dengan OCR": "已通过 OCR 读取",
   "Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.": "已通过 OCR 读取。请对照原文件核对重要数字和名称。",

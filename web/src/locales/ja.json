@@ -196,6 +196,7 @@
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "「ログイン状態を保持」を使用すると、ブラウザーを閉じるまで（最長でこの日数）セッションが維持されます。",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "開発者です。/infraAdmin からサインインします。ライセンス、System Admin アカウント、セキュリティ、サーバーの状態を管理します。",
   "Di S3": "S3 上",
+  "Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.": "ユーザー画面の上部バーで、名前の下には部門のみを表示し、ロールは表示しないようにしました。",
   "Di server lokal": "ローカルサーバー上",
   "Dibaca dengan OCR": "OCR で読み取り",
   "Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.": "OCR で読み取りました。重要な数値や名前は元のファイルと照合してください。",

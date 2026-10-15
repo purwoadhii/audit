@@ -96,7 +96,7 @@ function UserApp() {
               <LangMenu />
               <Link to="/akun" className="who-chip" title={t('Akun saya')}>
                 <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
-                <span className="who">{user.name}<span>{ROLES[user.role]}{user.unit ? ` · ${user.unit}` : ''}</span></span>
+                <span className="who">{user.name}{user.unit && <span>{user.unit}</span>}</span>
               </Link>
               <button className="btn" onClick={logout}><Icon name="logout" size={16} />{t('Keluar')}</button>
             </div>

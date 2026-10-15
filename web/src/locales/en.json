@@ -196,6 +196,7 @@
   "Dengan \"Ingat saya\", sesi bertahan sampai browser ditutup, paling lama sekian hari.": "With \"Remember me\", the session lasts until the browser is closed, for up to this many days.",
   "Developer. Masuk di /infraAdmin. Mengatur lisensi, akun System Admin, keamanan, dan kondisi server.": "Developer. Signs in at /infraAdmin. Manages the license, System Admin accounts, security, and server health.",
   "Di S3": "On S3",
+  "Di bilah atas halaman pengguna, di bawah nama kini hanya tampil divisi atau unit, tanpa peran.": "In the top bar of the user pages, only the division or unit now appears under the name, without the role.",
   "Di server lokal": "On the local server",
   "Dibaca dengan OCR": "Read with OCR",
   "Dibaca dengan OCR. Periksa kembali angka dan nama penting dengan file aslinya.": "Read with OCR. Double-check important numbers and names against the original file.",
