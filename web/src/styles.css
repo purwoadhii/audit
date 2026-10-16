@@ -322,6 +322,7 @@ tbody tr.click:hover td { background:var(--sunk); }
 .report .finding dd { margin:0; white-space:pre-wrap; }
 .report .sign { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:40px; font-size:13px; text-align:center; }
 .report .sign div { padding-top:70px; border-bottom:1px solid var(--ink); }
+.report .sign div.signed { padding:28px 0 22px; color:var(--ok); font-weight:700; }
 @media print {
   :root { --bg:#fff; --surface:#fff; --ink:#000; --line:#bbb; color-scheme:light; }
   .no-print, .appbar { display:none !important; }
@@ -595,3 +596,32 @@ nav.tabs a.active { background:rgba(255,255,255,.08); }
 .usermenu .lang-btn { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
 .usermenu .lang-btn:hover { background:rgba(255,255,255,.16); }
 .form input[readonly] { background:var(--sunk); color:var(--muted); cursor:default; }
+
+/* Persetujuan laporan dan review ketua tim */
+.approval { margin-bottom:16px; }
+.approval .facts { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--muted); }
+.approval .facts b { color:var(--ink); }
+.approval-actions { margin-top:12px; display:grid; gap:8px; }
+.approval-actions textarea { min-height:52px; }
+.approval-log { list-style:none; margin:14px 0 0; padding:12px 0 0; border-top:1px solid var(--line); display:grid; gap:6px; font-size:13px; }
+.approval-log li { display:grid; grid-template-columns:150px minmax(0,1fr); gap:10px; }
+.reviewed { margin-top:6px; font-size:12px; color:var(--ok); font-weight:600; }
+.review-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:9px 12px; border-radius:8px; margin-bottom:12px;
+  background:var(--med-soft); color:var(--med); font-size:13px; font-weight:600; }
+.review-bar.done { background:var(--ok-soft); color:var(--ok); }
+.review-bar .t-sub { font-weight:400; flex-basis:100%; }
+@media (max-width: 640px) { .approval-log li { grid-template-columns:1fr; gap:2px; } }
+
+/* Notifikasi */
+.bell-btn { position:relative; padding-left:10px; padding-right:10px; }
+.usermenu .bell-btn { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.18); color:#fff; }
+.usermenu .bell-btn:hover { background:rgba(255,255,255,.16); }
+.bell-count { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--high); color:#fff;
+  font:700 11px/18px var(--f-body); text-align:center; }
+.bell-list { z-index:200; width:min(380px, calc(100vw - 16px)); max-height:min(480px, 70vh); overflow:auto; background:var(--surface); border:1px solid var(--line);
+  border-radius:10px; box-shadow:0 10px 30px rgba(12,24,40,.18); padding:6px; display:grid; gap:2px; }
+.bell-head { display:flex; justify-content:space-between; align-items:center; padding:6px 10px 8px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+.bell-list > button { display:grid; gap:3px; text-align:left; border:0; background:none; padding:9px 10px; border-radius:7px; font:400 13.5px var(--f-body); color:var(--muted); cursor:pointer; }
+.bell-list > button.unread { color:var(--ink); font-weight:600; background:var(--accent-soft, var(--sunk)); }
+.bell-list > button:hover, .bell-list > button:focus-visible { background:var(--sunk); }
+.bell-empty { padding:14px 10px; }

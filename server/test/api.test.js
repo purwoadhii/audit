@@ -933,3 +933,116 @@ test('backup database: hanya Infra Admin, bisa dibuat, diunduh, dan dihapus', as
   assert.equal(del.data.files.length, 0);
   assert.equal((await infra.del(`/api/admin/backups/${name}`)).status, 404);
 });
+
+test('persetujuan berjenjang: tim → ketua tim → Manager atau Kepala unit', async () => {
+  const mk = async (username, role, unit) => {
+    const r = await admin.post('/api/users', { name: username, username, email: `${username}@contoh.id`, role, unit, password: 'katasandi123' });
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    const c = client();
+    assert.equal((await c.post('/api/auth/login', { username, password: 'katasandi123' })).status, 200);
+    return { c, id: r.data.id };
+  };
+  const lead = await mk('ketua.tim', 'auditor');
+  const manager = await mk('manager.ops', 'manajemen');
+  const kepala = await mk('kepala.gudang', 'auditee', 'Divisi Gudang');
+  const lain = await mk('kepala.lain', 'auditee', 'Divisi Lain');
+
+  // Penyetuju: Manajemen, atau auditee di unit yang diaudit.
+  const base = { title: 'Audit Gudang Barang Jadi', unit: 'Divisi Gudang', type: 'Keuangan', lead_id: lead.id, member_ids: [ctx.auditorId] };
+  assert.equal((await auditor.post('/api/audits', { ...base, approver_id: lain.id })).status, 400, 'auditee unit lain bukan penyetuju');
+  assert.equal((await auditor.post('/api/audits', { ...base, approver_id: ctx.auditorId })).status, 400, 'auditor bukan penyetuju');
+  assert.equal((await auditor.post('/api/audits', { ...base, status: 'Selesai' })).status, 400, 'tidak bisa langsung selesai');
+  const a = (await auditor.post('/api/audits', { ...base, approver_id: kepala.id })).data;
+  assert.equal(a.approver_name, 'kepala.gudang');
+  assert.equal((await auditor.patch(`/api/audits/${a.id}`, { approver_id: manager.id })).status, 200);
+  assert.equal((await auditor.patch(`/api/audits/${a.id}`, { status: 'Selesai' })).status, 400, 'belum disetujui');
+
+  const step = (await auditor.post(`/api/audits/${a.id}/steps`, { text: 'Hitung fisik persediaan' })).data;
+  await auditor.patch(`/api/audits/${a.id}/steps/${step.id}`, { result: 'Tidak sesuai', note: 'Selisih 12 unit' });
+  const f = (await auditor.post('/api/findings', { audit_id: a.id, title: 'Selisih stok', risk: 'Sedang', owner_id: kepala.id })).data;
+  const kepalaNotes = (await kepala.c.get('/api/notifications')).data;
+  assert.ok(kepalaNotes.items.some((n) => n.text.startsWith('Anda ditunjuk sebagai PIC') && n.link === `/audit/${a.id}?temuan=${f.id}`));
+
+  // Anggota tim mengajukan → menunggu review ketua tim.
+  let r = await auditor.post(`/api/audits/${a.id}/approval`, { action: 'ajukan', note: 'Siap direview' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.approval, 'review');
+  assert.equal(r.data.status, 'Pelaporan');
+  const leadNotes = (await lead.c.get('/api/notifications')).data;
+  assert.equal(leadNotes.unread, 1);
+  assert.match(leadNotes.items[0].text, /untuk direview/);
+  assert.equal((await manager.c.post(`/api/audits/${a.id}/approval`, { action: 'setujui' })).status, 400, 'belum sampai ke penyetuju');
+  assert.equal((await auditor.post(`/api/audits/${a.id}/approval`, { action: 'teruskan' })).status, 403, 'hanya ketua tim');
+
+  // Ketua tim harus mereview semua langkah dan temuan dulu.
+  r = await lead.c.post(`/api/audits/${a.id}/approval`, { action: 'teruskan' });
+  assert.equal(r.status, 400);
+  assert.deepEqual(r.data.vars, { steps: 1, findings: 1 });
+  assert.equal((await auditor.post(`/api/audits/${a.id}/steps/${step.id}/review`, {})).status, 403);
+  assert.equal((await lead.c.post(`/api/audits/${a.id}/steps/${step.id}/review`, {})).data.reviewer_name, 'ketua.tim');
+  // Langkah yang diubah harus direview ulang.
+  assert.equal((await auditor.patch(`/api/audits/${a.id}/steps/${step.id}`, { note: 'Selisih 12 unit barang jadi' })).data.reviewed_by, null);
+  assert.equal((await lead.c.post(`/api/findings/${f.id}/review`, {})).data.reviewer_name, 'ketua.tim');
+  assert.deepEqual((await lead.c.post(`/api/audits/${a.id}/review-all`, {})).data, { steps: 1, findings: 0 });
+  r = await lead.c.post(`/api/audits/${a.id}/approval`, { action: 'teruskan' });
+  assert.equal(r.data.approval, 'persetujuan');
+  assert.match((await manager.c.get('/api/notifications')).data.items[0].text, /menunggu persetujuan/);
+
+  // Selama menunggu persetujuan, isi terkunci; tindak lanjut tetap jalan.
+  assert.equal((await auditor.patch(`/api/audits/${a.id}/steps/${step.id}`, { note: 'ubah' })).status, 400);
+  assert.equal((await auditor.patch(`/api/findings/${f.id}`, { title: 'Judul baru' })).status, 400);
+  assert.equal((await auditor.post('/api/findings', { audit_id: a.id, title: 'Baru', risk: 'Rendah' })).status, 400);
+  assert.equal((await auditor.patch(`/api/findings/${f.id}`, { status: 'Dalam proses', title: 'Selisih stok' })).status, 200, 'status tetap bisa diubah');
+  assert.equal((await auditor.patch(`/api/audits/${a.id}`, { title: 'Ganti' })).status, 400);
+
+  // Penyetuju mengembalikan (wajib alasan), tim memperbaiki, lalu disetujui.
+  assert.equal((await manager.c.post(`/api/audits/${a.id}/approval`, { action: 'kembalikan' })).status, 400);
+  r = await manager.c.post(`/api/audits/${a.id}/approval`, { action: 'kembalikan', note: 'Lengkapi akibat temuan' });
+  assert.equal(r.data.approval, 'dikembalikan');
+  assert.ok((await auditor.get('/api/notifications')).data.items.some((n) => n.vars.note === 'Lengkapi akibat temuan'));
+  assert.equal((await auditor.patch(`/api/findings/${f.id}`, { effect: 'Nilai persediaan tidak akurat' })).data.reviewed_by, null);
+  r = await lead.c.post(`/api/audits/${a.id}/approval`, { action: 'ajukan' });
+  assert.equal(r.status, 400, 'temuan yang diubah belum direview ulang');
+  await lead.c.post(`/api/audits/${a.id}/review-all`, {});
+  r = await lead.c.post(`/api/audits/${a.id}/approval`, { action: 'ajukan' });
+  assert.equal(r.data.approval, 'persetujuan', 'ketua tim mengajukan langsung ke penyetuju');
+  assert.equal((await lead.c.post(`/api/audits/${a.id}/approval`, { action: 'setujui' })).status, 403);
+  r = await manager.c.post(`/api/audits/${a.id}/approval`, { action: 'setujui' });
+  assert.equal(r.data.approval, 'disetujui');
+  assert.equal(r.data.status, 'Selesai');
+  const detail = (await auditor.get(`/api/audits/${a.id}`)).data;
+  assert.deepEqual(detail.approvals.map((p) => p.action), ['ajukan', 'teruskan', 'kembalikan', 'ajukan', 'setujui']);
+  const log = (await admin.get('/api/dashboard/activity')).data;
+  assert.ok(log.some((l) => l.entity === 'approval' && l.action === 'setujui' && l.detail.changes.approval[1] === 'disetujui'));
+
+  // Kepala unit sebagai penyetuju bisa melihat kertas kerja audit yang ia setujui; auditee lain di unit itu tidak.
+  await auditor.patch(`/api/audits/${a.id}`, { status: 'Selesai' });
+  const b = (await auditor.post('/api/audits', { ...base, title: 'Audit Gudang Bahan Baku', approver_id: kepala.id })).data;
+  await auditor.post(`/api/audits/${b.id}/steps`, { text: 'Uji penerimaan barang' });
+  assert.equal((await kepala.c.get(`/api/audits/${b.id}`)).data.steps.length, 1);
+
+  // Notifikasi bisa ditandai sudah dibaca.
+  const read = await lead.c.post('/api/notifications/read', {});
+  assert.equal(read.data.unread, 0);
+  assert.ok(read.data.items.every((n) => n.read_at));
+  ctx.approvedAudit = a.id;
+});
+
+test('versi file bukti: versi baru menggantikan, versi lama tetap tersimpan', async () => {
+  const form = (text, name) => { const fd = new FormData(); fd.append('file', new Blob([text], { type: 'text/plain' }), name); return fd; };
+  const v1 = (await auditor.post(`/api/findings/${ctx.findingId}/attachments`, form('versi satu', 'Rekonsiliasi.txt'))).data;
+  assert.equal(v1.version, 1);
+  const v2 = await auditor.post(`/api/attachments/${v1.id}/versions`, form('versi dua', 'Rekonsiliasi rev.txt'));
+  assert.equal(v2.status, 201, JSON.stringify(v2.data));
+  assert.equal(v2.data.version, 2);
+  assert.equal(Number(v2.data.versions), 2);
+  assert.equal((await auditor.post(`/api/attachments/${v1.id}/versions`, form('x', 'x.txt'))).status, 400, 'hanya dari versi terbaru');
+  const listed = (await auditor.get(`/api/findings/${ctx.findingId}`)).data.attachments.filter((x) => x.filename.startsWith('Rekonsiliasi'));
+  assert.deepEqual(listed.map((x) => x.id), [v2.data.id]);
+  const versions = (await auditor.get(`/api/attachments/${v2.data.id}/versions`)).data;
+  assert.deepEqual(versions.map((x) => x.version), [2, 1]);
+  assert.equal(await (await auditor.get(`/api/attachments/${v1.id}`, { raw: true })).text(), 'versi satu');
+  assert.equal((await client().post(`/api/attachments/${v2.data.id}/versions`, form('x', 'x.txt'))).status, 401);
+  assert.equal((await auditor.del(`/api/attachments/${v2.data.id}`)).status, 200);
+  assert.equal((await auditor.get(`/api/attachments/${v1.id}`, { raw: true })).status, 404, 'semua versi ikut terhapus');
+});

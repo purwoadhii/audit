@@ -22,6 +22,8 @@ const DEFAULTS = {
   audit_types: ['Keuangan', 'Operasional', 'Kepatuhan', 'Teknologi Informasi', 'Pengadaan', 'Investigasi'],
   finding_categories: [],
   root_causes: [],
+  approval_required: true,
+  review_required: true,
 };
 
 const SettingsContext = createContext({ settings: DEFAULTS, reload: () => {} });

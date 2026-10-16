@@ -1,6 +1,6 @@
 // Ekspor ke Excel dan Word. File dibuat di browser dari data yang sudah tampil di layar, jadi isinya
 // mengikuti hak akses pengguna. Pustakanya baru dimuat saat tombol ekspor diklik.
-import { FINDING_KINDS, fmtDate } from './util.js';
+import { FINDING_KINDS, approvalSigns, fmtDate } from './util.js';
 import { t } from './i18n.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -145,11 +145,13 @@ export async function exportAuditDocx(a) {
       [t('PIC / batas'), `${f.owner_name || '—'} / ${fmtDate(f.due_date)}`],
     ]),
   ]);
-  const sign = (title, name) => new TableCell({
+  const signs = approvalSigns(a);
+  const sign = ({ title, name, note }) => new TableCell({
     width: { size: 50, type: WidthType.PERCENTAGE },
     borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
     children: [
-      new Paragraph({ text: title, alignment: AlignmentType.CENTER, spacing: { after: 1100 } }),
+      new Paragraph({ text: t(title), alignment: AlignmentType.CENTER, spacing: { after: note ? 300 : 1100 } }),
+      ...(note ? [new Paragraph({ children: [new TextRun({ text: `✓ ${note}`, color: '2C7643', bold: true })], alignment: AlignmentType.CENTER, spacing: { after: 500 } })] : []),
       new Paragraph({ text: name ? `( ${name} )` : '( .............................. )', alignment: AlignmentType.CENTER }),
     ],
   });
@@ -170,6 +172,7 @@ export async function exportAuditDocx(a) {
           [t('Anggota eksternal'), a.team || '—'],
           [t('Periode'), t('{start} s.d. {end}', { start: fmtDate(a.start_date), end: fmtDate(a.end_date) })],
           [t('Status'), t(a.status)],
+          [t('Persetujuan'), `${t(signs.status)}${signs.approver.note ? ` · ${signs.approver.name}, ${signs.approver.note}` : ''}`],
         ]),
         h(t('Ruang lingkup dan tujuan')),
         multi(a.scope),
@@ -189,7 +192,7 @@ export async function exportAuditDocx(a) {
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
-          rows: [new TableRow({ children: [sign(t('Ketua Tim Audit'), a.lead_name), sign(t('Pimpinan {unit}', { unit: a.unit }))] })],
+          rows: [new TableRow({ children: [sign(signs.lead), sign(signs.approver)] })],
         }),
       ],
     }],

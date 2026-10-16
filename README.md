@@ -9,6 +9,9 @@ Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan,
 - **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan. Selain temuan, auditor bisa mencatat **isu** (nomor ISU-…) dengan isian dan tindak lanjut yang sama. Di halaman audit, beberapa temuan dan isu bisa ditambahkan sekaligus lewat form bertab Temuan/Isu, dan jumlah keduanya tampil di daftar audit.
 - **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
 - **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
+- **Persetujuan laporan berjenjang:** anggota tim mengajukan laporan, ketua tim mereview (sign-off) setiap langkah program kerja dan temuan lalu meneruskannya, kemudian penyetuju menyetujui. Penyetuju dipilih di setiap audit: akun Manajemen (Manager) atau auditee di unit yang diaudit (Kepala unit). Ketua tim atau penyetuju bisa mengembalikan laporan dengan alasan. Audit baru bisa Selesai setelah disetujui, dan selama menunggu persetujuan atau sesudahnya isi audit terkunci (tindak lanjut tetap berjalan). Kedua aturan bisa dimatikan di System Admin → Pengaturan → Persetujuan laporan.
+- **Versi file bukti:** file bisa diganti dengan versi baru tanpa menghapus versi lama; riwayat versinya bisa dibuka dan diunduh.
+- **Notifikasi:** ikon lonceng di bilah atas untuk pengajuan, persetujuan, dan pengembalian laporan, penunjukan PIC, dan tanggapan auditee.
 - **Masuk:** dengan username atau email. Sesi selalu berakhir saat browser ditutup. Tanpa "Ingat saya", pengguna juga otomatis keluar setelah tidak aktif (bawaan 120 menit). Dengan "Ingat saya", sesi bertahan selama browser terbuka, paling lama 7 hari.
 - **Tiga pintu masuk**, masing-masing dengan halaman login dan sesi sendiri (bisa masuk bersamaan di browser yang sama):
 

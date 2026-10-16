@@ -16,6 +16,7 @@ const THEME_COLOR = {
 const SECTIONS = [
   { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
   { title: N_('Data master'), keys: ['units', 'audit_types', 'finding_categories', 'root_causes', 'unit_scope'] },
+  { title: N_('Persetujuan laporan'), keys: ['approval_required', 'review_required'] },
   { title: N_('Dokumen'), keys: ['ocr_enabled'] },
   { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
@@ -27,6 +28,8 @@ const INFRA_SECTIONS = [
 ];
 
 const HINT = {
+  approval_required: N_('Saat aktif, audit baru bisa berstatus Selesai setelah laporannya disetujui penyetuju (Manager atau Kepala unit) yang dipilih di setiap audit.'),
+  review_required: N_('Saat aktif, ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.'),
   units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
   audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
   finding_categories: N_('Satu kategori per baris. Dipilih saat mencatat temuan atau isu dan dipakai di rekap.'),

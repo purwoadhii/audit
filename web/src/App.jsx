@@ -29,6 +29,7 @@ import Ocr from './pages/Ocr.jsx';
 import Recap from './pages/Recap.jsx';
 import Backup from './pages/Backup.jsx';
 import LangMenu from './components/LangMenu.jsx';
+import NotificationBell from './components/NotificationBell.jsx';
 import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
 
@@ -96,6 +97,7 @@ function UserApp() {
               <div><h1>{t(settings.app_name)}</h1>{settings.app_tagline && <small>{t(settings.app_tagline)}</small>}</div>
             </Link>
             <div className="usermenu">
+              <NotificationBell />
               <LangMenu />
               <Link to="/akun" className="who-chip" title={t('Akun saya')}>
                 <span className="avatar" aria-hidden="true">{initials(user.name)}</span>

@@ -9,6 +9,7 @@ import { badRequest, notFound, forbidden, intId } from '../errors.js';
 import { loadFinding } from './findings.js';
 import { loadAudit } from './audits.js';
 import { storeUpload, openStored, removeStored } from '../storage.js';
+import { ATTACHMENT_COLS, removeFilesOf } from '../files.js';
 import { queueExtraction } from '../extract.js';
 
 fs.mkdirSync(config.uploadDir, { recursive: true });
@@ -38,21 +39,24 @@ function runUpload(req, res) {
   });
 }
 
-async function saveRecord(req, file, auditId, findingId) {
+// prev: versi sebelumnya bila file ini diunggah sebagai versi baru.
+async function saveRecord(req, file, auditId, findingId, prev = null) {
   // multer membaca nama asli sebagai latin1; ubah ke UTF-8 agar nama berbahasa apa pun tampil benar.
   const filename = Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 200);
   const { storage, dir } = await storeUpload(file);
   file.storage = storage;
   file.storageDir = dir;
   const { insertId } = await query(
-    `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, storage, storage_dir, uploaded_by)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
-    [auditId, findingId, filename, file.mimetype, file.size, file.filename, storage, dir, req.user.id]);
-  const { rows } = await query('SELECT id, filename, mime, size, text_status, created_at FROM attachments WHERE id = ?', [insertId]);
+    `INSERT INTO attachments (audit_id, finding_id, filename, mime, size, storage_name, storage, storage_dir, uploaded_by, version, root_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [auditId, findingId, filename, file.mimetype, file.size, file.filename, storage, dir, req.user.id,
+      prev ? prev.version + 1 : 1, prev ? prev.root_id || prev.id : null]);
+  if (prev) await query('UPDATE attachments SET superseded_by = ? WHERE id = ?', [insertId, prev.id]);
+  const { rows } = await query(`SELECT ${ATTACHMENT_COLS} FROM attachments t LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.id = ?`, [insertId]);
   // Teks dan OCR dibaca di belakang layar supaya isi file bisa dicari.
   queueExtraction(insertId);
-  await logActivity({ query }, req.user.id, 'upload', 'attachment', insertId, { filename, auditId, findingId });
-  return { ...rows[0], uploaded_by: req.user.id, uploaded_by_name: req.user.name };
+  await logActivity({ query }, req.user.id, 'upload', 'attachment', insertId, { filename, auditId, findingId, ...(prev && { version: prev.version + 1, previous: prev.filename }) });
+  return rows[0];
 }
 
 const removeFile = (name, storage = 'local', dir = null) => removeStored(storage, name, dir);
@@ -96,6 +100,36 @@ async function loadAttachment(user, id) {
   return att;
 }
 
+// Yang boleh mengunggah ke tempat file ini berada: tim audit untuk kertas kerja, atau siapa pun selain manajemen untuk bukti temuan.
+function assertCanUpload(user, att) {
+  if (att.finding_id ? user.role === 'manajemen' : !canEditAudit(user)) throw forbidden();
+}
+
+const chainOf = (att) => att.root_id || att.id;
+
+// Semua versi satu file, terbaru dulu.
+r.get('/:id/versions', async (req, res) => {
+  const att = await loadAttachment(req.user, intId(req.params.id));
+  const { rows } = await query(
+    `SELECT ${ATTACHMENT_COLS} FROM attachments t LEFT JOIN users u ON u.id = t.uploaded_by
+     WHERE COALESCE(t.root_id, t.id) = ? ORDER BY t.version DESC`, [chainOf(att)]);
+  res.json(rows);
+});
+
+// Mengunggah versi baru. Versi lama tetap tersimpan dan bisa diunduh dari riwayat versi.
+r.post('/:id/versions', async (req, res) => {
+  const att = await loadAttachment(req.user, intId(req.params.id));
+  assertCanUpload(req.user, att);
+  if (att.superseded_by) throw badRequest('Versi baru hanya bisa diunggah dari versi terbaru.');
+  const file = await runUpload(req, res);
+  try {
+    res.status(201).json(await saveRecord(req, file, att.audit_id, att.finding_id, att));
+  } catch (err) {
+    await removeFile(file.filename, file.storage, file.storageDir);
+    throw err;
+  }
+});
+
 // Teks hasil pembacaan file (termasuk OCR).
 r.get('/:id/text', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));
@@ -117,9 +151,11 @@ r.get('/:id', async (req, res) => {
 r.delete('/:id', async (req, res) => {
   const att = await loadAttachment(req.user, intId(req.params.id));
   if (!canEditAudit(req.user) && att.uploaded_by !== req.user.id) throw forbidden();
-  await query('DELETE FROM attachments WHERE id = ?', [att.id]);
-  await removeFile(att.storage_name, att.storage, att.storage_dir);
-  await logActivity({ query }, req.user.id, 'delete', 'attachment', att.id, { filename: att.filename });
+  // Menghapus file berarti menghapus semua versinya.
+  const root = chainOf(att);
+  await removeFilesOf('COALESCE(t.root_id, t.id) = ?', [root]);
+  const { rowCount } = await query('DELETE FROM attachments WHERE COALESCE(root_id, id) = ?', [root]);
+  await logActivity({ query }, req.user.id, 'delete', 'attachment', att.id, { filename: att.filename, versions: rowCount });
   res.json({ ok: true });
 });
 

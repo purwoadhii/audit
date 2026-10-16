@@ -17,6 +17,30 @@ export const ROLES = translated({
   manajemen: N_('Manajemen'),
   superadmin: N_('Super User'),
 });
+// Posisi laporan audit di alur persetujuan (audits.approval). null berarti belum diajukan.
+export const APPROVAL_LABEL = {
+  review: N_('Menunggu review ketua tim'), persetujuan: N_('Menunggu persetujuan'), disetujui: N_('Disetujui'), dikembalikan: N_('Dikembalikan'),
+};
+// Tanda tangan laporan dari riwayat persetujuan: kapan ketua tim mereview dan kapan penyetuju menyetujui.
+export function approvalSigns(a) {
+  const log = a.approvals || [];
+  const last = (pred) => [...log].reverse().find(pred);
+  const reviewed = a.approval && a.approval !== 'dikembalikan' && a.approval !== 'review'
+    ? last((p) => p.action === 'teruskan' || (p.action === 'ajukan' && p.user_name === a.lead_name)) : null;
+  const approved = a.approval === 'disetujui' ? last((p) => p.action === 'setujui') : null;
+  return {
+    status: a.approval ? APPROVAL_LABEL[a.approval] : N_('Belum diajukan'),
+    lead: { title: N_('Ketua Tim Audit'), name: a.lead_name, note: reviewed && t('Direview {date}', { date: fmtDate(reviewed.created_at) }) },
+    approver: a.approver_name
+      ? { title: N_('Penyetuju'), name: a.approver_name, note: approved && t('Disetujui {date}', { date: fmtDate(approved.created_at) }) }
+      : { title: t('Pimpinan {unit}', { unit: a.unit }), name: '', note: null },
+  };
+}
+
+// Penyetuju laporan: akun Manajemen (Manager), atau auditee di unit yang diaudit (Kepala unit).
+export const canApproveFor = (u, unit) => u.role === 'manajemen'
+  || (u.role === 'auditee' && String(u.unit || '').trim().toLowerCase() === String(unit || '').trim().toLowerCase());
+
 // Jenis catatan audit: temuan atau isu.
 export const FINDING_KINDS = translated({ temuan: N_('Temuan'), isu: N_('Isu') });
 

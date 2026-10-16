@@ -1,20 +1,28 @@
 import { Router } from 'express';
 import { query, tx, logActivity, bools, changesOf } from '../db.js';
 import { canEditAudit } from '../auth.js';
-import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId } from '../errors.js';
+import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId, N_ } from '../errors.js';
 import { FINDING_STATUS, FINDING_KINDS, RISKS, AUDITEE_STATUS } from '../constants.js';
 import { auditScope, findingScope } from '../access.js';
 import { nextCode } from '../codes.js';
-import { removeFilesOf } from '../files.js';
+import { removeFilesOf, ATTACHMENT_COLS } from '../files.js';
+import { notify } from '../notify.js';
+import { LOCKED } from './audits.js';
 
 const r = Router();
 const TEXT_FIELDS = ['condition', 'criteria', 'cause', 'effect', 'recommendation', 'response'];
 const col = (k) => `\`${k}\``; // `condition` adalah kata kunci MySQL
 
 const BASE = `
-  SELECT f.*, a.code AS audit_code, a.title AS audit_title, a.unit AS audit_unit,
-         u.name AS owner_name, (f.status <> 'Selesai' AND f.due_date < CURRENT_DATE) AS overdue
-  FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id`;
+  SELECT f.*, a.code AS audit_code, a.title AS audit_title, a.unit AS audit_unit, a.lead_id AS audit_lead_id, a.approval AS audit_approval,
+         u.name AS owner_name, rv.name AS reviewer_name, (f.status <> 'Selesai' AND f.due_date < CURRENT_DATE) AS overdue
+  FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id LEFT JOIN users rv ON rv.id = f.reviewed_by`;
+
+// Isian temuan yang dikunci selama laporan audit menunggu persetujuan atau sudah disetujui, dan yang
+// membuat temuan harus direview ulang oleh ketua tim bila diubah. Status, PIC, dan batas waktu tetap bisa diubah untuk tindak lanjut.
+const CONTENT = ['title', 'risk', 'category', 'root_cause', 'condition', 'criteria', 'cause', 'effect', 'recommendation', 'audit_id'];
+const LOCKED_MSG = 'Laporan audit ini sedang menunggu persetujuan atau sudah disetujui. Minta penyetuju mengembalikannya dulu bila perlu diubah.';
+const findingLink = (f) => `/audit/${f.audit_id}?temuan=${f.id}`;
 
 export async function loadFinding(user, id) {
   const scope = findingScope(user, 'f', 'a');
@@ -57,8 +65,8 @@ r.get('/:id', async (req, res) => {
     `SELECT l.id, l.text, l.status, l.created_at, u.name AS user_name FROM finding_logs l
      LEFT JOIN users u ON u.id = l.user_id WHERE l.finding_id = ? ORDER BY l.created_at DESC, l.id DESC`, [id])).rows;
   const attachments = (await query(
-    `SELECT t.id, t.filename, t.mime, t.size, t.text_status, t.created_at, t.uploaded_by, u.name AS uploaded_by_name FROM attachments t
-     LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.finding_id = ? ORDER BY t.id`, [id])).rows;
+    `SELECT ${ATTACHMENT_COLS} FROM attachments t
+     LEFT JOIN users u ON u.id = t.uploaded_by WHERE t.finding_id = ? AND t.superseded_by IS NULL ORDER BY COALESCE(t.root_id, t.id)`, [id])).rows;
   res.json({ ...finding, logs, attachments });
 });
 
@@ -88,8 +96,9 @@ function newFinding(b) {
 
 async function assertAudit(c, user, auditId) {
   const as = auditScope(user, 'a');
-  const a = await c.query(`SELECT 1 FROM audits a WHERE a.id = ? AND ${as.sql}`, [auditId, ...as.params]);
-  if (!a.rowCount) throw badRequest('Audit tidak ditemukan.');
+  const a = await c.query(`SELECT a.approval FROM audits a WHERE a.id = ? AND ${as.sql}`, [auditId, ...as.params]);
+  if (!a.rows[0]) throw badRequest('Audit tidak ditemukan.');
+  if (LOCKED.includes(a.rows[0].approval)) throw badRequest(LOCKED_MSG);
 }
 
 async function insertFinding(c, user, auditId, n) {
@@ -107,6 +116,7 @@ async function insertFinding(c, user, auditId, n) {
   await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
     [insertId, user.id, n.kind === 'isu' ? 'Isu dicatat' : 'Temuan dicatat', n.status]);
   await logActivity(c, user.id, 'create', 'finding', insertId, { code, title: n.title });
+  await notify(c, [n.ownerId], N_('Anda ditunjuk sebagai PIC {code}: {title}'), { code, title: n.title }, findingLink({ audit_id: auditId, id: insertId }), user.id);
   return insertId;
 }
 
@@ -165,11 +175,25 @@ r.patch('/:id', async (req, res) => {
   }
   const keys = Object.keys(f);
   if (!keys.length) return res.json(current);
+  const contentChanged = keys.some((k) => CONTENT.includes(k) && String(f[k] ?? '') !== String(current[k] ?? ''));
+  if (contentChanged && LOCKED.includes(current.audit_approval)) throw badRequest(LOCKED_MSG);
+  if (f.audit_id !== undefined && f.audit_id !== current.audit_id) await assertAudit({ query }, req.user, f.audit_id);
   await tx(async (c) => {
     await c.query(
-      `UPDATE findings SET ${keys.map((k) => `${col(k)} = ?`).join(', ')}, updated_at = NOW(3) WHERE id = ?`,
+      `UPDATE findings SET ${keys.map((k) => `${col(k)} = ?`).join(', ')}${contentChanged ? ', reviewed_by = NULL, reviewed_at = NULL' : ''}, updated_at = NOW(3) WHERE id = ?`,
       [...keys.map((k) => f[k]), id],
     );
+    const vars = { code: current.code, title: current.title, user: req.user.name, status: f.status };
+    const link = findingLink(current);
+    if (f.owner_id && f.owner_id !== current.owner_id) {
+      await notify(c, [f.owner_id], N_('Anda ditunjuk sebagai PIC {code}: {title}'), vars, link, req.user.id);
+    }
+    if (req.user.role === 'auditee') {
+      // Tanggapan atau progres dari auditee diberitahukan ke ketua tim dan pencatat temuan.
+      await notify(c, [current.audit_lead_id, current.created_by], N_('{user} memperbarui tindak lanjut {code}: {title}'), vars, link, req.user.id);
+    } else if (f.status && f.status !== current.status) {
+      await notify(c, [current.owner_id], N_('Status {code} diubah menjadi {status} oleh {user}.'), vars, link, req.user.id);
+    }
     if (f.status && f.status !== current.status) {
       await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
         [id, req.user.id, `Status diubah dari ${current.status} ke ${f.status}`, f.status]);
@@ -199,11 +223,24 @@ r.patch('/:id', async (req, res) => {
 r.delete('/:id', async (req, res) => {
   if (!canEditAudit(req.user)) throw forbidden();
   const id = intId(req.params.id);
-  const { code } = await loadFinding(req.user, id);
+  const { code, audit_approval: approval } = await loadFinding(req.user, id);
+  if (LOCKED.includes(approval)) throw badRequest(LOCKED_MSG);
   await removeFilesOf('t.finding_id = ?', [id]);
   await query('DELETE FROM findings WHERE id = ?', [id]);
   await logActivity({ query }, req.user.id, 'delete', 'finding', id, { code });
   res.json({ ok: true });
+});
+
+// Review ketua tim untuk satu temuan atau isu.
+r.post('/:id/review', async (req, res) => {
+  const id = intId(req.params.id);
+  const f = await loadFinding(req.user, id);
+  if (!f.audit_lead_id || f.audit_lead_id !== req.user.id) throw forbidden('Hanya ketua tim audit ini yang bisa mereview.');
+  if (LOCKED.includes(f.audit_approval)) throw badRequest(LOCKED_MSG);
+  const off = req.body?.reviewed === false;
+  await query(off ? 'UPDATE findings SET reviewed_by = NULL, reviewed_at = NULL WHERE id = ?' : 'UPDATE findings SET reviewed_by = ?, reviewed_at = NOW(3) WHERE id = ?',
+    off ? [id] : [req.user.id, id]);
+  res.json(await loadFinding(req.user, id));
 });
 
 r.post('/:id/logs', async (req, res) => {

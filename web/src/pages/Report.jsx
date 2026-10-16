@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { fmtDate } from '../util.js';
+import { approvalSigns, fmtDate } from '../util.js';
 import { BusyButton, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 import { exportAuditDocx } from '../exporters.js';
 import { t } from '../i18n.jsx';
@@ -14,6 +14,7 @@ export default function Report() {
   const issues = a.findings.filter((f) => f.kind === 'isu');
   const count = (list, r) => list.filter((f) => f.risk === r).length;
   const done = a.steps.filter((s) => s.result !== 'Belum diuji').length;
+  const signs = approvalSigns(a);
   return (
     <>
       <div className="bar no-print">
@@ -35,6 +36,7 @@ export default function Report() {
           <b>{t('Anggota eksternal')}</b><span>{a.team || '—'}</span>
           <b>{t('Periode')}</b><span>{t('{start} s.d. {end}', { start: fmtDate(a.start_date), end: fmtDate(a.end_date) })}</span>
           <b>{t('Status')}</b><span>{t(a.status)}</span>
+          <b>{t('Persetujuan')}</b><span>{t(signs.status)}{signs.approver.note && ` · ${signs.approver.name}, ${signs.approver.note}`}</span>
         </div>
         <h2>{t('Ruang lingkup dan tujuan')}</h2>
         <p style={{ whiteSpace: 'pre-wrap' }}>{a.scope || '—'}</p>
@@ -56,8 +58,9 @@ export default function Report() {
           </>
         )}
         <div className="sign">
-          <span>{t('Ketua Tim Audit')}<div />{a.lead_name || ''}</span>
-          <span>{t('Pimpinan {unit}', { unit: a.unit })}<div /></span>
+          {[signs.lead, signs.approver].map((g) => (
+            <span key={g.title}>{t(g.title)}{g.note ? <div className="signed">✓ {g.note}</div> : <div />}{g.name || ''}</span>
+          ))}
         </div>
       </article>
     </>

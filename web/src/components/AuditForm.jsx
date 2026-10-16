@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { AUDIT_STATUS, ROLES } from '../util.js';
+import { AUDIT_STATUS, ROLES, canApproveFor } from '../util.js';
 import { useSettings } from '../settings.jsx';
 import { useAuth } from '../auth.jsx';
 import ComboInput from './ComboInput.jsx';
@@ -22,7 +22,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
   const [f, setF] = useState(() => ({
     title: audit?.title || '', unit: audit?.unit || myUnit, type: audit?.type || settings.audit_types[0] || '',
-    lead_id: audit?.lead_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
+    lead_id: audit?.lead_id || '', approver_id: audit?.approver_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
     end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '',
   }));
   const [error, setError] = useState('');
@@ -34,7 +34,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
     setBusy(true);
     setError('');
     try {
-      const body = { ...f, lead_id: f.lead_id ? Number(f.lead_id) : null, template_id: f.template_id ? Number(f.template_id) : undefined };
+      const body = { ...f, lead_id: f.lead_id ? Number(f.lead_id) : null, approver_id: f.approver_id ? Number(f.approver_id) : null, template_id: f.template_id ? Number(f.template_id) : undefined };
       if (!isNew) delete body.template_id;
       const saved = isNew ? await api.post('/audits', body) : await api.patch(`/audits/${audit.id}`, body);
       toast(isNew ? t('Audit dibuat') : t('Audit disimpan'));
@@ -59,6 +59,10 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   }
 
   const auditors = (users.data || []).filter((u) => u.active && ['auditor', 'superadmin', 'admin'].includes(u.role));
+  // Penyetuju: Manager (akun Manajemen) atau Kepala unit (auditee di unit yang diaudit).
+  const approvers = (users.data || []).filter((u) => u.active && canApproveFor(u, f.unit));
+  const approverGone = f.approver_id && audit?.approver_id === Number(f.approver_id) && !approvers.some((u) => u.id === Number(f.approver_id));
+  const locked = ['persetujuan', 'disetujui'].includes(audit?.approval);
   // Anggota tim bisa dipilih dari semua pengguna aktif (kecuali akun Infra Admin developer).
   const people = (users.data || []).filter((u) => u.active && u.role !== 'infraadmin');
   const chosen = f.member_ids.map((id) => people.find((u) => u.id === id) || (audit?.members || []).find((m) => m.id === id)).filter(Boolean);
@@ -71,6 +75,14 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
         <label><span>{t('Unit yang diaudit')} <Req /></span><ComboInput id="a-unit" required options={settings.units} value={f.unit} onChange={set('unit')} readOnly={Boolean(myUnit)} placeholder={t('Divisi Pengadaan')} /><span className="hint">{myUnit ? t('Audit hanya bisa dibuat untuk unit Anda.') : t('Auditee di unit ini bisa melihat temuannya.')}</span></label>
         <label><span>{t('Jenis audit')} <Req /></span><select id="a-type" required value={f.type} onChange={set('type')}><option value="">{t('Pilih jenis')}</option>{types.map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></label>
         <label>{t('Ketua tim')}<select id="a-lead" value={f.lead_id} onChange={set('lead_id')}><option value="">{t('Pilih auditor')}</option>{auditors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
+        <label>{t('Penyetuju laporan')}
+          <select id="a-approver" value={f.approver_id} onChange={set('approver_id')}>
+            <option value="">{t('Pilih Manager atau Kepala unit')}</option>
+            {approverGone && <option value={audit.approver_id}>{audit.approver_name}</option>}
+            {approvers.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role === 'manajemen' ? t('Manager') : t('Kepala unit')}{u.unit ? ` · ${u.unit}` : ''}</option>)}
+          </select>
+          <span className="hint">{t('Akun Manajemen, atau auditee di unit yang diaudit.')}</span>
+        </label>
         <div className="group full">
           <label htmlFor="a-members">{t('Anggota tim')}</label>
           <select id="a-members" value="" onChange={(e) => e.target.value && setF({ ...f, member_ids: [...f.member_ids, Number(e.target.value)] })}>
@@ -95,6 +107,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
           <label>{t('Template program kerja')}<select id="a-tpl" value={f.template_id} onChange={set('template_id')}><option value="">{t('Tanpa template')}</option>{(templates.data || []).map((tp) => <option key={tp.id} value={tp.id}>{t('{name} ({n} langkah)', { name: tp.name, n: tp.steps.length })}</option>)}</select><span className="hint">{t('Langkah bisa ditambah atau dihapus nanti.')}</span></label>
         ) : <span />}
         <label className="full">{t('Ruang lingkup dan tujuan')}<textarea id="a-scope" value={f.scope} onChange={set('scope')} /></label>
+        {locked && <div className="notice full">{t('Laporan audit ini sedang menunggu persetujuan atau sudah disetujui, jadi isinya tidak bisa diubah. Yang masih bisa diubah hanya status.')}</div>}
         {error && <div className="error-text full" role="alert">{error}</div>}
         <div className="form-foot full">
           {!isNew && <span className="left"><ConfirmDelete label={t('Hapus audit')} question={t('Hapus audit ini beserta semua temuan dan buktinya?')} onConfirm={remove} /></span>}

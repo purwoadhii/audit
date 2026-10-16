@@ -4,6 +4,7 @@
 //   Saat aktif, yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim,
 //   dan temuan di audit itu atau yang ditugaskan kepadanya. Yang tanpa unit tetap melihat semua.
 // - auditee: hanya audit untuk unitnya, dan temuan yang ditugaskan kepadanya atau ke unitnya.
+// - Penyetuju laporan selalu melihat audit yang harus ia setujui.
 // Setiap fungsi mengembalikan potongan SQL dengan placeholder ? dan nilainya, berurutan.
 // Unit dibandingkan tanpa spasi di awal dan akhir.
 
@@ -19,14 +20,15 @@ export function auditScope(user, a = 'a') {
   if (user.role === 'auditee') {
     return {
       sql: `((? IS NOT NULL AND TRIM(${a}.unit) = ?)
-             OR EXISTS (SELECT 1 FROM findings fx WHERE fx.audit_id = ${a}.id AND fx.owner_id = ?))`,
-      params: [unitOf(user), unitOf(user), user.id],
+             OR EXISTS (SELECT 1 FROM findings fx WHERE fx.audit_id = ${a}.id AND fx.owner_id = ?)
+             OR ${a}.approver_id = ?)`,
+      params: [unitOf(user), unitOf(user), user.id, user.id],
     };
   }
   return {
-    sql: `(TRIM(${a}.unit) = ? OR ${a}.lead_id = ?
+    sql: `(TRIM(${a}.unit) = ? OR ${a}.lead_id = ? OR ${a}.approver_id = ?
            OR EXISTS (SELECT 1 FROM audit_members mx WHERE mx.audit_id = ${a}.id AND mx.user_id = ?))`,
-    params: [unitOf(user), user.id, user.id],
+    params: [unitOf(user), user.id, user.id, user.id],
   };
 }
 
@@ -41,3 +43,6 @@ export function findingScope(user, f = 'f', a = 'a') {
   const s = auditScope(user, a);
   return { sql: `(${f}.owner_id = ? OR ${s.sql})`, params: [user.id, ...s.params] };
 }
+
+// Penyetuju laporan: akun Manajemen (Manager), atau auditee di unit yang diaudit (Kepala unit).
+export const canApproveFor = (user, unit) => user.role === 'manajemen' || (user.role === 'auditee' && sameUnit(user, unit));

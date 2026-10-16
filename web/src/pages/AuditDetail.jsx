@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { STEP_RESULTS, canEdit, fmtDate, slug, teamText } from '../util.js';
+import { STEP_RESULTS, canEdit, fmtDate, fmtDateTime, slug, teamText } from '../util.js';
 import { Empty, ErrorBox, Loading, RiskPill, StatusPill, useLoad, useToast } from '../components/ui.jsx';
 import AuditForm from '../components/AuditForm.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
 import FindingBatchSheet from '../components/FindingBatchSheet.jsx';
 import Attachments from '../components/Attachments.jsx';
+import ApprovalPanel from '../components/ApprovalPanel.jsx';
 import { T, t } from '../i18n.jsx';
 
 export default function AuditDetail() {
@@ -18,7 +19,9 @@ export default function AuditDetail() {
   const editor = canEdit(user);
   const { data: a, error, loading, reload, setData } = useLoad(() => api.get(`/audits/${id}`), [id]);
   const [editing, setEditing] = useState(false);
-  const [sheet, setSheet] = useState(null); // { id } atau { preset }
+  const [params, setParams] = useSearchParams();
+  // ?temuan=id dari notifikasi langsung membuka temuan itu.
+  const [sheet, setSheet] = useState(() => (params.get('temuan') ? { id: Number(params.get('temuan')) } : null)); // { id } atau { preset }
   const [batch, setBatch] = useState(null); // 'temuan' atau 'isu': tab yang dibuka di form tambah sekaligus
   const [newStep, setNewStep] = useState('');
 
@@ -26,6 +29,25 @@ export default function AuditDetail() {
   if (error) return <ErrorBox error={error} retry={reload} />;
 
   const done = a.steps.filter((s) => s.result !== 'Belum diuji').length;
+  // Penyetuju dari unit yang diaudit (auditee) juga melihat kertas kerja audit ini.
+  const workPapers = user.role !== 'auditee' || a.approver_id === user.id;
+  // Selama menunggu persetujuan atau sudah disetujui, kertas kerja tidak bisa diubah.
+  const locked = ['persetujuan', 'disetujui'].includes(a.approval);
+  const canWrite = editor && !locked;
+  const isLead = a.lead_id === user.id;
+
+  async function reviewStep(step, reviewed) {
+    try {
+      const saved = await api.post(`/audits/${a.id}/steps/${step.id}/review`, { reviewed });
+      setData((d) => ({ ...d, steps: d.steps.map((s) => (s.id === step.id ? saved : s)) }));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+  function closeSheet() {
+    setSheet(null);
+    if (params.get('temuan')) setParams({}, { replace: true });
+  }
   const findings = a.findings.filter((f) => f.kind !== 'isu');
   const issues = a.findings.filter((f) => f.kind === 'isu');
 
@@ -77,12 +99,13 @@ export default function AuditDetail() {
         </div>
         <div className="actions">
           <StatusPill value={a.status} />
-          {user.role !== 'auditee' && <Link className="btn" to={`/audit/${a.id}/laporan`}>{t('Laporan')}</Link>}
+          {workPapers && <Link className="btn" to={`/audit/${a.id}/laporan`}>{t('Laporan')}</Link>}
           {editor && <button className="btn" onClick={() => setEditing(true)}>{t('Ubah')}</button>}
         </div>
       </div>
+      {workPapers && <ApprovalPanel audit={a} onChanged={reload} />}
       <div className="grid-detail">
-        {user.role !== 'auditee' ? (
+        {workPapers ? (
           <div className="stack">
             <div className="panel">
               <h3>{t('Program kerja · {done}/{total} diuji', { done, total: a.steps.length })}</h3>
@@ -91,25 +114,31 @@ export default function AuditDetail() {
                   <div className="no">{String(i + 1).padStart(2, '0')}</div>
                   <div>
                     <div className="txt">{s.text}</div>
-                    {editor ? (
+                    {canWrite ? (
                       <textarea id={`note-${s.id}`} defaultValue={s.note} placeholder={t('Catatan pengujian, sampel, dan bukti')}
                         onBlur={(e) => e.target.value !== s.note && updateStep(s, { note: e.target.value })} />
                     ) : s.note && <div className="ro t-sub">{s.note}</div>}
+                    {s.reviewed_by && <div className="reviewed">✓ {t('Direview {name}, {date}', { name: s.reviewer_name || '—', date: fmtDateTime(s.reviewed_at) })}</div>}
                   </div>
                   <div className="act">
-                    {editor ? (
+                    {canWrite ? (
                       <select id={`res-${s.id}`} aria-label={t('Hasil pengujian')} value={s.result} onChange={(e) => updateStep(s, { result: e.target.value })}>
                         {STEP_RESULTS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
                       </select>
                     ) : <span className="pill">{t(s.result)}</span>}
-                    {editor && s.result === 'Tidak sesuai' && (
+                    {isLead && !locked && s.result !== 'Belum diuji' && (
+                      s.reviewed_by
+                        ? <button className="btn ghost" onClick={() => reviewStep(s, false)}>{t('Batalkan review')}</button>
+                        : <button className="btn" onClick={() => reviewStep(s, true)}>{t('Tandai direview')}</button>
+                    )}
+                    {canWrite && s.result === 'Tidak sesuai' && (
                       <button className="btn" onClick={() => setSheet({ preset: { audit_id: a.id, step_id: s.id, title: s.text, condition: document.getElementById(`note-${s.id}`)?.value ?? s.note } })}>{t('Jadikan temuan')}</button>
                     )}
-                    {editor && <button className="btn ghost" onClick={() => removeStep(s)}>{t('Hapus langkah')}</button>}
+                    {canWrite && <button className="btn ghost" onClick={() => removeStep(s)}>{t('Hapus langkah')}</button>}
                   </div>
                 </div>
               )) : <Empty small>{t('Belum ada langkah pengujian.')}</Empty>}
-              {editor && (
+              {canWrite && (
                 <form className="addrow" onSubmit={addStep}>
                   <input id="new-step" required value={newStep} onChange={(e) => setNewStep(e.target.value)} placeholder={t('Tambah langkah pengujian')} />
                   <button className="btn">{t('Tambah')}</button>
@@ -128,7 +157,7 @@ export default function AuditDetail() {
           <FindingList title={t('Temuan · {n}', { n: findings.length })} items={findings} empty={t('Belum ada temuan.')} onOpen={(f) => setSheet({ id: f.id })} />
           <div style={{ height: 16 }} />
           <FindingList title={t('Isu · {n}', { n: issues.length })} items={issues} empty={t('Belum ada isu.')} onOpen={(f) => setSheet({ id: f.id })} />
-          {editor && (
+          {canWrite && (
             <div className="actions" style={{ marginTop: 12 }}>
               <button className="btn primary" onClick={() => setBatch('temuan')}>{t('Tambah temuan')}</button>
               <button className="btn" onClick={() => setBatch('isu')}>{t('Tambah isu')}</button>
@@ -138,7 +167,7 @@ export default function AuditDetail() {
       </div>
       {editing && <AuditForm audit={a} onClose={() => setEditing(false)} onSaved={reload} onDeleted={() => nav('/audit')} />}
       {batch && <FindingBatchSheet audit={a} initialKind={batch} onClose={() => setBatch(null)} onSaved={reload} />}
-      {sheet && <FindingSheet id={sheet.id} preset={sheet.preset} onClose={() => setSheet(null)} onChanged={reload} />}
+      {sheet && <FindingSheet id={sheet.id} preset={sheet.preset} onClose={closeSheet} onChanged={reload} />}
     </>
   );
 }
@@ -151,7 +180,7 @@ function FindingList({ title, items, empty, onOpen }) {
         <ul className="list-plain">
           {items.map((f) => (
             <li key={f.id}><button onClick={() => onOpen(f)}>
-              <span><span className="code">{f.code}</span><br /><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || t('Belum ada PIC')} · {t(f.status)}</span></span>
+              <span><span className="code">{f.code}</span><br /><span className="t-title">{f.title}</span><br /><span className="t-sub">{f.owner_name || t('Belum ada PIC')} · {t(f.status)}{f.reviewed_by ? ` · ✓ ${t('Direview')}` : ''}</span></span>
               <span><RiskPill value={f.risk} /></span>
             </button></li>
           ))}

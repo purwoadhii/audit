@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { query, tx, logActivity } from './db.js';
-import { badRequest } from './errors.js';
+import { badRequest, N_ } from './errors.js';
 import { getSettings, saveInternal } from './settings.js';
 import { assertUserSlot } from './license.js';
 import { nextCode } from './codes.js';
@@ -60,6 +60,7 @@ const AUDITS = [
   },
   {
     title: 'Audit Kas dan Bank Triwulan III', unit: 'Divisi Keuangan', type: 'Keuangan', status: 'Pelaporan', start: -90, end: -20,
+    approval: 'review',
     lead: 'fajar', members: ['rina'], owner: 'keuangan',
     scope: 'Memeriksa pengelolaan kas kecil, rekonsiliasi bank, dan otorisasi pembayaran.',
     steps: [
@@ -160,6 +161,7 @@ const AUDITS = [
   },
   {
     title: 'Audit Biaya Promosi dan Event', unit: 'Divisi Pemasaran', type: 'Operasional', status: 'Pelaporan', start: -60, end: -10,
+    approver: 'pemasaran', approval: 'persetujuan',
     lead: 'rina', members: ['fajar'], owner: 'pemasaran',
     scope: 'Menilai kewajaran dan kelengkapan bukti biaya promosi, sponsor, dan penyelenggaraan event tahun berjalan.',
     steps: [
@@ -179,6 +181,12 @@ const AUDITS = [
     ],
   },
 ];
+
+// Penyetuju laporan: Direktur Keuangan untuk audit Divisi Keuangan, Direktur Utama untuk yang lain,
+// kecuali audit yang menyebut penyetuju sendiri (misalnya kepala divisi yang diaudit).
+const approverOf = (a) => a.approver || (a.unit === 'Divisi Keuangan' ? 'sri' : 'bambang');
+// Posisi di alur persetujuan: audit Selesai sudah disetujui.
+const approvalOf = (a) => (a.status === 'Selesai' ? 'disetujui' : a.approval || null);
 
 const pickType = (types, wanted) => types.find((x) => x.toLowerCase() === wanted.toLowerCase()) || types[0] || wanted;
 
@@ -231,9 +239,10 @@ export async function createSample(admin) {
       const auditId = await tx(async (c) => {
         const code = await nextCode(c, 'AUD');
         const { insertId } = await c.query(
-          `INSERT INTO audits (code, title, unit, type, status, lead_id, team, scope, start_date, end_date, created_by)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-          [code, a.title, a.unit, pickType(settings.audit_types, a.type), a.status, ids[a.lead], null, a.scope, day(a.start), day(a.end), ids.hendra],
+          `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, approval, team, scope, start_date, end_date, created_by)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [code, a.title, a.unit, pickType(settings.audit_types, a.type), a.status, ids[a.lead], ids[approverOf(a)], approvalOf(a), null, a.scope,
+            day(a.start), day(a.end), ids.hendra],
         );
         for (const m of [a.lead, ...a.members]) await c.query('INSERT INTO audit_members (audit_id, user_id) VALUES (?,?)', [insertId, ids[m]]);
         const stepIds = [];
@@ -257,6 +266,7 @@ export async function createSample(admin) {
             await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)', [r.insertId, ids[a.owner], text, f.status]);
           }
         }
+        await sampleApproval(c, insertId, code, a, ids);
         return insertId;
       });
       created.audits.push(auditId);
@@ -269,6 +279,32 @@ export async function createSample(admin) {
   await saveInternal(admin, 'sample_data', { ...created, password, created_at: new Date().toISOString() });
   await logActivity({ query }, admin.id, 'create', 'sample_data', null, { users: created.users.length, audits: created.audits.length });
   return sampleStatus();
+}
+
+// Riwayat persetujuan dan tanda review yang sesuai dengan posisi audit di alur persetujuan.
+async function sampleApproval(c, auditId, code, a, ids) {
+  const approval = approvalOf(a);
+  if (!approval) return;
+  const lead = ids[a.lead];
+  const member = ids[a.members.find((m) => m !== a.lead)] || lead;
+  const approver = ids[approverOf(a)];
+  const log = (user, action, note = null) => c.query('INSERT INTO audit_approvals (audit_id, user_id, action, note) VALUES (?,?,?,?)', [auditId, user, action, note]);
+  if (approval === 'review') {
+    await log(member, 'ajukan', 'Kertas kerja dan temuan sudah lengkap.');
+    await c.query('INSERT INTO notifications (user_id, text, vars, link) VALUES (?,?,?,?)',
+      [lead, N_('{user} mengajukan laporan audit {code} untuk direview.'), JSON.stringify({ code, title: a.title, user: USERS.find((u) => ids[u.key] === member)?.name }), `/audit/${auditId}`]);
+    return;
+  }
+  // Sudah lewat review ketua tim: semua langkah yang diuji dan semua temuan ditandai direview.
+  await c.query("UPDATE audit_steps SET reviewed_by = ?, reviewed_at = NOW(3) WHERE audit_id = ? AND result <> 'Belum diuji'", [lead, auditId]);
+  await c.query('UPDATE findings SET reviewed_by = ?, reviewed_at = NOW(3) WHERE audit_id = ?', [lead, auditId]);
+  await log(lead, 'ajukan');
+  if (approval === 'persetujuan') {
+    await c.query('INSERT INTO notifications (user_id, text, vars, link) VALUES (?,?,?,?)',
+      [approver, N_('Laporan audit {code} menunggu persetujuan Anda.'), JSON.stringify({ code, title: a.title }), `/audit/${auditId}`]);
+  } else {
+    await log(approver, 'setujui', 'Laporan disetujui. Pantau tindak lanjut sampai selesai.');
+  }
 }
 
 async function removeIds({ users = [], audits = [] }) {

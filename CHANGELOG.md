@@ -2,6 +2,15 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.13.0 - 2026-10-16
+- Persetujuan laporan berjenjang: tim audit mengajukan, ketua tim mereview, lalu penyetuju menyetujui. Penyetuju dipilih di setiap audit dari akun Manajemen (Manager) atau auditee di unit yang diaudit (Kepala unit). Ketua tim atau penyetuju bisa mengembalikan laporan dengan alasan.
+- Audit baru bisa berstatus Selesai setelah laporannya disetujui. Selama menunggu persetujuan atau sesudah disetujui, isi audit dan temuan terkunci, tetapi tindak lanjut tetap berjalan. Aturan ini bisa dimatikan di System Admin → Pengaturan → Persetujuan laporan.
+- Ketua tim mereview (sign-off) setiap langkah program kerja dan setiap temuan, atau semuanya sekaligus. Langkah atau temuan yang diubah sesudahnya harus direview ulang.
+- File bukti punya versi: unggah versi baru tanpa menghapus yang lama, dan lihat riwayat versinya.
+- Notifikasi di dalam aplikasi (ikon lonceng) untuk pengajuan, persetujuan, pengembalian laporan, penunjukan PIC, dan tanggapan auditee.
+- Laporan dan dokumen Word menampilkan tanggal review ketua tim dan tanggal persetujuan.
+- Data awal kini berisi penyetuju dan contoh audit di setiap tahap persetujuan.
+
 ## 1.12.0 - 2026-10-16
 - Temuan dan isu punya kategori temuan dan kategori akar masalah. Daftar pilihannya diatur di System Admin → Pengaturan → Data master, dan daftar temuan bisa difilter per kategori.
 - Daftar audit dan daftar temuan bisa diekspor ke Excel, dan laporan audit bisa diunduh sebagai dokumen Word.

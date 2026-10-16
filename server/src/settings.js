@@ -59,6 +59,10 @@ export const SETTINGS = {
   root_causes: { def: ROOT_CAUSES, who: 'admin', label: 'Kategori akar masalah', check: list },
   // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
   unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
+  // Persetujuan berjenjang: audit baru bisa Selesai setelah laporannya disetujui Manager atau Kepala unit.
+  approval_required: { def: true, who: 'admin', label: 'Wajib persetujuan laporan', check: bool },
+  // Ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.
+  review_required: { def: true, who: 'admin', label: 'Wajib review ketua tim', check: bool },
   // Dokumen (System Admin)
   ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
   // Keamanan login (System Admin)

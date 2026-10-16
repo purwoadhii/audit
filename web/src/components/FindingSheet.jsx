@@ -31,6 +31,7 @@ export default function FindingSheet({ id, preset, onClose, onChanged }) {
   const refresh = () => { detail.reload(); onChanged?.(); };
   return (
     <Sheet title={isNew ? t('Temuan atau isu baru') : `${finding.code} · ${FINDING_KINDS[finding.kind]}`} onClose={onClose}>
+      {!isNew && user.role !== 'auditee' && <ReviewBar finding={finding} isLead={finding.audit_lead_id === user.id} onChanged={refresh} />}
       {editor ? (
         <EditorForm key={finding?.updated_at || 'new'} finding={finding} preset={preset} audits={audits.data || []}
           users={(users.data || []).filter((u) => u.active)} onSaved={() => { onChanged?.(); if (isNew) onClose(); else detail.reload(); }}
@@ -49,6 +50,31 @@ export default function FindingSheet({ id, preset, onClose, onChanged }) {
         </>
       )}
     </Sheet>
+  );
+}
+
+// Tanda review ketua tim. Temuan yang isinya diubah harus direview ulang.
+function ReviewBar({ finding, isLead, onChanged }) {
+  const toast = useToast();
+  const locked = ['persetujuan', 'disetujui'].includes(finding.audit_approval);
+  async function review(reviewed) {
+    try {
+      await api.post(`/findings/${finding.id}/review`, { reviewed });
+      onChanged();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+  return (
+    <div className={`review-bar${finding.reviewed_by ? ' done' : ''}`}>
+      <span>{finding.reviewed_by
+        ? `✓ ${t('Direview {name}, {date}', { name: finding.reviewer_name || '—', date: fmtDateTime(finding.reviewed_at) })}`
+        : t('Belum direview ketua tim')}</span>
+      {isLead && !locked && (finding.reviewed_by
+        ? <button type="button" className="btn ghost small" onClick={() => review(false)}>{t('Batalkan review')}</button>
+        : <button type="button" className="btn small" onClick={() => review(true)}>{t('Tandai direview')}</button>)}
+      {locked && <span className="t-sub">{t('Isi temuan terkunci karena laporan audit menunggu persetujuan atau sudah disetujui. Status, PIC, dan batas waktu tetap bisa diubah.')}</span>}
+    </div>
   );
 }
 

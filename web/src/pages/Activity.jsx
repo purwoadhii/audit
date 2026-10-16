@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { ROLES, fmtDate, fmtDateTime } from '../util.js';
+import { ROLES, APPROVAL_LABEL, fmtDate, fmtDateTime } from '../util.js';
 import { Empty, ErrorBox, Loading, Pager, useLoad, usePaged } from '../components/ui.jsx';
 import { N_, t } from '../i18n.jsx';
 
 const ACTION = {
   create: N_('membuat {entity} {what}'), update: N_('mengubah {entity} {what}'), delete: N_('menghapus {entity} {what}'),
   upload: N_('mengunggah {entity} {what}'), ocr: N_('membaca dengan OCR {entity} {what}'),
+  review: N_('mereview kertas kerja dan temuan audit {what}'),
+  ajukan: N_('mengajukan laporan audit {what}'), teruskan: N_('meneruskan laporan audit {what} ke penyetuju'),
+  setujui: N_('menyetujui laporan audit {what}'), kembalikan: N_('mengembalikan laporan audit {what}'), tarik: N_('menarik pengajuan laporan audit {what}'),
 };
-const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database') };
+const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database'), approval: N_('persetujuan') };
 
 // Nama kolom untuk daftar perubahan (nilai sebelum dan sesudah).
 const FIELD = {
@@ -17,6 +20,7 @@ const FIELD = {
   risk: N_('Tingkat risiko'), due_date: N_('Batas waktu'), owner: N_('Penanggung jawab (PIC)'), audit: N_('Audit'),
   category: N_('Kategori temuan'), root_cause: N_('Kategori akar masalah'), condition: N_('Kondisi'), criteria: N_('Kriteria'),
   cause: N_('Sebab'), effect: N_('Akibat'), recommendation: N_('Rekomendasi'), response: N_('Tanggapan auditee'),
+  approver: N_('Penyetuju'), approval: N_('Persetujuan'),
   name: N_('Nama'), username: N_('Username'), email: N_('Email'), role: N_('Peran'), active: N_('Status akun'), password: N_('Kata sandi'),
 };
 // Nilai yang disimpan dalam bahasa Indonesia (status, risiko, jenis) diterjemahkan saat tampil.
@@ -29,6 +33,7 @@ function showValue(k, v) {
   if (k === 'role') return ROLES[v] || v;
   if (k.endsWith('_date')) return fmtDate(v);
   if (TRANSLATED.includes(k)) return t(v);
+  if (k === 'approval') return t(APPROVAL_LABEL[v] || v);
   const s = String(v);
   return s.length > 120 ? `${s.slice(0, 120)}…` : s;
 }
@@ -57,7 +62,10 @@ function describe(l) {
   return (ACTION[l.action] ? t(ACTION[l.action], { entity, what }) : `${l.action} ${entity} ${what}`).trim();
 }
 
-const ACTION_FILTER = { create: N_('Membuat'), update: N_('Mengubah'), delete: N_('Menghapus'), upload: N_('Mengunggah'), ocr: N_('OCR') };
+const ACTION_FILTER = {
+  create: N_('Membuat'), update: N_('Mengubah'), delete: N_('Menghapus'), upload: N_('Mengunggah'), ocr: N_('OCR'),
+  review: N_('Mereview'), ajukan: N_('Mengajukan'), setujui: N_('Menyetujui'), kembalikan: N_('Mengembalikan'),
+};
 
 export default function Activity() {
   const { data, error, loading, reload } = useLoad(() => api.get('/dashboard/activity'), []);
@@ -89,7 +97,7 @@ export default function Activity() {
           <div className="tablebox"><table>
             <thead><tr><th>{t('Waktu')}</th><th>{t('Pengguna')}</th><th>{t('Aktivitas')}</th></tr></thead>
             <tbody>
-              {paged.rows.map((l) => <tr key={l.id}><td className="num t-sub">{fmtDateTime(l.created_at)}</td><td>{l.user_name || '—'}{l.user_role && <div className="t-sub">{ROLES[l.user_role]}</div>}</td><td>{describe(l)}<Changes detail={l.detail} /></td></tr>)}
+              {paged.rows.map((l) => <tr key={l.id}><td className="num t-sub">{fmtDateTime(l.created_at)}</td><td>{l.user_name || '—'}{l.user_role && <div className="t-sub">{ROLES[l.user_role]}</div>}</td><td>{describe(l)}{l.detail?.note && <div className="t-sub">“{l.detail.note}”</div>}<Changes detail={l.detail} /></td></tr>)}
               {!rows.length && <tr><td colSpan={3}><Empty small>{t('Tidak ada aktivitas yang cocok dengan filter.')}</Empty></td></tr>}
             </tbody>
           </table></div>
