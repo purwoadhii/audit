@@ -57,6 +57,9 @@ export const SETTINGS = {
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
   finding_categories: { def: FINDING_CATEGORIES, who: 'admin', label: 'Kategori temuan', check: list },
   root_causes: { def: ROOT_CAUSES, who: 'admin', label: 'Kategori akar masalah', check: list },
+  // Multi-entitas: audit, pengguna, dan area audit bisa dikaitkan ke salah satu perusahaan di daftar.
+  multi_entity: { def: false, who: 'admin', label: 'Multi-entitas', check: bool },
+  companies: { def: [], who: 'admin', label: 'Daftar perusahaan', check: list },
   // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
   unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
   // Perencanaan audit (System Admin)
@@ -66,6 +69,8 @@ export const SETTINGS = {
   approval_required: { def: true, who: 'admin', label: 'Wajib persetujuan laporan', check: bool },
   // Ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.
   review_required: { def: true, who: 'admin', label: 'Wajib review ketua tim', check: bool },
+  // Tanda tangan elektronik: ketua tim dan penyetuju wajib punya tanda tangan dan memasukkan kata sandi saat menandatangani.
+  esign_required: { def: false, who: 'admin', label: 'Wajib tanda tangan elektronik', check: bool },
   // Dokumen (System Admin)
   ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
   // Keamanan login (System Admin)

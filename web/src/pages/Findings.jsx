@@ -16,10 +16,10 @@ export default function Findings() {
   const editor = canEdit(user);
   // Auditee bisa memperbarui tanggapannya, manajemen hanya melihat.
   const acts = editor || user.role === 'auditee';
-  const [filter, setFilter] = useState({ q: '', kind: '', status: '', risk: '', category: '', audit: '', overdue: false });
-  const { data, error, loading, reload } = useLoad(() => api.get('/findings'), []);
-  // ?id= dari tautan Asisten AI langsung membuka temuan itu.
+  // ?id= dari tautan Asisten AI langsung membuka temuan itu; ?unit= dan ?category= dari halaman Analitik.
   const [params, setParams] = useSearchParams();
+  const [filter, setFilter] = useState({ q: '', kind: '', status: '', risk: '', category: params.get('category') || '', audit: '', overdue: false, unit: params.get('unit') || '' });
+  const { data, error, loading, reload } = useLoad(() => api.get('/findings'), []);
   const [sheet, setSheetState] = useState(() => (params.get('id') ? { id: Number(params.get('id')) } : null));
   const setSheet = (v) => {
     setSheetState(v);
@@ -45,6 +45,7 @@ export default function Findings() {
       (!filter.category || (f.category || '') === (filter.category === '-' ? '' : filter.category)) &&
       (!filter.audit || String(f.audit_id) === filter.audit) &&
       (!filter.overdue || f.overdue) &&
+      (!filter.unit || String(f.audit_unit || '').trim() === filter.unit.trim()) &&
       (!q || `${f.code} ${f.title} ${f.owner_name || ''} ${f.condition}`.toLowerCase().includes(q)));
   }, [data, filter]);
   const paged = usePaged(rows, JSON.stringify(filter));
@@ -66,6 +67,11 @@ export default function Findings() {
           {editor && <button className="btn primary" onClick={() => setSheet({ preset: {} })}>{t('Catat temuan')}</button>}
         </span>
       </div>
+      {filter.unit && (
+        <div className="chips" style={{ marginBottom: 10 }}>
+          <span className="chip">{t('Unit')}: {filter.unit}<button type="button" aria-label={t('Hapus filter unit')} onClick={() => setFilter({ ...filter, unit: '' })}>×</button></span>
+        </div>
+      )}
       <div className="filters one-line">
         <input id="f-q" placeholder={t('Cari judul, PIC, atau kondisi')} value={filter.q} onChange={set('q')} />
         <select id="f-kind-filter" aria-label={t('Jenis')} value={filter.kind} onChange={set('kind')}><option value="">{t('Temuan dan isu')}</option>{Object.entries(FINDING_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>

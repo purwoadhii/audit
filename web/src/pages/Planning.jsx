@@ -7,6 +7,8 @@ import { canEdit, fmtDate, slug } from '../util.js';
 import { BusyButton, ConfirmDelete, Empty, ErrorBox, Loading, Pager, Req, ReqNote, RowActions, Sheet, StatusPill, useLoad, usePaged, useToast } from '../components/ui.jsx';
 import ComboInput from '../components/ComboInput.jsx';
 import AuditForm from '../components/AuditForm.jsx';
+import CompanySelect from '../components/CompanySelect.jsx';
+import { companyMode } from '../company.js';
 import { exportExcel } from '../exporters.js';
 import { N_, localeTag, t } from '../i18n.jsx';
 
@@ -128,11 +130,13 @@ function Universe() {
 
 function EntityForm({ entity, kinds, onClose, onSaved }) {
   const { settings } = useSettings();
+  const { user } = useAuth();
+  const cm = companyMode(settings, user);
   const toast = useToast();
   const isNew = !entity;
   const [f, setF] = useState({
     name: entity?.name || '', kind: entity?.kind || kinds[0] || '', unit: entity?.unit || '', owner: entity?.owner || '',
-    description: entity?.description || '', active: entity ? entity.active : true,
+    description: entity?.description || '', active: entity ? entity.active : true, company: entity?.company || cm.view,
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -142,8 +146,10 @@ function EntityForm({ entity, kinds, onClose, onSaved }) {
     setBusy(true);
     setError('');
     try {
-      if (isNew) await api.post('/planning/entities', f);
-      else await api.patch(`/planning/entities/${entity.id}`, f);
+      const { company, ...plain } = f;
+      const body = cm.on ? f : plain;
+      if (isNew) await api.post('/planning/entities', body);
+      else await api.patch(`/planning/entities/${entity.id}`, body);
       toast(t('Area audit disimpan'));
       onClose();
       onSaved();
@@ -155,6 +161,7 @@ function EntityForm({ entity, kinds, onClose, onSaved }) {
         <ReqNote />
         <label className="full"><span>{t('Nama area')} <Req /></span><input id="e-name" required value={f.name} onChange={set('name')} placeholder={t('Contoh: Proses pengadaan barang')} /></label>
         <label><span>{t('Jenis area')} <Req /></span><select id="e-kind" required value={f.kind} onChange={set('kind')}>{kinds.map((k) => <option key={k} value={k}>{t(k)}</option>)}</select></label>
+        <CompanySelect id="e-company" value={f.company} onChange={set('company')} full />
         <label>{t('Unit')}<ComboInput id="e-unit" options={settings.units} value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /></label>
         <label>{t('Pemilik proses')}<input id="e-owner" value={f.owner} onChange={set('owner')} placeholder={t('Contoh: Kepala Divisi Pengadaan')} /></label>
         <label className="check-row"><input id="e-active" type="checkbox" checked={f.active} onChange={set('active')} />{t('Aktif dinilai dan direncanakan')}</label>
@@ -384,7 +391,7 @@ function Plan({ year, setYear }) {
         <>
           <div className="tablebox">
             <table>
-              <thead><tr><th>{t('Triwulan')}</th><th>{t('Audit')}</th><th>{t('Skor risiko')}</th><th>{t('Ketua tim')}</th><th>{t('Tim dan jam')}</th><th className="num">{t('Jam')}</th><th>{t('Status')}</th>{editor && <th className="act-col">{t('Aksi')}</th>}</tr></thead>
+              <thead><tr><th>{t('Triwulan')}</th><th>{t('Audit')}</th><th>{t('Skor risiko')}</th><th>{t('Ketua tim')}</th><th>{t('Tim dan jam')}</th><th className="num">{t('Jam (realisasi / anggaran)')}</th><th>{t('Status')}</th>{editor && <th className="act-col">{t('Aksi')}</th>}</tr></thead>
               <tbody>
                 {paged.rows.map((i) => (
                   <tr key={i.id} className={i.cancelled ? 'muted-row' : ''}>
@@ -393,7 +400,7 @@ function Plan({ year, setYear }) {
                     <td><LevelPill level={i.level} score={i.score} /></td>
                     <td>{i.lead_name || '—'}</td>
                     <td className="t-sub">{i.members.map((m) => `${m.name} (${m.hours})`).join(', ') || '—'}</td>
-                    <td className="num">{i.hours}</td>
+                    <td className="num" title={t('Realisasi dari timesheet / anggaran')}>{i.audit_id ? `${Number(i.actual).toLocaleString(localeTag())} / ${i.hours}` : i.hours}</td>
                     <td>
                       {i.audit_id ? <Link to={`/audit/${i.audit_id}`} className="plain-link"><StatusPill value={i.audit_status} /> <span className="code">{i.audit_code}</span></Link>
                         : <span className={`pill plan-${slug(planStatus(i))}`}>{t(planStatus(i))}</span>}
@@ -430,7 +437,7 @@ function Plan({ year, setYear }) {
         const { start, end } = quarterDates(creating.year, creating.quarter);
         const preset = {
           title: creating.title, unit: creating.unit, type: creating.type, lead_id: creating.lead_id || '', start_date: start, end_date: end,
-          member_ids: creating.members.map((m) => m.id).filter((id) => id !== creating.lead_id), entity_id: creating.entity_id, plan_item_id: creating.id,
+          member_ids: creating.members.map((m) => m.id).filter((id) => id !== creating.lead_id), entity_id: creating.entity_id, plan_item_id: creating.id, ...(creating.company ? { company: creating.company } : {}),
         };
         return <AuditForm preset={preset} onClose={() => setCreating(null)} onSaved={(a) => nav(`/audit/${a.id}`)} />;
       })()}
@@ -440,6 +447,8 @@ function Plan({ year, setYear }) {
 
 function PlanItemForm({ year, item, entity, onClose, onSaved }) {
   const { settings } = useSettings();
+  const { user } = useAuth();
+  const cm = companyMode(settings, user);
   const toast = useToast();
   const isNew = !item;
   const users = useLoad(() => api.get('/users'), []);
@@ -455,6 +464,7 @@ function PlanItemForm({ year, item, entity, onClose, onSaved }) {
     members: item?.members?.map(({ id, hours }) => ({ id, hours })) || [],
     notes: item?.notes || '',
     cancelled: item?.cancelled || false,
+    company: item?.company || entity?.company || cm.view,
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -467,7 +477,7 @@ function PlanItemForm({ year, item, entity, onClose, onSaved }) {
   function pickEntity(e) {
     const id = Number(e.target.value) || '';
     const en = (entities.data || []).find((x) => x.id === id);
-    setF({ ...f, entity_id: id, ...(en && isNew && !f.title ? { title: t('Audit {name}', { name: en.name }) } : {}), ...(en?.unit && !f.unit ? { unit: en.unit } : {}) });
+    setF({ ...f, entity_id: id, ...(en && isNew && !f.title ? { title: t('Audit {name}', { name: en.name }) } : {}), ...(en?.unit && !f.unit ? { unit: en.unit } : {}), ...(en?.company ? { company: en.company } : {}) });
   }
   function setLead(e) {
     const id = Number(e.target.value) || '';
@@ -481,6 +491,7 @@ function PlanItemForm({ year, item, entity, onClose, onSaved }) {
     setError('');
     try {
       const body = { ...f, entity_id: f.entity_id || null, lead_id: f.lead_id || null, quarter: Number(f.quarter), members: f.members.map((m) => ({ id: m.id, hours: Number(m.hours) || 0 })) };
+      if (!cm.on) delete body.company;
       if (isNew) await api.post('/planning/plan', body);
       else await api.patch(`/planning/plan/${item.id}`, body);
       toast(t('Rencana disimpan'));
@@ -500,6 +511,7 @@ function PlanItemForm({ year, item, entity, onClose, onSaved }) {
             {(entities.data || []).filter((x) => x.active || x.id === f.entity_id).map((x) => <option key={x.id} value={x.id}>{x.name} · {t(x.kind)}</option>)}
           </select>
         </label>
+        <CompanySelect id="p-company" value={f.company} onChange={set('company')} full />
         <label className="full"><span>{t('Judul audit')} <Req /></span><input id="p-title" required value={f.title} onChange={set('title')} /></label>
         <label><span>{t('Unit yang diaudit')} <Req /></span><ComboInput id="p-unit" required options={settings.units} value={f.unit} onChange={set('unit')} /></label>
         <label><span>{t('Jenis audit')} <Req /></span><select id="p-type" required value={f.type} onChange={set('type')}>{[...new Set([f.type, ...settings.audit_types])].filter(Boolean).map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></label>

@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { approvalSigns, fmtDate } from '../util.js';
 import { BusyButton, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 import { exportAuditDocx } from '../exporters.js';
+import SignBlock from '../components/SignBlock.jsx';
 import { t } from '../i18n.jsx';
 
 export default function Report() {
@@ -29,6 +30,7 @@ export default function Report() {
         <div className="t-sub">{t('Dicetak {date}', { date: fmtDate(new Date().toISOString()) })}</div>
         <h2>{t('Informasi audit')}</h2>
         <div className="kv">
+          {a.company && <><b>{t('Perusahaan')}</b><span>{a.company}</span></>}
           <b>{t('Auditee')}</b><span>{a.unit}</span>
           <b>{t('Jenis audit')}</b><span>{t(a.type)}</span>
           <b>{t('Ketua tim')}</b><span>{a.lead_name || '—'}</span>
@@ -58,9 +60,7 @@ export default function Report() {
           </>
         )}
         <div className="sign">
-          {[signs.lead, signs.approver].map((g) => (
-            <span key={g.title}>{t(g.title)}{g.note ? <div className="signed">✓ {g.note}</div> : <div />}{g.name || ''}</span>
-          ))}
+          {[signs.lead, signs.approver].map((g) => <SignBlock key={g.title} sign={g} />)}
         </div>
       </article>
     </>

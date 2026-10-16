@@ -3,7 +3,8 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSettings } from '../settings.jsx';
 import { APPROVAL_LABEL, canEdit, fmtDateTime } from '../util.js';
-import { useToast } from './ui.jsx';
+import { useLoad, useToast } from './ui.jsx';
+import { Link } from 'react-router-dom';
 import { N_, t } from '../i18n.jsx';
 
 const TONE = { review: 'tone-med', persetujuan: 'tone-med', disetujui: 'tone-ok', dikembalikan: 'tone-high' };
@@ -20,6 +21,8 @@ export default function ApprovalPanel({ audit: a, onChanged }) {
   const [note, setNote] = useState('');
   const [returning, setReturning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [password, setPassword] = useState('');
+  const sig = useLoad(() => api.get('/auth/signature'), []);
 
   const state = a.approval;
   const isLead = a.lead_id === user.id;
@@ -32,9 +35,10 @@ export default function ApprovalPanel({ audit: a, onChanged }) {
   async function act(action, extra = {}) {
     setBusy(true);
     try {
-      await api.post(`/audits/${a.id}/approval`, { action, note: note.trim(), ...extra });
+      await api.post(`/audits/${a.id}/approval`, { action, note: note.trim(), ...(signing ? { password } : {}), ...extra });
       toast(t('Tersimpan'));
       setNote('');
+      setPassword('');
       setReturning(false);
       onChanged();
     } catch (err) {
@@ -62,6 +66,10 @@ export default function ApprovalPanel({ audit: a, onChanged }) {
   const canApprove = isApprover && state === 'persetujuan';
   const canReturn = canForward || canApprove || (isApprover && state === 'disetujui');
   const canWithdraw = editor && ['review', 'persetujuan'].includes(state) && !isApprover;
+  // Ketua tim menandatangani saat meneruskan (atau mengajukan langsung), penyetuju saat menyetujui.
+  const signing = !returning && (canForward || canApprove || (canSubmit && isLead));
+  const signature = sig.data?.signature;
+  const blockedSign = signing && settings.esign_required && (!signature || !password);
   const missing = !a.lead_id ? t('Tentukan ketua tim dulu di Ubah audit.') : !a.approver_id ? t('Pilih penyetuju dulu di Ubah audit.') : '';
   const waitingId = state === 'review' ? a.lead_id : state === 'persetujuan' ? a.approver_id : null;
   const waitingOn = waitingId === user.id ? t('Menunggu tindakan Anda') : waitingId ? t('Menunggu {name}', { name: state === 'review' ? a.lead_name : a.approver_name }) : null;
@@ -91,11 +99,19 @@ export default function ApprovalPanel({ audit: a, onChanged }) {
             <textarea id="approval-note" value={note} onChange={(e) => setNote(e.target.value)}
               placeholder={returning ? t('Alasan dikembalikan (wajib)') : t('Catatan (opsional)')} />
           )}
+          {signing && !missing && (
+            <div className="sign-confirm">
+              <span>{t('Tombol di bawah menandatangani laporan ini secara elektronik atas nama Anda. Laporan akan mendapat kode verifikasi.')}</span>
+              {signature ? <img src={signature} alt={t('Tanda tangan saya')} />
+                : <span className={settings.esign_required ? 'bad-text' : 't-sub'}>{t('Anda belum punya tanda tangan.')} <Link to="/akun">{t('Buat di Akun saya')}</Link></span>}
+              {settings.esign_required && <label>{t('Kata sandi Anda')}<input id="sign-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
+            </div>
+          )}
           <div className="actions">
             {canSubmit && (missing ? <span className="t-sub">{missing}</span>
-              : <button className="btn primary" disabled={busy} onClick={() => act('ajukan')}>{isLead ? t('Ajukan ke penyetuju') : t('Ajukan ke ketua tim')}</button>)}
-            {canForward && !returning && <button className="btn primary" disabled={busy} onClick={() => act('teruskan')}>{t('Teruskan ke penyetuju')}</button>}
-            {canApprove && !returning && <button className="btn primary" disabled={busy} onClick={() => act('setujui')}>{t('Setujui laporan')}</button>}
+              : <button className="btn primary" disabled={busy || (isLead && blockedSign)} onClick={() => act('ajukan')}>{isLead ? t('Ajukan ke penyetuju') : t('Ajukan ke ketua tim')}</button>)}
+            {canForward && !returning && <button className="btn primary" disabled={busy || blockedSign} onClick={() => act('teruskan')}>{t('Teruskan ke penyetuju')}</button>}
+            {canApprove && !returning && <button className="btn primary" disabled={busy || blockedSign} onClick={() => act('setujui')}>{t('Setujui laporan')}</button>}
             {canReturn && (returning
               ? <>
                 <button className="btn" onClick={() => setReturning(false)}>{t('Batal')}</button>
@@ -112,7 +128,8 @@ export default function ApprovalPanel({ audit: a, onChanged }) {
           {a.approvals.map((p) => (
             <li key={p.id}>
               <span className="t-sub num">{fmtDateTime(p.created_at)}</span>
-              <span><b>{p.user_name || '—'}</b> {t(HISTORY[p.action] || p.action)}{p.note && <span className="t-sub"> · “{p.note}”</span>}</span>
+              <span><b>{p.user_name || '—'}</b> {t(HISTORY[p.action] || p.action)}{p.note && <span className="t-sub"> · “{p.note}”</span>}
+                {p.sign_code && <span className="t-sub"> · {t('ditandatangani')} <Link to={`/verifikasi/${p.sign_code}`} className="code">{p.sign_code}</Link></span>}</span>
             </li>
           ))}
         </ol>

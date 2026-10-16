@@ -114,7 +114,7 @@ export default function Recap() {
       { name: t('Per unit'), columns: [{ header: t('Unit'), key: 'key', width: 30 }, { header: t('Audit'), key: 'audits', width: 8 }, ...counts], rows: view.byUnit },
       { name: t('Per kategori'), columns: groupCols(t('Kategori temuan')), rows: view.byCategory.map((g) => ({ ...g, key: label(g.key, 'Tanpa kategori') })) },
       { name: t('Per akar masalah'), columns: groupCols(t('Kategori akar masalah')), rows: view.byRoot.map((g) => ({ ...g, key: label(g.key, 'Tanpa kategori') })) },
-      { name: t('Audit'), columns: auditColumns(), rows: view.audits.map(auditRow) },
+      { name: t('Audit'), columns: auditColumns(view.audits.some((a) => a.company)), rows: view.audits.map(auditRow) },
       { name: t('Temuan dan isu'), columns: findingColumns(), rows: view.findings.map(findingRow) },
     ]);
   }

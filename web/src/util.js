@@ -22,6 +22,7 @@ export const APPROVAL_LABEL = {
   review: N_('Menunggu review ketua tim'), persetujuan: N_('Menunggu persetujuan'), disetujui: N_('Disetujui'), dikembalikan: N_('Dikembalikan'),
 };
 // Tanda tangan laporan dari riwayat persetujuan: kapan ketua tim mereview dan kapan penyetuju menyetujui.
+// entry berisi baris riwayatnya, termasuk gambar tanda tangan dan kode verifikasi bila ada.
 export function approvalSigns(a) {
   const log = a.approvals || [];
   const last = (pred) => [...log].reverse().find(pred);
@@ -30,16 +31,18 @@ export function approvalSigns(a) {
   const approved = a.approval === 'disetujui' ? last((p) => p.action === 'setujui') : null;
   return {
     status: a.approval ? APPROVAL_LABEL[a.approval] : N_('Belum diajukan'),
-    lead: { title: N_('Ketua Tim Audit'), name: a.lead_name, note: reviewed && t('Direview {date}', { date: fmtDate(reviewed.created_at) }) },
+    lead: { title: N_('Ketua Tim Audit'), name: a.lead_name, note: reviewed && t('Direview {date}', { date: fmtDate(reviewed.created_at) }), entry: reviewed },
     approver: a.approver_name
-      ? { title: N_('Penyetuju'), name: a.approver_name, note: approved && t('Disetujui {date}', { date: fmtDate(approved.created_at) }) }
+      ? { title: N_('Penyetuju'), name: a.approver_name, note: approved && t('Disetujui {date}', { date: fmtDate(approved.created_at) }), entry: approved }
       : { title: t('Pimpinan {unit}', { unit: a.unit }), name: '', note: null },
   };
 }
 
 // Penyetuju laporan: akun Manajemen (Manager), atau auditee di unit yang diaudit (Kepala unit).
-export const canApproveFor = (u, unit) => u.role === 'manajemen'
-  || (u.role === 'auditee' && String(u.unit || '').trim().toLowerCase() === String(unit || '').trim().toLowerCase());
+// Dengan multi-entitas (company terisi), penyetuju yang terikat perusahaan harus dari perusahaan audit itu.
+export const canApproveFor = (u, unit, company = null) => (u.role === 'manajemen'
+  || (u.role === 'auditee' && String(u.unit || '').trim().toLowerCase() === String(unit || '').trim().toLowerCase()))
+  && (!company || !u.company || u.company === company);
 
 // Jenis catatan audit: temuan atau isu.
 export const FINDING_KINDS = translated({ temuan: N_('Temuan'), isu: N_('Isu') });
@@ -92,4 +95,6 @@ export const LOGIN_REASON = translated({
   perbaikan: N_('Mode perbaikan'),
   pintu_salah: N_('Salah pintu masuk'),
   lisensi: N_('Lisensi tidak berlaku'),
+  sso: N_('Login SSO'),
+  sso_wajib: N_('Wajib login SSO'),
 });

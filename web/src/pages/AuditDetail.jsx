@@ -9,6 +9,7 @@ import FindingSheet from '../components/FindingSheet.jsx';
 import FindingBatchSheet from '../components/FindingBatchSheet.jsx';
 import Attachments from '../components/Attachments.jsx';
 import ApprovalPanel from '../components/ApprovalPanel.jsx';
+import { AuditHours } from './Timesheet.jsx';
 import { T, t } from '../i18n.jsx';
 
 export default function AuditDetail() {
@@ -88,6 +89,7 @@ export default function AuditDetail() {
           <div className="code">{a.code} · {t(a.type)}</div>
           <h2>{a.title}</h2>
           <div className="facts">
+            {a.company && <span><T k="Perusahaan {name}" name={<b>{a.company}</b>} /></span>}
             <span><T k="Auditee {unit}" unit={<b>{a.unit}</b>} /></span>
             <span><T k="Ketua tim {name}" name={<b>{a.lead_name || '—'}</b>} /></span>
             <span><T k="Anggota {names}" names={<b>{teamText(a)}</b>} /></span>
@@ -149,6 +151,7 @@ export default function AuditDetail() {
               <h3>{t('Kertas kerja dan dokumen audit')}</h3>
               <Attachments items={a.attachments} uploadUrl={editor ? `/audits/${a.id}/attachments` : null} canDelete={() => editor} onChange={reload} />
             </div>
+            {user.role !== 'auditee' && <AuditHours auditId={a.id} />}
           </div>
         ) : (
           <div className="panel"><h3>{t('Tentang audit ini')}</h3><p className="t-sub" style={{ margin: 0 }}>{t('Anda melihat temuan yang ditugaskan kepada Anda atau unit Anda. Klik temuan untuk memberi tanggapan dan mengunggah bukti.')}</p></div>

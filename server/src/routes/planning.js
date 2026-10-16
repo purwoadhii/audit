@@ -5,6 +5,7 @@ import { requireRole } from '../auth.js';
 import { badRequest, notFound, requireText, intId } from '../errors.js';
 import { riskLevel, AUDIT_CYCLE } from '../constants.js';
 import { getSettings } from '../settings.js';
+import { companyFilter, viewCompany } from '../access.js';
 
 const r = Router();
 const readers = requireRole('admin', 'superadmin', 'auditor', 'manajemen');
@@ -30,7 +31,7 @@ const scale = (v, label) => {
 // ---- Audit universe ----
 // Setiap area dilengkapi audit terakhir (dari audit yang dikaitkan) dan jumlah audit.
 const ENTITY_SQL = `
-  SELECT e.id, e.name, e.kind, e.unit, e.owner, e.description, e.active, e.created_at, e.updated_at,
+  SELECT e.id, e.name, e.kind, e.unit, e.company, e.owner, e.description, e.active, e.created_at, e.updated_at,
          (SELECT MAX(a.start_date) FROM audits a WHERE a.entity_id = e.id AND a.start_date <= CURRENT_DATE) AS last_audit,
          (SELECT COUNT(*) FROM audits a WHERE a.entity_id = e.id) AS audits
   FROM auditable_entities e`;
@@ -47,6 +48,7 @@ function entityFields(b, partial) {
   if (!partial || has('name')) out.name = requireText(b.name, 'Nama area');
   if (!partial || has('kind')) out.kind = requireText(b.kind, 'Jenis area');
   if (has('unit')) out.unit = optText(b.unit, 'Unit', 150);
+  if (has('company')) out.company = optText(b.company, 'Perusahaan', 150);
   if (has('owner')) out.owner = optText(b.owner, 'Pemilik proses', 150);
   if (has('description')) out.description = optText(b.description, 'Keterangan', 4000);
   if (has('active')) out.active = Boolean(b.active);
@@ -54,16 +56,27 @@ function entityFields(b, partial) {
   return out;
 }
 
-r.get('/entities', async (_req, res) => {
-  const { rows } = await query(`${ENTITY_SQL} ORDER BY e.active DESC, e.kind, e.name`);
+// Multi-entitas: area dan rencana dikaitkan ke perusahaan; tanpa pilihan, ikut perusahaan yang sedang dilihat.
+async function checkCompany(user, value) {
+  const s = await getSettings();
+  if (!s.multi_entity) return null;
+  const c = value === undefined ? viewCompany(user) : value;
+  if (c && !s.companies.includes(c)) throw badRequest('Perusahaan {name} tidak ada di daftar perusahaan.', { name: c });
+  return c || null;
+}
+
+r.get('/entities', async (req, res) => {
+  const cf = companyFilter(req.user, 'e.company');
+  const { rows } = await query(`${ENTITY_SQL} WHERE ${cf.sql} ORDER BY e.active DESC, e.kind, e.name`, cf.params);
   res.json(rows.map((e) => bools(e, 'active')));
 });
 
 r.post('/entities', editors, async (req, res) => {
   const f = entityFields(req.body || {}, false);
+  f.company = await checkCompany(req.user, f.company);
   const { insertId } = await query(
-    'INSERT INTO auditable_entities (name, kind, unit, owner, description, active, created_by) VALUES (?,?,?,?,?,?,?)',
-    [f.name, f.kind, f.unit ?? null, f.owner ?? null, f.description ?? null, f.active ?? true, req.user.id]);
+    'INSERT INTO auditable_entities (name, kind, unit, company, owner, description, active, created_by) VALUES (?,?,?,?,?,?,?,?)',
+    [f.name, f.kind, f.unit ?? null, f.company, f.owner ?? null, f.description ?? null, f.active ?? true, req.user.id]);
   await logActivity({ query }, req.user.id, 'create', 'entity', insertId, { title: f.name });
   res.status(201).json(await loadEntity(insertId));
 });
@@ -72,6 +85,7 @@ r.patch('/entities/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
   const cur = await loadEntity(id);
   const f = entityFields(req.body || {}, true);
+  if (f.company !== undefined) f.company = await checkCompany(req.user, f.company);
   const keys = Object.keys(f);
   if (!keys.length) throw badRequest('Tidak ada perubahan.');
   await query(`UPDATE auditable_entities SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = NOW(3) WHERE id = ?`, [...keys.map((k) => f[k]), id]);
@@ -102,16 +116,17 @@ function withRisk(e, year) {
 
 r.get('/risks', async (req, res) => {
   const year = yearOf(req.query.year);
+  const cf = companyFilter(req.user, 'e.company');
   const { rows } = await query(
-    `SELECT e.id, e.name, e.kind, e.unit, e.owner, e.active,
+    `SELECT e.id, e.name, e.kind, e.unit, e.company, e.owner, e.active,
             (SELECT MAX(a.start_date) FROM audits a WHERE a.entity_id = e.id AND a.start_date <= CURRENT_DATE) AS last_audit,
             ra.likelihood, ra.impact, ra.notes, ra.assessed_at, u.name AS assessed_by_name,
             (SELECT p.id FROM plan_items p WHERE p.entity_id = e.id AND p.year = ? AND p.cancelled = FALSE LIMIT 1) AS plan_item_id
      FROM auditable_entities e
      LEFT JOIN risk_assessments ra ON ra.entity_id = e.id AND ra.year = ?
      LEFT JOIN users u ON u.id = ra.assessed_by
-     WHERE e.active = TRUE
-     ORDER BY (ra.likelihood * ra.impact) IS NULL, ra.likelihood * ra.impact DESC, e.name`, [year, year]);
+     WHERE e.active = TRUE AND ${cf.sql}
+     ORDER BY (ra.likelihood * ra.impact) IS NULL, ra.likelihood * ra.impact DESC, e.name`, [year, year, ...cf.params]);
   res.json(rows.map((e) => withRisk(bools(e, 'active'), year)));
 });
 
@@ -145,9 +160,10 @@ r.delete('/risks/:entityId/:year', editors, async (req, res) => {
 // ---- Rencana audit tahunan ----
 // Status penugasan mengikuti audit yang dibuat dari rencana: Belum dimulai, status audit itu, atau Dibatalkan.
 const ITEM_SQL = `
-  SELECT p.id, p.year, p.entity_id, e.name AS entity_name, e.kind AS entity_kind, p.title, p.unit, p.type, p.quarter,
+  SELECT p.id, p.year, p.entity_id, e.name AS entity_name, e.kind AS entity_kind, p.title, p.unit, p.company, p.type, p.quarter,
          p.lead_id, u.name AS lead_name, p.notes, p.cancelled, p.audit_id, a.code AS audit_code, a.status AS audit_status,
-         ra.likelihood * ra.impact AS score
+         ra.likelihood * ra.impact AS score,
+         (SELECT COALESCE(SUM(t.hours), 0) FROM timesheets t WHERE t.audit_id = p.audit_id) AS actual
   FROM plan_items p
   LEFT JOIN auditable_entities e ON e.id = p.entity_id
   LEFT JOIN users u ON u.id = p.lead_id
@@ -162,6 +178,7 @@ async function attachPlanMembers(items) {
   for (const i of items) {
     i.members = rows.filter((m) => m.plan_item_id === i.id).map(({ id, name, hours }) => ({ id, name, hours: Number(hours) }));
     i.hours = i.members.reduce((s, m) => s + m.hours, 0);
+    i.actual = Number(i.actual || 0);
     i.level = i.score ? riskLevel(Number(i.score)) : null;
   }
   return items;
@@ -205,6 +222,7 @@ async function itemFields(b, partial) {
   }
   if (has('lead_id')) out.lead_id = b.lead_id ? intId(b.lead_id) : null;
   if (has('notes')) out.notes = optText(b.notes, 'Catatan', 4000);
+  if (has('company')) out.company = optText(b.company, 'Perusahaan', 150);
   if (has('cancelled')) out.cancelled = Boolean(b.cancelled);
   if (has('audit_id')) out.audit_id = b.audit_id ? intId(b.audit_id) : null;
   if (out.entity_id) await loadEntity(out.entity_id);
@@ -219,7 +237,8 @@ async function saveMembers(c, itemId, members) {
 // Rencana satu tahun: penugasan, ringkasan, dan beban jam per auditor dibanding kapasitas.
 r.get('/plan', async (req, res) => {
   const year = yearOf(req.query.year);
-  const items = await attachPlanMembers((await query(`${ITEM_SQL} WHERE p.year = ? ORDER BY p.quarter, p.title`, [year])).rows.map((i) => bools(i, 'cancelled')));
+  const cf = companyFilter(req.user, 'p.company');
+  const items = await attachPlanMembers((await query(`${ITEM_SQL} WHERE p.year = ? AND ${cf.sql} ORDER BY p.quarter, p.title`, [year, ...cf.params])).rows.map((i) => bools(i, 'cancelled')));
   const capacity = (await getSettings()).auditor_hours;
   const load = new Map();
   for (const i of items.filter((x) => !x.cancelled)) {
@@ -230,6 +249,10 @@ r.get('/plan', async (req, res) => {
       load.set(m.id, cur);
     }
   }
+  // Realisasi jam setiap auditor tahun itu dari timesheet (audit maupun kegiatan lain).
+  const { rows: actual } = await query('SELECT user_id, SUM(hours) AS hours FROM timesheets WHERE work_date BETWEEN ? AND ? GROUP BY user_id',
+    [`${year}-01-01`, `${year}-12-31`]);
+  for (const a of load.values()) a.actual = Number(actual.find((x) => x.user_id === a.id)?.hours || 0);
   const active = items.filter((i) => !i.cancelled);
   res.json({
     year,
@@ -242,17 +265,21 @@ r.get('/plan', async (req, res) => {
       done: active.filter((i) => i.audit_status === 'Selesai').length,
       cancelled: items.length - active.length,
       hours: active.reduce((s, i) => s + i.hours, 0),
+      actual: active.reduce((s, i) => s + i.actual, 0),
     },
   });
 });
 
 r.post('/plan', editors, async (req, res) => {
   const f = await itemFields(req.body || {}, false);
+  // Rencana untuk sebuah area ikut perusahaan area itu.
+  if (f.company === undefined && f.entity_id) f.company = (await loadEntity(f.entity_id)).company ?? undefined;
+  f.company = await checkCompany(req.user, f.company);
   const members = (await planMembers(req.body?.members)) || [];
   const id = await tx(async (c) => {
     const { insertId } = await c.query(
-      'INSERT INTO plan_items (year, entity_id, title, unit, type, quarter, lead_id, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?)',
-      [f.year, f.entity_id ?? null, f.title, f.unit, f.type, f.quarter, f.lead_id ?? null, f.notes ?? null, req.user.id]);
+      'INSERT INTO plan_items (year, entity_id, title, unit, company, type, quarter, lead_id, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [f.year, f.entity_id ?? null, f.title, f.unit, f.company, f.type, f.quarter, f.lead_id ?? null, f.notes ?? null, req.user.id]);
     await saveMembers(c, insertId, members);
     await logActivity(c, req.user.id, 'create', 'plan', insertId, { title: `${f.title} (${f.year})` });
     return insertId;
@@ -264,6 +291,7 @@ r.patch('/plan/:id', editors, async (req, res) => {
   const id = intId(req.params.id);
   const cur = await loadItem(id);
   const f = await itemFields(req.body || {}, true);
+  if (f.company !== undefined) f.company = await checkCompany(req.user, f.company);
   const members = await planMembers(req.body?.members);
   const keys = Object.keys(f);
   if (!keys.length && members === undefined) throw badRequest('Tidak ada perubahan.');

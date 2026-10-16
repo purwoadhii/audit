@@ -28,6 +28,12 @@ import { AiSettings, AiStatus, AiChat, AiUnavailable } from './pages/Ai.jsx';
 import Ocr from './pages/Ocr.jsx';
 import Recap from './pages/Recap.jsx';
 import Planning from './pages/Planning.jsx';
+import Timesheet from './pages/Timesheet.jsx';
+import Analytics from './pages/Analytics.jsx';
+import Verify from './pages/Verify.jsx';
+import SsoSettings from './pages/Sso.jsx';
+import { companyMode, setCompany } from './company.js';
+import { OfflineBanner } from './components/Offline.jsx';
 import Backup from './pages/Backup.jsx';
 import LangMenu from './components/LangMenu.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
@@ -40,6 +46,11 @@ import { Loading } from './components/ui.jsx';
 //   /infraAdmin  Infra Admin: menu samping untuk lisensi, akun admin, keamanan, dan server
 export default function App() {
   const { user } = useAuth();
+  const loc = useLocation();
+  // Halaman verifikasi tanda tangan bisa dibuka tanpa login (dari QR di laporan cetak).
+  if (PORTAL === 'user' && loc.pathname.startsWith('/verifikasi/')) {
+    return <Routes><Route path="/verifikasi/:code" element={<Verify />} /></Routes>;
+  }
   if (user === undefined) return <div className="empty"><b>{t('Memuat…')}</b></div>;
   if (!user) return <Login />;
   return PORTAL === 'user' ? <UserApp /> : <AdminApp />;
@@ -76,13 +87,19 @@ function UserApp() {
   const has = (f) => (user.features || []).includes(f);
   const seesActivity = ['superadmin', 'auditor', 'manajemen'].includes(user.role);
   const appBg = settings.app_background_url;
+  const cm = companyMode(settings, user);
+  // Mengganti perusahaan yang dilihat memuat ulang halaman yang sedang terbuka.
+  const [view, setView] = useState(cm.view);
+  const pickCompany = (c) => { setCompany(c); setView(c); };
   const tabs = [
     { to: '/', label: t('Ringkasan'), icon: 'home', end: true },
     { to: '/audit', label: t('Audit'), icon: 'audit' },
     { to: '/temuan', label: t('Temuan'), icon: 'finding' },
     { to: '/tindak-lanjut', label: t('Tindak Lanjut'), icon: 'board' },
     user.role !== 'auditee' && { to: '/perencanaan', label: t('Perencanaan'), icon: 'plan' },
+    user.role !== 'auditee' && { to: '/timesheet', label: t('Timesheet'), icon: 'clock' },
     user.role !== 'auditee' && { to: '/rekap', label: t('Rekap'), icon: 'report' },
+    user.role !== 'auditee' && { to: '/analitik', label: t('Analitik'), icon: 'chart' },
     has('ai') && { to: '/asisten', label: t('Asisten AI'), icon: 'ai' },
     has('ocr') && { to: '/ocr', label: t('OCR'), icon: 'ocr' },
     seesActivity && { to: '/aktivitas', label: t('Aktivitas'), icon: 'activity' },
@@ -92,6 +109,7 @@ function UserApp() {
       {appBg && <div className="app-bg" style={{ backgroundImage: `url("${appBg}")` }} aria-hidden="true" />}
       <div className="appbar">
         {settings.maintenance && <div className="maint">{t('Mode perbaikan aktif. Hanya Infra Admin yang bisa masuk.')}</div>}
+        <OfflineBanner />
         <div className="appbar-in">
           <header className="top">
             <Link to="/" className="brand">
@@ -99,11 +117,20 @@ function UserApp() {
               <div><h1>{t(settings.app_name)}</h1>{settings.app_tagline && <small>{t(settings.app_tagline)}</small>}</div>
             </Link>
             <div className="usermenu">
+              {cm.on && !cm.own && (
+                <label className="company-pick" title={t('Perusahaan yang ditampilkan')}>
+                  <Icon name="building" size={16} />
+                  <select id="company-pick" aria-label={t('Perusahaan yang ditampilkan')} value={view} onChange={(e) => pickCompany(e.target.value)}>
+                    <option value="">{t('Semua perusahaan')}</option>
+                    {cm.list.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </label>
+              )}
               <NotificationBell />
               <LangMenu />
               <Link to="/akun" className="who-chip" title={t('Akun saya')}>
                 <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
-                <span className="who">{user.name}{user.unit && <span>{user.unit}</span>}</span>
+                <span className="who">{user.name}{(user.unit || cm.own) && <span>{[user.unit, cm.own].filter(Boolean).join(' · ')}</span>}</span>
               </Link>
               <button className="btn" onClick={logout}><Icon name="logout" size={16} />{t('Keluar')}</button>
             </div>
@@ -113,7 +140,7 @@ function UserApp() {
           </nav>
         </div>
       </div>
-      <main className="wrap">
+      <main className="wrap" key={view}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/audit" element={<Audits />} />
@@ -122,7 +149,9 @@ function UserApp() {
           <Route path="/temuan" element={<Findings />} />
           <Route path="/tindak-lanjut" element={<Board />} />
           {user.role !== 'auditee' && <Route path="/perencanaan/*" element={<Planning />} />}
+          {user.role !== 'auditee' && <Route path="/timesheet/*" element={<Timesheet />} />}
           {user.role !== 'auditee' && <Route path="/rekap" element={<Recap />} />}
+          {user.role !== 'auditee' && <Route path="/analitik" element={<Analytics />} />}
           {has('ai') && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
           {has('ocr') && <Route path="/ocr" element={<Ocr />} />}
           <Route path="/akun" element={<Account />} />
@@ -148,6 +177,7 @@ const ADMIN_NAV = {
     { title: N_('Pengaturan'), items: [
       { path: 'pengaturan', label: N_('Pengaturan'), icon: 'settings', el: <Settings /> },
       { path: 'penyimpanan', label: N_('Penyimpanan file'), icon: 'storage', el: <StorageSettings /> },
+      { path: 'sso', label: N_('Login SSO'), icon: 'key', el: <SsoSettings /> },
       { path: 'ai', label: N_('Asisten AI'), icon: 'ai', el: <AiSettings /> },
       { path: 'data-awal', label: N_('Data awal'), icon: 'sample', el: <SampleData /> },
     ] },

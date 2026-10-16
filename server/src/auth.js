@@ -64,7 +64,7 @@ export async function requireAuth(req, _res, next) {
     const portal = portalOf(req);
     if (!payload?.sid) throw new HttpError(401, req.cookies?.[PORTALS[portal].cookie] ? 'Sesi berakhir. Silakan masuk lagi.' : 'Silakan masuk terlebih dahulu.');
     const { rows } = await query(
-      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.active, u.language,
+      `SELECT u.id, u.name, u.username, u.email, u.role, u.unit, u.company, u.active, u.language,
               s.id AS sid, s.remember, s.expires_at, s.ended_at, s.last_seen_at
          FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND u.id = ?`,
       [payload.sid, payload.sub],
@@ -89,6 +89,11 @@ export async function requireAuth(req, _res, next) {
     const { sid, remember, expires_at: _e, ended_at: _x, last_seen_at: _l, ...user } = row;
     // Dipakai aturan akses (access.js) untuk menentukan apakah audit dibatasi per unit.
     user.unit_scope = Boolean(s.unit_scope);
+    // Multi-entitas: perusahaan yang sedang dipilih di bilah atas (header x-company), hanya menyaring tampilan.
+    user.multi_entity = Boolean(s.multi_entity);
+    let view = '';
+    try { view = decodeURIComponent(String(req.headers['x-company'] || '')).trim(); } catch { /* abaikan header rusak */ }
+    user.view_company = user.multi_entity && s.companies.includes(view) ? view : null;
     req.user = user;
     req.sessionId = sid;
     next();

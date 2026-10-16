@@ -6,6 +6,7 @@ import { useAuth } from '../auth.jsx';
 import ComboInput from './ComboInput.jsx';
 import { ConfirmDelete, Req, ReqNote, Sheet, useLoad, useToast } from './ui.jsx';
 import { t } from '../i18n.jsx';
+import { companyMode } from '../company.js';
 
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
@@ -18,6 +19,7 @@ export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }
   // Pengguna yang terikat unit hanya membuat audit untuk unitnya sendiri.
   const myUnit = !settings.unit_scope || ['admin', 'infraadmin', 'superadmin'].includes(user.role) ? '' : String(user.unit || '').trim();
   // Jenis lama tetap muncul walau sudah dihapus dari daftar di Pengaturan.
+  const cm = companyMode(settings, user);
   const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
@@ -26,6 +28,7 @@ export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }
     title: audit?.title || '', unit: audit?.unit || myUnit, type: audit?.type || settings.audit_types[0] || '',
     lead_id: audit?.lead_id || '', approver_id: audit?.approver_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
     end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '', entity_id: audit?.entity_id || '',
+    company: audit?.company || cm.view || '',
     ...preset,
   }));
   const [error, setError] = useState('');
@@ -39,6 +42,7 @@ export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }
     try {
       const body = { ...f, lead_id: f.lead_id ? Number(f.lead_id) : null, approver_id: f.approver_id ? Number(f.approver_id) : null, template_id: f.template_id ? Number(f.template_id) : undefined, entity_id: f.entity_id ? Number(f.entity_id) : null };
       if (!isNew) delete body.template_id;
+      if (!cm.on) delete body.company;
       const saved = isNew ? await api.post('/audits', body) : await api.patch(`/audits/${audit.id}`, body);
       toast(isNew ? t('Audit dibuat') : t('Audit disimpan'));
       // Tutup dulu, lalu onSaved boleh berpindah halaman tanpa tertimpa.
@@ -63,7 +67,7 @@ export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }
 
   const auditors = (users.data || []).filter((u) => u.active && ['auditor', 'superadmin', 'admin'].includes(u.role));
   // Penyetuju: Manager (akun Manajemen) atau Kepala unit (auditee di unit yang diaudit).
-  const approvers = (users.data || []).filter((u) => u.active && canApproveFor(u, f.unit));
+  const approvers = (users.data || []).filter((u) => u.active && canApproveFor(u, f.unit, cm.on ? f.company : null));
   const approverGone = f.approver_id && audit?.approver_id === Number(f.approver_id) && !approvers.some((u) => u.id === Number(f.approver_id));
   const locked = ['persetujuan', 'disetujui'].includes(audit?.approval);
   // Anggota tim bisa dipilih dari semua pengguna aktif (kecuali akun Infra Admin developer).
@@ -75,6 +79,15 @@ export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }
       <form className="form" onSubmit={submit}>
         <ReqNote />
         <label className="full"><span>{t('Judul audit')} <Req /></span><input id="a-title" required value={f.title} onChange={set('title')} placeholder={t('Audit Pengadaan Barang Semester II')} /></label>
+        {cm.on && (
+          <label className="full"><span>{t('Perusahaan')} <Req /></span>
+            <select id="a-company" required value={f.company} onChange={set('company')} disabled={Boolean(cm.own)}>
+              <option value="">{t('Pilih perusahaan')}</option>
+              {[...new Set([...cm.list, f.company].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {cm.own && <span className="hint">{t('Audit hanya bisa dibuat untuk perusahaan Anda.')}</span>}
+          </label>
+        )}
         <label><span>{t('Unit yang diaudit')} <Req /></span><ComboInput id="a-unit" required options={settings.units} value={f.unit} onChange={set('unit')} readOnly={Boolean(myUnit)} placeholder={t('Divisi Pengadaan')} /><span className="hint">{myUnit ? t('Audit hanya bisa dibuat untuk unit Anda.') : t('Auditee di unit ini bisa melihat temuannya.')}</span></label>
         <label><span>{t('Jenis audit')} <Req /></span><select id="a-type" required value={f.type} onChange={set('type')}><option value="">{t('Pilih jenis')}</option>{types.map((x) => <option key={x} value={x}>{t(x)}</option>)}</select></label>
         <label>{t('Ketua tim')}<select id="a-lead" value={f.lead_id} onChange={set('lead_id')}><option value="">{t('Pilih auditor')}</option>{auditors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>

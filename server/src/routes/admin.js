@@ -13,6 +13,8 @@ import { licenseStatus, parseLicense, clearLicenseCache, countedUsers } from '..
 import { APP_VERSION, changelog } from '../version.js';
 import { sampleStatus, createSample, removeSample } from '../sample.js';
 import { backupStatus, runBackup, backupPath } from '../backup.js';
+import { loadSso, saveSso, publicSso, issuerOf, discover, secureIssuer, PROVIDERS as SSO_PROVIDERS, SSO_ROLES } from '../sso.js';
+import { ssoRedirectUri } from './auth.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
@@ -101,6 +103,24 @@ r.get('/system', requireRole('infraadmin'), async (_req, res) => {
 });
 
 // ---- Penyimpanan file (diatur System Admin, dipantau Infra Admin) ----
+// Login SSO (OpenID Connect) untuk pintu pengguna.
+r.get('/sso', requireRole('admin'), async (req, res) => {
+  res.json({ ...publicSso(await loadSso()), redirect_uri: ssoRedirectUri(req), providers: Object.keys(SSO_PROVIDERS), roles: SSO_ROLES });
+});
+r.put('/sso', requireRole('admin'), async (req, res) => {
+  const saved = await saveSso(req.user, req.body || {});
+  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: ['sso'], enabled: saved.enabled, provider: saved.provider });
+  res.json({ ...publicSso(saved), redirect_uri: ssoRedirectUri(req), providers: Object.keys(SSO_PROVIDERS), roles: SSO_ROLES });
+});
+// Cek apakah alamat penerbit bisa dihubungi dan memberi konfigurasi OpenID yang lengkap.
+r.post('/sso/test', requireRole('admin'), async (req, res) => {
+  const c = { ...(await loadSso()), ...req.body };
+  const issuer = issuerOf(c);
+  if (!secureIssuer(issuer)) throw badRequest('Alamat penerbit (issuer) harus diawali https://.');
+  const doc = await discover(issuer);
+  res.json({ ok: true, issuer: doc.issuer || issuer, authorization_endpoint: doc.authorization_endpoint });
+});
+
 r.get('/storage', requireRole('admin'), async (_req, res) => {
   res.json(await publicStorageConfig());
 });

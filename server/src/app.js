@@ -18,6 +18,8 @@ import aiRoutes from './routes/ai.js';
 import ocrRoutes from './routes/ocr.js';
 import notificationRoutes from './routes/notifications.js';
 import planningRoutes from './routes/planning.js';
+import timesheetRoutes from './routes/timesheets.js';
+import { verify as verifySignature } from './esign.js';
 import { recordError } from './errorlog.js';
 import { APP_VERSION } from './version.js';
 
@@ -48,6 +50,10 @@ export function createApp() {
   });
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, version: APP_VERSION }));
+  // Verifikasi tanda tangan elektronik laporan, terbuka tanpa login (dipakai dari QR di laporan cetak).
+  app.get('/api/verify/:code', async (req, res, next) => {
+    try { res.json(await verifySignature(req.params.code)); } catch (err) { next(err); }
+  });
   app.use('/api/auth', authRoutes);
   app.use('/api', requireAuth);
   app.use('/api/users', userRoutes);
@@ -64,10 +70,16 @@ export function createApp() {
   app.use('/api/ocr', ocrRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/planning', planningRoutes);
+  app.use('/api/timesheets', timesheetRoutes);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Alamat API tidak ditemukan.')));
 
   if (fs.existsSync(webDist)) {
-    app.use(express.static(webDist, { index: false, maxAge: '1h' }));
+    // sw.js (mode offline) selalu diperiksa ulang supaya rilis baru langsung dipakai.
+    app.use(express.static(webDist, {
+      index: false,
+      maxAge: '1h',
+      setHeaders: (res, file) => { if (/[\\/](sw\.js|manifest\.webmanifest)$/.test(file)) res.setHeader('Cache-Control', 'no-cache'); },
+    }));
     app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
   }
 

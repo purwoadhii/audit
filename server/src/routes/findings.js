@@ -113,6 +113,7 @@ async function insertFinding(c, user, auditId, n) {
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [code, n.kind, auditId, n.stepId, n.title, n.risk, n.status, n.due, n.ownerId, n.category, n.rootCause, ...n.texts, user.id],
   );
+  if (n.status === 'Selesai') await c.query('UPDATE findings SET closed_at = NOW(3) WHERE id = ?', [insertId]);
   await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
     [insertId, user.id, n.kind === 'isu' ? 'Isu dicatat' : 'Temuan dicatat', n.status]);
   await logActivity(c, user.id, 'create', 'finding', insertId, { code, title: n.title });
@@ -195,6 +196,7 @@ r.patch('/:id', async (req, res) => {
       await notify(c, [current.owner_id], N_('Status {code} diubah menjadi {status} oleh {user}.'), vars, link, req.user.id);
     }
     if (f.status && f.status !== current.status) {
+      await c.query('UPDATE findings SET closed_at = ? WHERE id = ?', [f.status === 'Selesai' ? new Date() : null, id]);
       await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
         [id, req.user.id, `Status diubah dari ${current.status} ke ${f.status}`, f.status]);
     }

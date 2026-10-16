@@ -28,8 +28,9 @@ let base;
 // portal: 'user' (/), 'sys' (/sysAdmin), atau 'infra' (/infraAdmin), sama seperti header dari browser.
 function client(portal = 'user') {
   let cookie = '';
+  let extra = {};
   const call = async (method, url, body, { raw } = {}) => {
-    const headers = { 'x-requested-with': 'jejak', 'x-portal': portal };
+    const headers = { 'x-requested-with': 'jejak', 'x-portal': portal, ...extra };
     if (cookie) headers.cookie = cookie;
     let payload;
     if (body instanceof FormData) payload = body;
@@ -47,6 +48,8 @@ function client(portal = 'user') {
     patch: (u, b) => call('PATCH', u, b),
     put: (u, b) => call('PUT', u, b),
     del: (u) => call('DELETE', u),
+    // Header tambahan, misalnya perusahaan yang dipilih di bilah atas (x-company).
+    with: (h) => { extra = h; },
   };
 }
 
@@ -821,6 +824,8 @@ test('menambah beberapa temuan dan isu sekaligus, dan jumlahnya per audit', asyn
   assert.equal((await auditee.post('/api/findings/batch', { audit_id: a.id, items })).status, 403);
 });
 
+const year0 = () => new Date().getFullYear();
+
 test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async () => {
   assert.equal((await auditor.post('/api/admin/sample-data', {})).status, 403);
   const made = await admin.post('/api/admin/sample-data', {});
@@ -834,11 +839,22 @@ test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async 
 
   const c = client();
   assert.equal((await c.post('/api/auth/login', { username: 'rina.wulandari', password: made.data.password })).status, 200);
-  const audits = (await c.get('/api/audits')).data.filter((a) => a.title.startsWith('Audit Pengadaan Barang'));
+  const audits = (await c.get('/api/audits')).data.filter((a) => a.title === 'Audit Pengadaan Barang dan Jasa Semester II');
   assert.equal(audits.length, 1);
   assert.equal(audits[0].findings_total, 2);
   assert.equal(audits[0].issues_total, 1);
-  assert.equal(made.data.audits, 7);
+  assert.equal(made.data.audits, 10);
+
+  // Laporan yang sudah disetujui ditandatangani secara elektronik, dan tim audit punya timesheet.
+  const done = (await c.get('/api/audits')).data.find((a) => a.title === 'Audit Persediaan Gudang Pusat');
+  const signed = (await c.get(`/api/audits/${done.id}`)).data.approvals.filter((p) => p.sign_code);
+  assert.equal(signed.length, 2);
+  const check = (await client().get(`/api/verify/${signed[1].sign_code}`)).data;
+  assert.ok(check.valid && check.unchanged && check.has_signature && !check.revoked, JSON.stringify(check));
+  const hours = (await c.get(`/api/timesheets/summary?year=${year0()}`)).data;
+  assert.ok(hours.users.some((u) => u.hours > 100), 'timesheet tim audit terisi');
+  const found = (await c.get('/api/findings')).data.filter((f) => f.status === 'Selesai');
+  assert.ok(found.length >= 6 && found.every((f) => f.category), 'temuan selesai punya kategori');
 
   // Audit universe, penilaian risiko, dan rencana tahun ini ikut terisi dan terhubung ke audit.
   const year = new Date().getFullYear();
@@ -855,7 +871,7 @@ test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async 
   const users = (await admin.get('/api/users')).data;
   assert.ok(!users.some((u) => u.username === 'rina.wulandari'), 'akun data awal terhapus');
   assert.ok(!(await admin.get('/api/settings')).data.values.units.includes('Divisi SDM'), 'unit tambahan ikut dihapus');
-  assert.ok(!(await auditor.get('/api/audits')).data.some((a) => a.title.startsWith('Audit Pengadaan Barang')), 'audit contoh terhapus');
+  assert.ok(!(await auditor.get('/api/audits')).data.some((a) => a.title.startsWith('Audit Pengadaan Barang')), 'audit data awal terhapus');
   assert.ok(!(await auditor.get('/api/planning/entities')).data.some((e) => e.name === 'Gudang pusat'), 'audit universe data awal terhapus');
   assert.ok(!(await auditor.get(`/api/planning/plan?year=${year}`)).data.items.some((i) => i.title.startsWith('Audit Vendor jasa logistik')), 'rencana data awal terhapus');
   assert.equal((await c.get('/api/audits')).status, 401, 'sesi akun contoh ikut berakhir');
@@ -1145,4 +1161,244 @@ test('perencanaan: audit universe, penilaian risiko 5×5, dan rencana tahunan', 
   assert.equal((await auditor.del(`/api/planning/entities/${kas.id}`)).status, 200);
   assert.equal((await auditor.get(`/api/audits/${audit.data.id}`)).data.entity_id, null);
   assert.equal((await auditor.get(`/api/planning/plan?year=${year}`)).data.items.find((x) => x.id === item.data.id).entity_id, null);
+});
+
+test('timesheet: jam harian per audit dan realisasi dibanding anggaran', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const year = Number(today.slice(0, 4));
+  const audit = (await auditor.post('/api/audits', { title: 'Audit Timesheet', unit: 'Divisi Keuangan', type: 'Keuangan' })).data;
+  const opts = (await auditor.get('/api/timesheets/options')).data;
+  assert.ok(opts.audits.some((a) => a.id === audit.id));
+  assert.ok(opts.audit_activities.includes('Pekerjaan lapangan'));
+  assert.equal((await auditee.get('/api/timesheets')).status, 403);
+
+  const add = (b) => auditor.post('/api/timesheets', { work_date: today, ...b });
+  const e1 = await add({ audit_id: audit.id, activity: 'Pekerjaan lapangan', hours: 6.5, note: 'Uji petik kas' });
+  assert.equal(e1.status, 201, JSON.stringify(e1.data));
+  assert.equal(e1.data.hours, 6.5);
+  assert.equal((await add({ activity: 'Pelatihan', hours: 1 })).status, 201);
+  assert.equal((await add({ audit_id: audit.id, activity: 'Pelatihan', hours: 1 })).status, 400, 'kegiatan non-audit tidak boleh dengan audit');
+  assert.equal((await add({ activity: 'Rapat internal', hours: 0.3 })).status, 400, 'kelipatan 15 menit');
+  assert.equal((await add({ activity: 'Lainnya', hours: 17 })).status, 400, 'lebih dari 24 jam sehari');
+  assert.equal((await add({ activity: 'Lainnya', hours: 1, work_date: `${year + 1}-01-05` })).status, 400, 'tanggal yang akan datang');
+  assert.equal((await manager().post('/api/timesheets', { work_date: today, activity: 'Lainnya', hours: 1 })).status, 403);
+
+  const mine = (await auditor.get(`/api/timesheets?from=${today}&to=${today}`)).data.entries;
+  assert.equal(mine.length, 2);
+  assert.equal((await auditor.get('/api/timesheets?user_id=all')).status, 403, 'auditor hanya melihat miliknya');
+  assert.ok((await manager().get(`/api/timesheets?user_id=all&from=${today}&to=${today}`)).data.entries.length >= 2);
+  assert.equal((await other.patch(`/api/timesheets/${e1.data.id}`, { hours: 2 })).status === 200, false, 'tidak bisa mengubah milik orang lain');
+  assert.equal((await auditor.patch(`/api/timesheets/${e1.data.id}`, { hours: 7 })).data.hours, 7);
+
+  const perAudit = (await auditor.get(`/api/timesheets/audit/${audit.id}`)).data;
+  assert.equal(perAudit.actual, 7);
+  assert.equal(perAudit.activities[0].activity, 'Pekerjaan lapangan');
+  const sum = (await manager().get(`/api/timesheets/summary?year=${year}`)).data;
+  const me = sum.users.find((u) => u.audit_hours >= 7);
+  assert.ok(me && me.other_hours >= 1);
+  assert.equal(sum.audits.find((a) => a.id === audit.id).actual, 7);
+  assert.ok(sum.months[Number(today.slice(5, 7)) - 1] >= 8);
+  assert.equal((await auditor.del(`/api/timesheets/${e1.data.id}`)).status, 200);
+});
+
+test('analitik temuan: tren, lama penyelesaian, umur keterlambatan, per unit', async () => {
+  const a = (await auditor.post('/api/audits', { title: 'Audit Analitik', unit: 'Divisi Analitik', type: 'Keuangan' })).data;
+  const mk = (b) => auditor.post('/api/findings', { audit_id: a.id, condition: 'k', criteria: 'k', cause: 'k', effect: 'k', recommendation: 'r', risk: 'Tinggi', ...b });
+  const f1 = (await mk({ title: 'Terlambat lama', due_date: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10) })).data;
+  const f2 = (await mk({ title: 'Ditutup', due_date: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10) })).data;
+  assert.ok(f1.id && f2.id);
+  assert.equal((await auditor.patch(`/api/findings/${f2.id}`, { status: 'Selesai' })).status, 200);
+  const d = (await auditor.get('/api/dashboard/analytics')).data;
+  assert.equal(d.trend.length, 12);
+  assert.ok(d.trend.at(-1).opened >= 2 && d.trend.at(-1).closed >= 1);
+  const high = d.closing.find((x) => x.risk === 'Tinggi');
+  assert.ok(high.closed >= 1 && high.on_time >= 1);
+  assert.ok(d.aging.find((x) => x.bucket === 'd60').n >= 1);
+  const unit = d.units.find((u) => u.unit === 'Divisi Analitik');
+  assert.deepEqual([unit.total, unit.done, unit.overdue, unit.high_open], [2, 1, 1, 1]);
+  assert.equal((await auditee.get('/api/dashboard/analytics')).status, 403);
+});
+
+test('tanda tangan elektronik: tanda tangan tersimpan, kode verifikasi, dan deteksi perubahan isi', async () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  assert.equal((await auditor.put('/api/auth/signature', { signature: 'bukan gambar' })).status, 400);
+  assert.equal((await auditor.put('/api/auth/signature', { signature: png })).status, 200);
+  assert.equal((await auditor.get('/api/auth/signature')).data.signature, png);
+  await manager().put('/api/auth/signature', { signature: png });
+  const me = (await auditor.get('/api/auth/me')).data;
+  const mgr = (await manager().get('/api/auth/me')).data;
+  const a = (await auditor.post('/api/audits', { title: 'Audit Tanda Tangan', unit: 'Divisi Keuangan', type: 'Keuangan', lead_id: me.id, approver_id: mgr.id })).data;
+
+  // Wajib tanda tangan: kata sandi harus dimasukkan saat menandatangani.
+  assert.equal((await admin.patch('/api/settings', { esign_required: true })).status, 200);
+  assert.equal((await auditor.post(`/api/audits/${a.id}/approval`, { action: 'ajukan' })).status, 400, 'tanpa kata sandi');
+  const sent = await auditor.post(`/api/audits/${a.id}/approval`, { action: 'ajukan', password: 'katasandi123' });
+  assert.equal(sent.status, 200, JSON.stringify(sent.data));
+  const approved = await manager().post(`/api/audits/${a.id}/approval`, { action: 'setujui', password: 'katasandi123' });
+  assert.equal(approved.status, 200, JSON.stringify(approved.data));
+  await admin.patch('/api/settings', { esign_required: false });
+
+  const log = (await auditor.get(`/api/audits/${a.id}`)).data.approvals;
+  const signed = log.filter((p) => p.sign_code);
+  assert.equal(signed.length, 2);
+  assert.equal(signed[1].signature, png);
+  const v = await client().get(`/api/verify/${signed[1].sign_code}`);
+  assert.equal(v.status, 200);
+  assert.deepEqual([v.data.valid, v.data.action, v.data.signer, v.data.unchanged, v.data.revoked], [true, 'setujui', 'Direksi', true, null]);
+  assert.equal(v.data.audit.code, a.code);
+  assert.equal((await client().get('/api/verify/AAAA-BBBB-CCCC')).data.valid, false);
+
+  // Laporan dibuka kembali dan diubah: verifikasi menunjukkan isi berbeda dan persetujuan dibatalkan.
+  await manager().post(`/api/audits/${a.id}/approval`, { action: 'kembalikan', note: 'Perbaiki ruang lingkup' });
+  await auditor.patch(`/api/audits/${a.id}`, { scope: 'Ruang lingkup baru' });
+  const v2 = (await client().get(`/api/verify/${signed[1].sign_code}`)).data;
+  assert.equal(v2.unchanged, false);
+  assert.equal(v2.revoked.action, 'kembalikan');
+});
+
+test('login SSO (OpenID Connect): akun dicocokkan dengan email, domain dibatasi', async () => {
+  const http = await import('node:http');
+  // Penyedia OIDC tiruan: discovery dan token endpoint. id_token berisi email yang diatur tes.
+  let next = {};
+  let lastNonce = '';
+  const idp = http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://x');
+    const iss = `http://127.0.0.1:${idp.address().port}`;
+    res.setHeader('content-type', 'application/json');
+    if (url.pathname === '/.well-known/openid-configuration') {
+      return res.end(JSON.stringify({ issuer: iss, authorization_endpoint: `${iss}/authorize`, token_endpoint: `${iss}/token` }));
+    }
+    if (url.pathname === '/token') {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        const p = new URLSearchParams(body);
+        if (p.get('client_secret') !== 'rahasia' || !p.get('code_verifier')) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'invalid_client' })); }
+        const claims = { iss, aud: 'audit-app', exp: Math.floor(Date.now() / 1000) + 300, nonce: lastNonce, email_verified: true, ...next };
+        const b = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+        res.end(JSON.stringify({ id_token: `${b({ alg: 'none' })}.${b(claims)}.`, access_token: 'x' }));
+      });
+      return undefined;
+    }
+    res.statusCode = 404;
+    return res.end('{}');
+  }).listen(0);
+  const issuer = `http://127.0.0.1:${idp.address().port}`;
+  try {
+    assert.equal((await client().get('/api/auth/sso')).data.enabled, false);
+    const bad = await admin.put('/api/admin/sso', { enabled: true, provider: 'oidc', issuer, client_id: 'audit-app' });
+    assert.equal(bad.status, 400, 'client secret wajib');
+    const saved = await admin.put('/api/admin/sso', { enabled: true, provider: 'oidc', issuer, client_id: 'audit-app', client_secret: 'rahasia', domains: 'contoh.id', button_label: 'Akun Kantor' });
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    assert.equal(saved.data.has_secret, true);
+    assert.equal(saved.data.secret, undefined, 'secret tidak dikirim ke browser');
+    assert.match(saved.data.redirect_uri, /\/api\/auth\/sso\/callback$/);
+    assert.equal((await admin.post('/api/admin/sso/test', {})).data.ok, true);
+    assert.deepEqual((await client().get('/api/auth/sso')).data, { enabled: true, label: 'Akun Kantor', provider: 'oidc', password_login: true });
+
+    const sso = async (email) => {
+      next = { email, name: 'Dari SSO' };
+      const start = await fetch(`${base}/api/auth/sso/start?remember=1`, { redirect: 'manual' });
+      assert.equal(start.status, 302);
+      const to = new URL(start.headers.get('location'));
+      assert.equal(to.origin, issuer);
+      assert.equal(to.searchParams.get('code_challenge_method'), 'S256');
+      lastNonce = to.searchParams.get('nonce');
+      const flowCookie = start.headers.get('set-cookie').split(';')[0];
+      const back = await fetch(`${base}/api/auth/sso/callback?code=abc&state=${to.searchParams.get('state')}`, { redirect: 'manual', headers: { cookie: flowCookie } });
+      const session = (back.headers.getSetCookie?.() || []).find((c) => c.startsWith('jejak_session='));
+      return { location: back.headers.get('location'), session: session && session.split(';')[0] };
+    };
+    const ok = await sso('budi@contoh.id');
+    assert.equal(ok.location, '/');
+    const me = await fetch(`${base}/api/auth/me`, { headers: { cookie: ok.session, 'x-portal': 'user' } }).then((r) => r.json());
+    assert.equal(me.username, 'budi');
+
+    const unknown = await sso('belum.ada@contoh.id');
+    assert.match(unknown.location, /sso_error=/);
+    assert.equal(unknown.session, undefined);
+    assert.match(new URL((await sso('budi@lain.com')).location, base).searchParams.get('sso_error'), /bukan domain/);
+    // Tanpa cookie alur (state tidak cocok) ditolak.
+    const forged = await fetch(`${base}/api/auth/sso/callback?code=abc&state=palsu`, { redirect: 'manual' });
+    assert.match(forged.headers.get('location'), /sso_error=/);
+
+    // Pembuatan akun otomatis untuk domain yang diizinkan.
+    await admin.put('/api/admin/sso', { enabled: true, provider: 'oidc', issuer, client_id: 'audit-app', domains: 'contoh.id', auto_create: true, default_role: 'auditor' });
+    const created = await sso('karyawan.baru@contoh.id');
+    assert.equal(created.location, '/');
+    assert.ok((await admin.get('/api/users')).data.some((u) => u.email === 'karyawan.baru@contoh.id' && u.role === 'auditor'));
+
+    // Login kata sandi bisa dimatikan untuk pintu pengguna saat SSO aktif.
+    await admin.put('/api/admin/sso', { enabled: true, provider: 'oidc', issuer, client_id: 'audit-app', domains: 'contoh.id', password_login: false });
+    assert.equal((await client().post('/api/auth/login', { username: 'budi', password: 'katasandi123' })).status, 403);
+  } finally {
+    await admin.put('/api/admin/sso', { enabled: false });
+    idp.close();
+  }
+  assert.equal((await client().post('/api/auth/login', { username: 'budi', password: 'katasandi123' })).status, 200);
+});
+
+test('multi-entitas: audit per perusahaan, pengguna anak usaha hanya melihat perusahaannya', async () => {
+  const mk = async (username, role, unit, company) => {
+    const r = await admin.post('/api/users', { name: username, username, email: `${username}@contoh.id`, role, unit, company, password: 'katasandi123' });
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    const c = client();
+    assert.equal((await c.post('/api/auth/login', { username, password: 'katasandi123' })).status, 200);
+    return { c, id: r.data.id };
+  };
+  assert.equal((await admin.post('/api/users', { name: 'x', username: 'xx.yy', email: 'xx@contoh.id', role: 'auditor', company: 'PT Tidak Ada', password: 'katasandi123' })).status, 400,
+    'perusahaan harus dari daftar');
+  assert.equal((await admin.patch('/api/settings', { multi_entity: true, companies: ['PT Induk', 'PT Anak Satu', 'PT Anak Dua'] })).status, 200);
+  const anak = await mk('auditor.anak', 'auditor', null, 'PT Anak Satu');
+  const kepalaAnak = await mk('kepala.anak', 'auditee', 'Keuangan', 'PT Anak Satu');
+  const kepalaDua = await mk('kepala.dua', 'auditee', 'Keuangan', 'PT Anak Dua');
+  try {
+    const base = { title: 'Audit Kas Anak Usaha', unit: 'Keuangan', type: 'Keuangan' };
+    assert.equal((await auditor.post('/api/audits', base)).status, 400, 'perusahaan wajib diisi');
+    assert.equal((await auditor.post('/api/audits', { ...base, company: 'PT Lain' })).status, 400);
+    assert.equal((await auditor.post('/api/audits', { ...base, company: 'PT Anak Satu', approver_id: kepalaDua.id })).status, 400, 'penyetuju beda perusahaan');
+    const satu = (await auditor.post('/api/audits', { ...base, company: 'PT Anak Satu', approver_id: kepalaAnak.id })).data;
+    assert.equal(satu.company, 'PT Anak Satu');
+    const dua = (await auditor.post('/api/audits', { ...base, title: 'Audit Kas Anak Dua', company: 'PT Anak Dua' })).data;
+    assert.equal(dua.company, 'PT Anak Dua');
+
+    // Auditor anak usaha: audit baru otomatis di perusahaannya, tidak bisa memakai perusahaan lain, tidak melihat PT Anak Dua.
+    const own = await anak.c.post('/api/audits', { ...base, title: 'Audit Persediaan Anak' });
+    assert.equal(own.status, 201, JSON.stringify(own.data));
+    assert.equal(own.data.company, 'PT Anak Satu');
+    assert.equal((await anak.c.post('/api/audits', { ...base, company: 'PT Anak Dua' })).status, 400);
+    const seen = (await anak.c.get('/api/audits')).data.map((a) => a.id);
+    assert.ok(seen.includes(satu.id) && !seen.includes(dua.id));
+    assert.equal((await anak.c.get(`/api/audits/${dua.id}`)).status, 404);
+    // Auditee dengan nama unit yang sama di perusahaan lain tidak melihat audit itu.
+    const kepalaSeen = (await kepalaDua.c.get('/api/audits')).data.map((a) => a.id);
+    assert.ok(kepalaSeen.includes(dua.id) && !kepalaSeen.includes(satu.id));
+
+    // Auditor induk melihat semua, dan bisa menyaring per perusahaan lewat bilah atas.
+    const view = client();
+    assert.equal((await view.post('/api/auth/login', { username: 'radipta', password: 'katasandi123' })).status, 200);
+    view.with({ 'x-company': encodeURIComponent('PT Anak Dua') });
+    const filtered = (await view.get('/api/audits')).data;
+    assert.ok(filtered.length && filtered.every((a) => a.company === 'PT Anak Dua'));
+    const created = (await view.post('/api/audits', { ...base, title: 'Audit dari tampilan Anak Dua' })).data;
+    assert.equal(created.company, 'PT Anak Dua', 'ikut perusahaan yang sedang dilihat');
+    assert.ok((await auditor.get('/api/audits')).data.some((a) => a.id === dua.id));
+
+    // Area audit dan rencana ikut tersaring.
+    const ent = (await view.post('/api/planning/entities', { name: 'Kas kecil Anak Dua', kind: 'Proses bisnis' })).data;
+    assert.equal(ent.company, 'PT Anak Dua');
+    assert.ok(!(await anak.c.get('/api/planning/entities')).data.some((e) => e.id === ent.id));
+    const year = new Date().getFullYear();
+    const item = (await view.post('/api/planning/plan', { year, entity_id: ent.id, title: 'Audit kas kecil', unit: 'Keuangan', type: 'Keuangan', quarter: 2 })).data;
+    assert.equal(item.company, 'PT Anak Dua');
+    assert.ok(!(await anak.c.get(`/api/planning/plan?year=${year}`)).data.items.some((i) => i.id === item.id));
+    assert.equal((await auditor.get('/api/auth/me')).data.company, null);
+    for (const a of [satu, dua, own.data, created]) await auditor.del(`/api/audits/${a.id}`);
+    await auditor.del(`/api/planning/plan/${item.id}`);
+    await auditor.del(`/api/planning/entities/${ent.id}`);
+  } finally {
+    await admin.patch('/api/settings', { multi_entity: false, companies: [] });
+  }
+  // Fitur dimatikan: perusahaan pengguna tidak membatasi apa pun.
+  assert.equal((await anak.c.get(`/api/audits`)).status, 200);
 });

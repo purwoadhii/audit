@@ -4,6 +4,8 @@ import { useAuth } from '../auth.jsx';
 import { ROLES, LOGIN_REASON, device, fmtDateTime } from '../util.js';
 import { useLoad, useToast } from '../components/ui.jsx';
 import { t } from '../i18n.jsx';
+import SignaturePad from '../components/SignaturePad.jsx';
+import { PORTAL } from '../portal.js';
 
 export default function Account() {
   const { user } = useAuth();
@@ -42,6 +44,7 @@ export default function Account() {
         <div className="form-foot full"><button className="btn primary">{t('Simpan kata sandi')}</button></div>
       </form>
     </div>
+    {PORTAL === 'user' && <div style={{ marginTop: 16 }}><SignaturePad /></div>}
     <div className="bar" style={{ marginTop: 20 }}><h2>{t('Riwayat login saya')}</h2><span className="t-sub">{t('20 terakhir. Laporkan ke admin bila ada yang tidak Anda kenali.')}</span></div>
     {logins.data?.length ? (
       <div className="tablebox"><table>

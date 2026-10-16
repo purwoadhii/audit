@@ -53,9 +53,11 @@ export async function exportExcel(base, sheets) {
   download(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}-${today()}.xlsx`);
 }
 
-export const auditColumns = () => [
+// withCompany: kolom perusahaan untuk multi-entitas.
+export const auditColumns = (withCompany = false) => [
   { header: t('No.'), key: 'code', width: 15 },
   { header: t('Judul audit'), key: 'title', width: 40, wrap: true },
+  ...(withCompany ? [{ header: t('Perusahaan'), key: 'company', width: 26 }] : []),
   { header: t('Unit'), key: 'unit', width: 24 },
   { header: t('Jenis audit'), key: 'type', width: 18 },
   { header: t('Ketua tim'), key: 'lead_name', width: 20 },
@@ -72,7 +74,7 @@ export const auditColumns = () => [
 ];
 
 export const auditRow = (a) => ({
-  ...a, type: t(a.type), status: t(a.status), lead_name: a.lead_name || '',
+  ...a, company: a.company || '', type: t(a.type), status: t(a.status), lead_name: a.lead_name || '',
   members: [...(a.members || []).map((m) => m.name), a.team].filter(Boolean).join(', '),
 });
 
@@ -146,15 +148,37 @@ export async function exportAuditDocx(a) {
     ]),
   ]);
   const signs = approvalSigns(a);
-  const sign = ({ title, name, note }) => new TableCell({
-    width: { size: 50, type: WidthType.PERCENTAGE },
-    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-    children: [
-      new Paragraph({ text: t(title), alignment: AlignmentType.CENTER, spacing: { after: note ? 300 : 1100 } }),
-      ...(note ? [new Paragraph({ children: [new TextRun({ text: `✓ ${note}`, color: '2C7643', bold: true })], alignment: AlignmentType.CENTER, spacing: { after: 500 } })] : []),
-      new Paragraph({ text: name ? `( ${name} )` : '( .............................. )', alignment: AlignmentType.CENTER }),
-    ],
-  });
+  // Gambar tanda tangan dan QR verifikasi untuk tanda tangan elektronik.
+  const { default: QRCode } = await import('qrcode');
+  const { verifyUrl } = await import('./components/SignBlock.jsx');
+  const art = {};
+  for (const g of [signs.lead, signs.approver]) {
+    const e = g.entry;
+    art[g.title] = {
+      sig: e?.signature ? await imageOf(e.signature, 150, 60) : null,
+      qr: e?.sign_code ? await imageOf(await QRCode.toDataURL(verifyUrl(e.sign_code), { margin: 0, width: 160 }), 56, 56) : null,
+      code: e?.sign_code,
+    };
+  }
+  const img = (x) => new d.ImageRun({ type: x.type, data: x.data, transformation: { width: x.w, height: x.h } });
+  const sign = ({ title, name, note }) => {
+    const { sig, qr, code } = art[title];
+    return new TableCell({
+      width: { size: 50, type: WidthType.PERCENTAGE },
+      borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+      children: [
+        new Paragraph({ text: t(title), alignment: AlignmentType.CENTER, spacing: { after: sig ? 80 : note ? 300 : 1100 } }),
+        ...(sig ? [new Paragraph({ children: [img(sig)], alignment: AlignmentType.CENTER })] : []),
+        ...(note ? [new Paragraph({ children: [new TextRun({ text: sig ? note : `✓ ${note}`, color: sig ? '666666' : '2C7643', bold: !sig, size: sig ? 18 : undefined })], alignment: AlignmentType.CENTER, spacing: { after: sig ? 80 : 500 } })] : []),
+        new Paragraph({ text: name ? `( ${name} )` : '( .............................. )', alignment: AlignmentType.CENTER }),
+        ...(code ? [
+          new Paragraph({ children: [img(qr)], alignment: AlignmentType.CENTER, spacing: { before: 120 } }),
+          new Paragraph({ children: [new TextRun({ text: `${t('Ditandatangani secara elektronik')} · ${t('Kode verifikasi')}: ${code}`, size: 15, color: '666666' })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: verifyUrl(code), size: 15, color: '666666' })], alignment: AlignmentType.CENTER }),
+        ] : []),
+      ],
+    });
+  };
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Calibri', size: 21 } } } },
@@ -165,6 +189,7 @@ export async function exportAuditDocx(a) {
         p(t('Dicetak {date}', { date: fmtDate(new Date().toISOString()) }), { color: '666666', size: 18 }),
         h(t('Informasi audit')),
         kv([
+          ...(a.company ? [[t('Perusahaan'), a.company]] : []),
           [t('Auditee'), a.unit],
           [t('Jenis audit'), t(a.type)],
           [t('Ketua tim'), a.lead_name || '—'],
@@ -198,4 +223,20 @@ export async function exportAuditDocx(a) {
     }],
   });
   download(await Packer.toBlob(doc), `laporan-${a.code}.docx`);
+}
+
+// Data URL gambar menjadi isi biner dan ukuran tampil yang muat dalam kotak maxW × maxH (piksel).
+async function imageOf(dataUrl, maxW, maxH) {
+  const type = dataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
+  const bin = atob(dataUrl.split(',')[1]);
+  const data = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+  const { width, height } = await new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => resolve({ width: im.naturalWidth || maxW, height: im.naturalHeight || maxH });
+    im.onerror = () => resolve({ width: maxW, height: maxH });
+    im.src = dataUrl;
+  });
+  const k = Math.min(maxW / width, maxH / height, 1.5);
+  return { type, data, w: Math.round(width * k), h: Math.round(height * k) };
 }

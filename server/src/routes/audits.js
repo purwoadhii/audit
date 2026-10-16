@@ -4,17 +4,19 @@ import { requireRole, canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId, N_ } from '../errors.js';
 import { AUDIT_STATUS, STEP_RESULTS } from '../constants.js';
 import { getSettings } from '../settings.js';
-import { auditScope, findingScope, sameUnit, seesAllUnits, canApproveFor } from '../access.js';
+import { auditScope, findingScope, sameUnit, seesAllUnits, canApproveFor, ownCompany } from '../access.js';
 import { notify, auditTeam } from '../notify.js';
 import { nextCode } from '../codes.js';
 import { removeFilesOf, ATTACHMENT_COLS } from '../files.js';
 import { parseTemplate } from './templates.js';
+import { signApproval } from '../esign.js';
+import bcrypt from 'bcryptjs';
 
 const r = Router();
 const editors = requireRole('admin', 'superadmin', 'auditor');
 
 const LIST_SQL = `
-  SELECT a.id, a.code, a.title, a.unit, a.type, a.lead_id, u.name AS lead_name, a.team,
+  SELECT a.id, a.code, a.title, a.unit, a.company, a.type, a.lead_id, u.name AS lead_name, a.team,
          a.start_date, a.end_date, a.status, a.scope, a.created_by, a.created_at, a.updated_at,
          a.approver_id, ap.name AS approver_name, ap.role AS approver_role, a.approval,
          a.entity_id, en.name AS entity_name, (SELECT p.id FROM plan_items p WHERE p.audit_id = a.id LIMIT 1) AS plan_item_id,
@@ -49,6 +51,7 @@ function auditFields(b, partial, types) {
   if (has('lead_id')) out.lead_id = b.lead_id ? intId(b.lead_id) : null;
   if (has('approver_id')) out.approver_id = b.approver_id ? intId(b.approver_id) : null;
   if (has('entity_id')) out.entity_id = b.entity_id ? intId(b.entity_id) : null;
+  if (has('company')) out.company = String(b.company || '').trim() || null;
   if (has('team')) out.team = String(b.team || '').trim() || null;
   if (has('scope')) out.scope = String(b.scope || '').trim() || null;
   if (has('start_date')) out.start_date = dateOrNull(b.start_date, 'Tanggal mulai');
@@ -81,12 +84,28 @@ async function memberIds(value) {
 }
 
 // Penyetuju harus akun aktif: Manajemen, atau auditee di unit yang diaudit.
-async function checkApprover(id, unit) {
+async function checkApprover(id, unit, company = null) {
   if (!id) return;
-  const { rows } = await query('SELECT id, role, unit, active FROM users WHERE id = ?', [id]);
+  const { rows } = await query('SELECT id, role, unit, company, active FROM users WHERE id = ?', [id]);
   if (!rows[0] || !Number(rows[0].active) || !canApproveFor(rows[0], unit)) {
     throw badRequest('Penyetuju harus akun Manajemen atau kepala unit yang diaudit.');
   }
+  if (!canApproveFor(rows[0], unit, company)) throw badRequest('Penyetuju harus dari perusahaan yang sama dengan audit ({name}).', { name: company });
+}
+
+// Multi-entitas: perusahaan audit harus dari daftar, wajib diisi bila daftarnya ada,
+// dan pengguna yang terikat perusahaan hanya bisa memakai perusahaannya sendiri.
+function checkCompany(user, settings, company) {
+  if (!settings.multi_entity) return null;
+  const c = company ?? null;
+  if (!c) {
+    if (settings.companies.length) throw badRequest('{label} wajib diisi.', { label: 'Perusahaan' });
+    return null;
+  }
+  if (!settings.companies.includes(c)) throw badRequest('Perusahaan {name} tidak ada di daftar perusahaan.', { name: c });
+  const own = ownCompany(user);
+  if (own && own !== c) throw badRequest('Anda hanya bisa memakai perusahaan Anda sendiri ({name}) untuk audit.', { name: own });
+  return c;
 }
 
 async function checkEntity(id) {
@@ -125,9 +144,9 @@ r.get('/', async (req, res) => {
 });
 
 r.post('/', editors, async (req, res) => {
-  const f = auditFields(req.body || {}, false, (await getSettings()).audit_types);
+  const settings = await getSettings();
+  const f = auditFields(req.body || {}, false, settings.audit_types);
   assertOwnUnit(req.user, f.unit);
-  await checkApprover(f.approver_id, f.unit);
   await checkEntity(f.entity_id);
   if (f.status === 'Selesai' && (await getSettings()).approval_required) throw badRequest('Audit baru bisa Selesai setelah laporannya disetujui.');
   const templateId = req.body?.template_id ? intId(req.body.template_id) : null;
@@ -139,14 +158,18 @@ r.post('/', editors, async (req, res) => {
     if (item.audit_id) throw badRequest('Rencana ini sudah punya audit.');
     if (Number(item.cancelled)) throw badRequest('Rencana ini sudah dibatalkan.');
     if (f.entity_id === undefined) f.entity_id = item.entity_id;
+    if (f.company === undefined) f.company = item.company;
   }
+  // Tanpa pilihan, audit baru memakai perusahaan pengguna atau perusahaan yang sedang dipilih di bilah atas.
+  f.company = checkCompany(req.user, settings, f.company ?? ownCompany(req.user) ?? req.user.view_company);
+  await checkApprover(f.approver_id, f.unit, f.company);
   const members = await memberIds(req.body?.member_ids);
   const id = await tx(async (c) => {
     const code = await nextCode(c, 'AUD');
     const { insertId } = await c.query(
-      `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, entity_id, team, scope, start_date, end_date, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [code, f.title, f.unit, f.type, f.status || 'Perencanaan', f.lead_id ?? null, f.approver_id ?? null, f.entity_id ?? null, f.team ?? null, f.scope ?? null,
+      `INSERT INTO audits (code, title, unit, company, type, status, lead_id, approver_id, entity_id, team, scope, start_date, end_date, created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [code, f.title, f.unit, f.company, f.type, f.status || 'Perencanaan', f.lead_id ?? null, f.approver_id ?? null, f.entity_id ?? null, f.team ?? null, f.scope ?? null,
         f.start_date ?? null, f.end_date ?? null, req.user.id],
     );
     if (planItemId) await c.query('UPDATE plan_items SET audit_id = ? WHERE id = ? AND audit_id IS NULL', [insertId, planItemId]);
@@ -181,7 +204,7 @@ r.get('/:id', async (req, res) => {
     `SELECT ${ATTACHMENT_COLS} FROM attachments t LEFT JOIN users u ON u.id = t.uploaded_by
      WHERE t.audit_id = ? AND t.finding_id IS NULL AND t.superseded_by IS NULL ORDER BY COALESCE(t.root_id, t.id)`, [id])).rows;
   const approvals = (await query(
-    `SELECT p.id, p.action, p.note, p.created_at, u.name AS user_name FROM audit_approvals p
+    `SELECT p.id, p.user_id, p.action, p.note, p.created_at, p.sign_code, p.signature, u.name AS user_name FROM audit_approvals p
      LEFT JOIN users u ON u.id = p.user_id WHERE p.audit_id = ? ORDER BY p.id`, [id])).rows;
   res.json({ ...audit, steps, findings, attachments, approvals });
 });
@@ -191,15 +214,22 @@ r.patch('/:id', editors, async (req, res) => {
   const cur = await loadAudit(req.user, id);
   const f = auditFields(req.body || {}, true, [...(await getSettings()).audit_types, cur.type]);
   if (f.unit !== undefined && !sameUnit({ unit: cur.unit }, f.unit)) assertOwnUnit(req.user, f.unit);
+  const settings = await getSettings();
+  if (f.company !== undefined) {
+    if (!settings.multi_entity) delete f.company;
+    else if (f.company !== cur.company) f.company = checkCompany(req.user, settings, f.company);
+  }
   const members = await memberIds(req.body?.member_ids);
   const keys = Object.keys(f);
   if (!keys.length && members === undefined) throw badRequest('Tidak ada perubahan.');
-  if (f.approver_id !== undefined || f.unit !== undefined) {
+  if (f.approver_id !== undefined || f.unit !== undefined || f.company !== undefined) {
     const approver = f.approver_id !== undefined ? f.approver_id : cur.approver_id;
-    if (approver !== cur.approver_id || !sameUnit({ unit: cur.unit }, f.unit ?? cur.unit)) await checkApprover(approver, f.unit ?? cur.unit);
+    const company = f.company !== undefined ? f.company : cur.company;
+    if (approver !== cur.approver_id || !sameUnit({ unit: cur.unit }, f.unit ?? cur.unit) || company !== cur.company) {
+      await checkApprover(approver, f.unit ?? cur.unit, settings.multi_entity ? company : null);
+    }
   }
   await checkEntity(f.entity_id);
-  const settings = await getSettings();
   if (f.status === 'Selesai' && cur.status !== 'Selesai' && settings.approval_required && cur.approval !== 'disetujui') {
     throw badRequest('Audit baru bisa Selesai setelah laporannya disetujui.');
   }
@@ -381,9 +411,20 @@ r.post('/:id/approval', async (req, res) => {
     next = null;
   }
 
+  // Ketua tim menandatangani saat meneruskan ke penyetuju, penyetuju saat menyetujui.
+  const signs = next === 'persetujuan' || next === 'disetujui';
+  if (signs && settings.esign_required) {
+    const { rows: [u] } = await query('SELECT signature, password_hash FROM users WHERE id = ?', [me.id]);
+    if (!u?.signature) throw badRequest('Buat tanda tangan Anda dulu di halaman Akun saya.');
+    if (!req.body?.password || !(await bcrypt.compare(String(req.body.password), u.password_hash || ''))) {
+      throw badRequest('Masukkan kata sandi Anda dengan benar untuk menandatangani.');
+    }
+  }
+
   await tx(async (c) => {
     await c.query(`UPDATE audits SET approval = ?${status ? ', status = ?' : ''}, updated_at = NOW(3) WHERE id = ?`, status ? [next, status, id] : [next, id]);
-    await c.query('INSERT INTO audit_approvals (audit_id, user_id, action, note) VALUES (?,?,?,?)', [id, me.id, action, note]);
+    const { insertId } = await c.query('INSERT INTO audit_approvals (audit_id, user_id, action, note) VALUES (?,?,?,?)', [id, me.id, action, note]);
+    if (signs) await signApproval(c, insertId, id, me);
     await logActivity(c, me.id, action, 'approval', id, { code: audit.code, title: audit.title, note, changes: { approval: [state, next] } });
     if (next === 'review') await notify(c, [audit.lead_id], N_('{user} mengajukan laporan audit {code} untuk direview.'), vars, link, me.id);
     if (next === 'persetujuan') await notify(c, [audit.approver_id], N_('Laporan audit {code} menunggu persetujuan Anda.'), vars, link, me.id);

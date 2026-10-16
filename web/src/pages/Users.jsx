@@ -25,6 +25,7 @@ export default function Users() {
   const { user: me } = useAuth();
   const { settings } = useSettings();
   const infra = me.role === 'infraadmin';
+  const multi = !infra && settings.multi_entity && settings.companies.length > 0;
   // "Semua unit" hanya bermakna bila audit dibatasi per unit; Super User selalu melihat semua.
   const allUnits = (u) => u.role === 'superadmin' || (settings.unit_scope && ['auditor', 'manajemen'].includes(u.role) && !u.unit);
   const canOpen = () => true;
@@ -35,7 +36,7 @@ export default function Users() {
     return (data || []).filter((u) =>
       (!filter.role || u.role === filter.role) &&
       (!filter.status || (filter.status === 'aktif') === Boolean(u.active)) &&
-      (!q || `${u.name} ${u.username || ''} ${u.email} ${u.unit || ''}`.toLowerCase().includes(q)));
+      (!q || `${u.name} ${u.username || ''} ${u.email} ${u.unit || ''} ${u.company || ''}`.toLowerCase().includes(q)));
   }, [data, filter]);
   const paged = usePaged(rows, JSON.stringify(filter));
   if (loading && !data) return <Loading />;
@@ -56,16 +57,17 @@ export default function Users() {
       </div>
       <div className="tablebox">
         <table>
-          <thead><tr><th>{t('Nama')}</th><th>{t('Username')}</th><th>{t('Email')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th><th>{t('Login terakhir')}</th><th>{t('Status')}</th></tr></thead>
+          <thead><tr><th>{t('Nama')}</th><th>{t('Username')}</th><th>{t('Email')}</th><th>{t('Peran')}</th><th>{t('Unit')}</th>{multi && <th>{t('Perusahaan')}</th>}<th>{t('Login terakhir')}</th><th>{t('Status')}</th></tr></thead>
           <tbody>
             {paged.rows.map((u) => (
               <tr key={u.id} className={canOpen(u) ? 'click' : ''} onClick={() => canOpen(u) && setEditing(u)}>
                 <td className="t-title">{u.name}</td><td>{u.username || '—'}</td><td>{u.email}</td><td>{ROLES[u.role]}</td><td>{allUnits(u) ? <span className="t-sub">{t('Semua unit')}</span> : u.unit || '—'}</td>
+                {multi && <td>{u.company || (['auditor', 'auditee', 'manajemen'].includes(u.role) ? <span className="t-sub">{t('Semua perusahaan')}</span> : '—')}</td>}
                 <td className="num t-sub">{u.last_login_at ? fmtDateTime(u.last_login_at) : t('Belum pernah')}</td>
                 <td>{u.active ? <span className="pill s-Selesai">{t('Aktif')}</span> : <span className="pill">{t('Nonaktif')}</span>}</td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={7}><Empty small>{t('Tidak ada akun yang cocok dengan filter.')}</Empty></td></tr>}
+            {!rows.length && <tr><td colSpan={multi ? 8 : 7}><Empty small>{t('Tidak ada akun yang cocok dengan filter.')}</Empty></td></tr>}
           </tbody>
         </table>
       </div>
@@ -81,7 +83,8 @@ function UserForm({ user, onClose, onSaved }) {
   const isNew = !user;
   const { settings } = useSettings();
   const roleOptions = Object.entries(ROLES).filter(([k]) => managedRoles(me).includes(k));
-  const [f, setF] = useState({ name: user?.name || '', username: user?.username || '', email: user?.email || '', role: user?.role || managedRoles(me)[0], unit: user?.unit || '', password: '', active: user?.active ?? true });
+  const multi = me.role === 'admin' && settings.multi_entity && settings.companies.length > 0;
+  const [f, setF] = useState({ name: user?.name || '', username: user?.username || '', email: user?.email || '', role: user?.role || managedRoles(me)[0], unit: user?.unit || '', company: user?.company || '', password: '', active: user?.active ?? true });
   const [error, setError] = useState('');
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
@@ -89,9 +92,11 @@ function UserForm({ user, onClose, onSaved }) {
     e.preventDefault();
     setError('');
     try {
-      if (isNew) await api.post('/users', f);
+      const { company, ...plain } = f;
+      const body = multi ? f : plain;
+      if (isNew) await api.post('/users', body);
       else {
-        const { email, password, ...rest } = f;
+        const { email, password, ...rest } = body;
         await api.patch(`/users/${user.id}`, password ? { ...rest, password } : rest);
       }
       toast(isNew ? t('Akun ditambahkan') : t('Akun disimpan'));
@@ -122,6 +127,15 @@ function UserForm({ user, onClose, onSaved }) {
         <label><span>{t('Username')} <Req /></span><input id="u-username" required pattern="[a-z0-9._\-]{3,60}" autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value.toLowerCase() })} placeholder="budi.santoso" /><span className="hint">{t('Dipakai untuk masuk. Huruf kecil, angka, titik, minus, garis bawah.')}</span></label>
         <label><span>{t('Email')} <Req /></span><input id="u-email" type="email" required disabled={!isNew} value={f.email} onChange={set('email')} /></label>
         <label><span>{t('Peran')} <Req /></span><select id="u-role" value={f.role} onChange={set('role')}>{roleOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><span className="hint">{t(ROLE_HINT[f.role])}</span></label>
+        {multi && f.role !== 'superadmin' && (
+          <label>{t('Perusahaan')}
+            <select id="u-company" value={f.company} onChange={set('company')}>
+              <option value="">{t('Semua perusahaan (induk)')}</option>
+              {[...new Set([...settings.companies, f.company].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <span className="hint">{t('Pengguna yang diberi perusahaan hanya melihat audit perusahaan itu.')}</span>
+          </label>
+        )}
         {managedRoles(me).includes('auditee') && <label><span>{t('Unit')} {f.role === 'auditee' && <Req />}</span><ComboInput id="u-unit" required={f.role === 'auditee'} options={settings.units} value={f.unit} onChange={set('unit')} placeholder={t('Divisi Pengadaan')} /><span className="hint">{settings.unit_scope ? t('Wajib untuk auditee. Pengguna dengan unit hanya melihat audit unitnya. Kosongkan supaya bisa melihat audit semua unit.') : t('Wajib untuk auditee. Auditee hanya melihat temuan untuk unitnya.')}</span></label>}
         <label className="full"><span>{isNew ? <>{t('Kata sandi awal')} <Req /></> : t('Atur ulang kata sandi')}</span><input id="u-pass" type="password" autoComplete="new-password" minLength={8} required={isNew} value={f.password} onChange={set('password')} placeholder={isNew ? t('Minimal 8 karakter') : t('Kosongkan bila tidak diubah')} /></label>
         {!isNew && user.id !== me.id && (

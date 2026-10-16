@@ -34,7 +34,7 @@ export default function Logins() {
                 <td className="num t-sub">{fmtDateTime(l.created_at)}</td>
                 <td>{l.user_name ? <>{l.user_name}<div className="t-sub">{ROLES[l.role]}</div></> : '—'}</td>
                 <td className="code">{l.login}</td>
-                <td>{l.success ? <span className="ok-text">{t('Berhasil')}</span> : <span className="bad-text">{LOGIN_REASON[l.reason] || t('Gagal')}</span>}</td>
+                <td>{l.success ? <span className="ok-text">{l.reason === 'sso' ? t('Berhasil lewat SSO') : t('Berhasil')}</span> : <span className="bad-text">{LOGIN_REASON[l.reason] || t('Gagal')}</span>}</td>
                 <td className="code">{l.ip || '—'}</td>
                 <td title={l.user_agent || ''}>{device(l.user_agent)}</td>
               </tr>

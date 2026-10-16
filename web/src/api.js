@@ -1,5 +1,6 @@
 import { PORTAL } from './portal.js';
 import { t, tServer } from './i18n.jsx';
+import { getCompany } from './company.js';
 
 // Pembungkus fetch untuk API. Sesi disimpan di cookie httpOnly oleh server, satu cookie per pintu masuk.
 export class ApiError extends Error {
@@ -14,6 +15,8 @@ export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 
 async function request(method, url, body) {
   const headers = { 'x-requested-with': 'jejak', 'x-portal': PORTAL };
+  const company = PORTAL === 'user' ? getCompany() : '';
+  if (company) headers['x-company'] = encodeURIComponent(company);
   let payload;
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) {
@@ -24,8 +27,11 @@ async function request(method, url, body) {
   try {
     res = await fetch(`/api${url}`, { method, headers, body: payload, credentials: 'same-origin' });
   } catch {
+    window.dispatchEvent(new CustomEvent('jejak-connection', { detail: { offline: true } }));
     throw new ApiError(0, t('Tidak bisa terhubung ke server. Periksa koneksi internet.'));
   }
+  // Jawaban dari cache service worker saat offline (lihat sw.template.js).
+  window.dispatchEvent(new CustomEvent('jejak-connection', { detail: { offline: res.headers.get('x-offline') === '1' } }));
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     // 401: sesi habis. 503 dengan tanda maintenance: mode perbaikan. 403 dengan tanda license: lisensi habis.

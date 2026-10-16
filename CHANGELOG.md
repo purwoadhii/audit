@@ -2,6 +2,16 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.15.0 - 2026-10-16
+- Timesheet: auditor mencatat jam kerja harian per audit (perencanaan, pekerjaan lapangan, pelaporan, tindak lanjut) atau kegiatan lain seperti pelatihan dan rapat. Ringkasan per tahun menunjukkan realisasi jam dibanding anggaran di rencana audit, per auditor dan per audit, dan bisa diekspor ke Excel.
+- Rencana audit tahunan dan halaman audit kini menampilkan realisasi jam dari timesheet di samping anggaran jam.
+- Menu Analitik baru: tren temuan baru dan ditutup per bulan, umur temuan terbuka yang terlambat, rata-rata lama penyelesaian dan ketepatan waktu per tingkat risiko, kategori temuan dan akar masalah, temuan berulang di unit yang sama, dan perbandingan antarunit.
+- Tanda tangan elektronik: setiap pengguna bisa membuat tanda tangan di Akun saya. Saat ketua tim meneruskan laporan dan saat penyetuju menyetujui, laporan ditandatangani dengan gambar tanda tangan, sidik isi laporan, dan kode verifikasi. Laporan dan dokumen Word menampilkan tanda tangan dan kode QR yang bisa dicek siapa saja di halaman verifikasi, termasuk apakah isi laporan berubah setelah ditandatangani. System Admin bisa mewajibkan tanda tangan dan kata sandi saat menandatangani.
+- Login SSO dengan Google Workspace, Microsoft Entra ID (Microsoft 365), atau penyedia OpenID Connect lain. Akun dicocokkan dengan email, domain email bisa dibatasi, akun baru bisa dibuat otomatis, dan login dengan kata sandi bisa dimatikan. Diatur di System Admin → Login SSO.
+- Multi-entitas untuk grup usaha: audit, pengguna, area audit, dan rencana audit dikaitkan ke perusahaan induk atau anak usaha. Pengguna yang diberi perusahaan hanya melihat audit perusahaannya, dan pengguna lain bisa memilih perusahaan di bilah atas. Diaktifkan di System Admin → Pengaturan → Multi-entitas.
+- Mode offline: aplikasi bisa dipasang di komputer atau ponsel, dan halaman yang pernah dibuka tetap bisa dilihat saat koneksi terputus. Perubahan baru bisa disimpan setelah terhubung lagi.
+- Data awal kini berisi 10 audit (termasuk audit yang sudah selesai sejak awal tahun), kategori temuan, timesheet tim audit sejak Januari, tanda tangan elektronik, dan laporan yang sudah ditandatangani.
+
 ## 1.14.0 - 2026-10-16
 - Menu Perencanaan baru untuk auditor, Super User, dan manajemen, berisi audit universe, penilaian risiko, dan rencana audit tahunan.
 - Audit universe: daftar semua area yang bisa diaudit (proses bisnis, sistem informasi, vendor, lokasi, unit organisasi) dengan unit, pemilik proses, dan tanggal audit terakhirnya. Jenis area diatur di System Admin → Pengaturan → Perencanaan audit.

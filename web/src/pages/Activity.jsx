@@ -13,7 +13,8 @@ const ACTION = {
   assess: N_('menilai risiko {what}'),
 };
 const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database'), approval: N_('persetujuan'),
-  entity: N_('area audit'), risk: N_('penilaian risiko'), plan: N_('rencana audit') };
+  entity: N_('area audit'), risk: N_('penilaian risiko'), plan: N_('rencana audit'), timesheet: N_('timesheet'),
+  signature: N_('tanda tangan elektronik'), sso: N_('login SSO') };
 
 // Nama kolom untuk daftar perubahan (nilai sebelum dan sesudah).
 const FIELD = {
@@ -25,6 +26,7 @@ const FIELD = {
   approver: N_('Penyetuju'), approval: N_('Persetujuan'),
   entity: N_('Area audit'), kind: N_('Jenis area'), description: N_('Keterangan'), year: N_('Tahun'), quarter: N_('Triwulan'),
   hours: N_('Anggaran jam'), notes: N_('Catatan'), cancelled: N_('Dibatalkan'), score: N_('Skor risiko'),
+  company: N_('Perusahaan'), work_date: N_('Tanggal'), activity: N_('Kegiatan'), note: N_('Keterangan'),
   name: N_('Nama'), username: N_('Username'), email: N_('Email'), role: N_('Peran'), active: N_('Status akun'), password: N_('Kata sandi'),
 };
 // Nilai yang disimpan dalam bahasa Indonesia (status, risiko, jenis) diterjemahkan saat tampil.

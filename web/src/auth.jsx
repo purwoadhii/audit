@@ -35,6 +35,8 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     await api.post('/auth/logout').catch(() => {});
+    // Data yang disimpan untuk mode offline ikut dihapus.
+    navigator.serviceWorker?.controller?.postMessage({ type: 'clear-data' });
     setUser(null);
   }, []);
 

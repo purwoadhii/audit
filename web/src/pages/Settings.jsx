@@ -16,7 +16,8 @@ const THEME_COLOR = {
 const SECTIONS = [
   { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
   { title: N_('Data master'), keys: ['units', 'audit_types', 'finding_categories', 'root_causes', 'unit_scope'] },
-  { title: N_('Persetujuan laporan'), keys: ['approval_required', 'review_required'] },
+  { title: N_('Multi-entitas'), keys: ['multi_entity', 'companies'] },
+  { title: N_('Persetujuan laporan'), keys: ['approval_required', 'review_required', 'esign_required'] },
   { title: N_('Perencanaan audit'), keys: ['universe_kinds', 'auditor_hours'] },
   { title: N_('Dokumen'), keys: ['ocr_enabled'] },
   { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
@@ -30,9 +31,12 @@ const INFRA_SECTIONS = [
 
 const HINT = {
   approval_required: N_('Saat aktif, audit baru bisa berstatus Selesai setelah laporannya disetujui penyetuju (Manager atau Kepala unit) yang dipilih di setiap audit.'),
+  esign_required: N_('Saat aktif, ketua tim dan penyetuju wajib punya tanda tangan elektronik (dibuat di Akun saya) dan memasukkan kata sandi setiap kali menandatangani laporan.'),
   review_required: N_('Saat aktif, ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.'),
   universe_kinds: N_('Satu jenis per baris. Dipakai untuk mengelompokkan area di audit universe.'),
   auditor_hours: N_('Kapasitas jam satu auditor dalam setahun. Dipakai untuk menghitung beban kerja di rencana audit tahunan.'),
+  multi_entity: N_('Untuk grup usaha: audit, pengguna, area audit, dan rencana audit dikaitkan ke perusahaan induk atau anak usaha. Pengguna yang diberi perusahaan hanya melihat audit perusahaannya. Pengguna tanpa perusahaan melihat semua dan bisa memilih perusahaan di bilah atas.'),
+  companies: N_('Satu perusahaan per baris, misalnya induk lalu anak usaha. Mengganti nama di sini tidak mengubah audit lama.'),
   units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
   audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
   finding_categories: N_('Satu kategori per baris. Dipilih saat mencatat temuan atau isu dan dipakai di rekap.'),

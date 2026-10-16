@@ -26,6 +26,9 @@ const DEFAULTS = {
   review_required: true,
   universe_kinds: ['Proses bisnis', 'Sistem informasi', 'Vendor', 'Lokasi', 'Unit organisasi'],
   auditor_hours: 1200,
+  esign_required: false,
+  multi_entity: false,
+  companies: [],
 };
 
 const SettingsContext = createContext({ settings: DEFAULTS, reload: () => {} });

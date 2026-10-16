@@ -19,7 +19,7 @@ export default function Audits() {
   const editor = canEdit(user);
   const rows = useMemo(() => {
     const needle = q.toLowerCase();
-    return (data || []).filter((a) => !needle || `${a.code} ${a.title} ${a.unit} ${a.lead_name || ''}`.toLowerCase().includes(needle));
+    return (data || []).filter((a) => !needle || `${a.code} ${a.title} ${a.unit} ${a.company || ''} ${a.lead_name || ''}`.toLowerCase().includes(needle));
   }, [data, q]);
   const paged = usePaged(rows, q);
   const creating = params.get('baru') === '1';
@@ -41,7 +41,7 @@ export default function Audits() {
     <div className="bar">
       <h2>{t('Daftar audit')}</h2>
       <span className="bar-actions">
-        {data?.length > 0 && <BusyButton onClick={() => exportExcel('daftar-audit', [{ name: t('Audit'), columns: auditColumns(), rows: rows.map(auditRow) }])}>{t('Ekspor Excel')}</BusyButton>}
+        {data?.length > 0 && <BusyButton onClick={() => exportExcel('daftar-audit', [{ name: t('Audit'), columns: auditColumns(rows.some((a) => a.company)), rows: rows.map(auditRow) }])}>{t('Ekspor Excel')}</BusyButton>}
         {editor && <button className="btn primary" onClick={() => setCreating(true)}>{t('Buat audit')}</button>}
       </span>
     </div>
@@ -63,7 +63,7 @@ export default function Audits() {
                 return (
                   <tr key={a.id} className="click" onClick={() => nav(`/audit/${a.id}`)}>
                     <td className="code">{a.code}</td>
-                    <td><div className="t-title">{a.title}</div><div className="t-sub">{a.unit} · {t(a.type)}</div></td>
+                    <td><div className="t-title">{a.title}</div><div className="t-sub">{[a.company, a.unit, t(a.type)].filter(Boolean).join(' · ')}</div></td>
                     <td>{a.lead_name || '—'}</td>
                     <td className="num">{fmtDate(a.start_date)} – {fmtDate(a.end_date)}</td>
                     <td><div className="progress"><div style={{ width: `${pct}%` }} /></div><div className="t-sub num">{t('{done}/{total} langkah', { done: a.steps_done, total: a.steps_total })}</div></td>

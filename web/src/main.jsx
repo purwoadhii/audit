@@ -13,6 +13,11 @@ function WithSettings({ children }) {
   return <SettingsProvider signedIn={Boolean(user)}>{children}</SettingsProvider>;
 }
 
+// Mode offline dan aplikasi yang bisa dipasang. Service worker hanya berjalan di HTTPS atau localhost.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <I18nProvider>

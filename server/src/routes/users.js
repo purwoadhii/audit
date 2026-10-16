@@ -5,9 +5,17 @@ import { requireRole, isAdmin } from '../auth.js';
 import { badRequest, forbidden, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
 import { WORK_ROLES, assertUserSlot } from '../license.js';
+import { getSettings } from '../settings.js';
+
+// Perusahaan pengguna (multi-entitas): kosong berarti pengguna di induk yang melihat semua perusahaan.
+async function companyOf(v) {
+  const c = String(v || '').trim() || null;
+  if (c && !(await getSettings()).companies.includes(c)) throw badRequest('Perusahaan {name} tidak ada di daftar perusahaan.', { name: c });
+  return c;
+}
 
 const r = Router();
-const PUBLIC = 'id, name, username, email, role, unit, active, created_at, last_login_at';
+const PUBLIC = 'id, name, username, email, role, unit, company, active, created_at, last_login_at';
 
 function cleanUsername(v) {
   const u = String(v || '').trim().toLowerCase();
@@ -31,7 +39,7 @@ async function assertFree(field, value, exceptId = 0) {
 
 // Admin melihat semua detail; auditor butuh daftar nama untuk memilih PIC temuan.
 r.get('/', requireRole('admin', 'superadmin', 'auditor', 'manajemen'), async (req, res) => {
-  const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, active';
+  const cols = isAdmin(req.user) ? PUBLIC : 'id, name, role, unit, company, active';
   const roles = isAdmin(req.user) ? managedRoles(req.user) : WORK_ROLES;
   const { rows } = await query(`SELECT ${cols} FROM users WHERE role IN (${roles.map(() => '?').join(',')}) ORDER BY active DESC, name`, roles);
   res.json(rows.map((u) => bools(u, 'active')));
@@ -53,13 +61,14 @@ r.post('/', requireRole('admin'), async (req, res) => {
   if (password.length < 8) throw badRequest('Kata sandi minimal 8 karakter.');
   const unit = req.body?.unit?.trim() || null;
   if (role === 'auditee' && !unit) throw badRequest('Unit wajib diisi untuk auditee.');
+  const company = await companyOf(req.body?.company);
   const username = cleanUsername(req.body?.username);
   await assertFree('email', email);
   await assertFree('username', username);
   await assertUserSlot(role);
   const { insertId } = await query(
-    'INSERT INTO users (name, username, email, password_hash, role, unit) VALUES (?,?,?,?,?,?)',
-    [name, username, email, await bcrypt.hash(password, 10), role, unit],
+    'INSERT INTO users (name, username, email, password_hash, role, unit, company) VALUES (?,?,?,?,?,?,?)',
+    [name, username, email, await bcrypt.hash(password, 10), role, unit, company],
   );
   await logActivity({ query }, req.user.id, 'create', 'user', insertId, { email, role });
   res.status(201).json(await loadUser(insertId));
@@ -82,6 +91,7 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
   }
   if (b.role !== undefined) add('role', oneOf(b.role, ROLES, 'Peran'));
   if (b.unit !== undefined) add('unit', b.unit?.trim() || null);
+  if (b.company !== undefined) add('company', await companyOf(b.company));
   if (b.active !== undefined) {
     if (id === req.user.id && !b.active) throw badRequest('Anda tidak bisa menonaktifkan akun sendiri.');
     add('active', Boolean(b.active));
@@ -108,7 +118,7 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
     );
   }
   const after = await loadUser(id);
-  const changes = changesOf(target, after, ['name', 'username', 'email', 'role', 'unit', 'active'].filter((k) => b[k] !== undefined));
+  const changes = changesOf(target, after, ['name', 'username', 'email', 'role', 'unit', 'company', 'active'].filter((k) => b[k] !== undefined));
   // Kata sandi tidak pernah dicatat, hanya tanda bahwa sudah diatur ulang.
   if (b.password) changes.password = [null, '***'];
   if (Object.keys(changes).length) {

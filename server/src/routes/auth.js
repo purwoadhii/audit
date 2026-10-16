@@ -2,7 +2,13 @@ import { Router } from 'express';
 import path from 'node:path';
 import { BACKGROUNDS, brandingDir, mimeFor } from '../branding.js';
 import bcrypt from 'bcryptjs';
-import { query } from '../db.js';
+import { checkSignature } from '../esign.js';
+import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
+import { config } from '../config.js';
+import { loginSso, loadSso, startLogin, finishLogin } from '../sso.js';
+import { assertUserSlot } from '../license.js';
+import { query, logActivity } from '../db.js';
 import { issueSession, clearSession, requireAuth, readToken, endSession, clientAgent, PORTALS, portalOf, portalForRole } from '../auth.js';
 import { assertLicensed, licenseFeatures } from '../license.js';
 import { APP_VERSION } from '../version.js';
@@ -41,6 +47,81 @@ for (const [kind, bg] of Object.entries(BACKGROUNDS)) {
   });
 }
 
+// ---- Login SSO (OpenID Connect) untuk pintu pengguna ----
+const SSO_COOKIE = 'jejak_sso';
+const baseUrl = (req) => (process.env.APP_URL ? config.appUrl.replace(/\/+$/, '') : `${req.protocol}://${req.get('host')}`);
+export const ssoRedirectUri = (req) => `${baseUrl(req)}/api/auth/sso/callback`;
+
+r.get('/sso', async (_req, res) => res.json(await loginSso()));
+
+r.get('/sso/start', async (req, res) => {
+  try {
+    const { url, flow } = await startLogin(ssoRedirectUri(req));
+    const token = jwt.sign({ flow, remember: req.query.remember === '1' }, config.jwtSecret, { expiresIn: '10m' });
+    // SameSite=Lax supaya cookie ikut saat penyedia SSO mengarahkan kembali ke aplikasi.
+    res.cookie(SSO_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, path: '/api/auth/sso', maxAge: 10 * 60000 });
+    res.redirect(url);
+  } catch (err) {
+    const q = new URLSearchParams({ sso_error: err.key || err.message });
+    if (err.vars) q.set('sso_vars', JSON.stringify(err.vars));
+    res.redirect(`/?${q}`);
+  }
+});
+
+r.get('/sso/callback', async (req, res) => {
+  let email = '';
+  try {
+    let saved = null;
+    try { saved = jwt.verify(req.cookies?.[SSO_COOKIE] || '', config.jwtSecret); } catch { /* kedaluwarsa */ }
+    res.clearCookie(SSO_COOKIE, { path: '/api/auth/sso' });
+    if (req.query.error) throw new HttpError(400, 'Login SSO dibatalkan: {error}', { error: String(req.query.error_description || req.query.error).slice(0, 200) });
+    const who = await finishLogin({ code: String(req.query.code || ''), state: String(req.query.state || ''), flow: saved?.flow, redirectUri: ssoRedirectUri(req) });
+    email = who.email;
+    let { rows: [user] } = await query('SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+    if (!user && who.config.auto_create) {
+      // Akun baru dari SSO: peran bawaan dari pengaturan, kata sandi acak yang tidak dipakai.
+      await assertUserSlot(who.config.default_role);
+      const base = email.split('@')[0].replace(/[^a-z0-9._-]/g, '').slice(0, 40) || 'pengguna';
+      let username = base;
+      for (let i = 2; (await query('SELECT 1 FROM users WHERE username = ?', [username])).rowCount; i++) username = `${base}${i}`;
+      const hash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+      const { insertId } = await query('INSERT INTO users (name, username, email, password_hash, role) VALUES (?,?,?,?,?)',
+        [who.name, username, email, hash, who.config.default_role]);
+      await logActivity({ query }, insertId, 'create', 'user', insertId, { title: who.name, email, via: 'sso' });
+      ({ rows: [user] } = await query('SELECT * FROM users WHERE id = ?', [insertId]));
+    }
+    if (!user) {
+      await recordLogin(req, email, null, false, 'akun_tidak_ada');
+      throw new HttpError(401, 'Email {email} belum terdaftar di aplikasi. Minta System Admin membuatkan akun.', { email });
+    }
+    if (!user.active) {
+      await recordLogin(req, email, user, false, 'akun_nonaktif');
+      throw new HttpError(401, 'Akun {email} tidak aktif.', { email });
+    }
+    if (!PORTALS.user.roles.includes(user.role)) {
+      await recordLogin(req, email, user, false, 'pintu_salah');
+      throw new HttpError(403, 'Login SSO hanya untuk akun pengguna. Admin masuk dengan kata sandi.');
+    }
+    const settings = await getSettings();
+    if (settings.maintenance) {
+      await recordLogin(req, email, user, false, 'perbaikan');
+      throw new HttpError(503, settings.maintenance_message);
+    }
+    await assertLicensed(user.role);
+    await issueSession(req, res, user, Boolean(saved?.remember));
+    await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [user.id]);
+    await recordLogin(req, email, user, true, 'sso');
+    res.redirect('/');
+  } catch (err) {
+    // Kunci pesan dan variabelnya dikirim terpisah supaya halaman login bisa menerjemahkannya.
+    const known = err instanceof HttpError;
+    if (!known) console.error('SSO:', err);
+    const q = new URLSearchParams({ sso_error: known ? err.key : 'Login SSO gagal.' });
+    if (known && err.vars) q.set('sso_vars', JSON.stringify(err.vars));
+    res.redirect(`/?${q}`);
+  }
+});
+
 r.post('/login', async (req, res) => {
   // Pengguna boleh masuk dengan username atau email.
   const login = requireText(req.body?.username ?? req.body?.email, 'Username').toLowerCase();
@@ -65,6 +146,10 @@ r.post('/login', async (req, res) => {
   }
   // Setiap akun hanya bisa masuk lewat pintunya sendiri.
   const portal = portalOf(req);
+  if (portal === 'user' && (await loadSso()).enabled && (await loadSso()).password_login === false) {
+    await recordLogin(req, login, user, false, 'sso_wajib');
+    throw new HttpError(403, 'Masuk dengan tombol SSO perusahaan. Login dengan kata sandi dimatikan.');
+  }
   if (!PORTALS[portal].roles.includes(user.role)) {
     await recordLogin(req, login, user, false, 'pintu_salah');
     const right = PORTALS[portalForRole(user.role)];
@@ -95,8 +180,8 @@ r.post('/logout', async (req, res) => {
 });
 
 r.get('/me', requireAuth, async (req, res) => {
-  const { id, name, username, email, role, unit, language } = req.user;
-  res.json({ id, name, username, email, role, unit, language, features: await licenseFeatures() });
+  const { id, name, username, email, role, unit, company, language } = req.user;
+  res.json({ id, name, username, email, role, unit, company, language, features: await licenseFeatures() });
 });
 
 // Bahasa tampilan, disimpan per pengguna.
@@ -105,6 +190,18 @@ r.put('/language', requireAuth, async (req, res) => {
   const language = oneOf(req.body?.language, LANGUAGES, 'Bahasa');
   await query('UPDATE users SET language = ? WHERE id = ?', [language, req.user.id]);
   res.json({ language });
+});
+
+// Tanda tangan elektronik milik pengguna sendiri (gambar PNG/JPEG sebagai data URL).
+r.get('/signature', requireAuth, async (req, res) => {
+  const { rows: [u] } = await query('SELECT signature FROM users WHERE id = ?', [req.user.id]);
+  res.json({ signature: u?.signature || null });
+});
+r.put('/signature', requireAuth, async (req, res) => {
+  const signature = checkSignature(req.body?.signature);
+  await query('UPDATE users SET signature = ? WHERE id = ?', [signature, req.user.id]);
+  await logActivity({ query }, req.user.id, signature ? 'update' : 'delete', 'signature', req.user.id, { title: req.user.name });
+  res.json({ signature });
 });
 
 // Riwayat login dan sesi aktif milik pengguna sendiri.
