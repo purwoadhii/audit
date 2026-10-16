@@ -10,6 +10,7 @@ import fs from 'node:fs';
 const dbUrl = process.env.TEST_DATABASE_URL || 'mysql://root:@localhost:3306/jejak_audit_test';
 process.env.DATABASE_URL = dbUrl;
 process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'jejak-up-'));
+process.env.BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'jejak-backup-'));
 process.env.ADMIN_EMAIL = 'admin@contoh.id';
 process.env.ADMIN_PASSWORD = 'rahasia-admin-1';
 process.env.INFRA_USERNAME = 'infra';
@@ -855,4 +856,80 @@ test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async 
   assert.equal((await admin.del(`/api/users/${u.data.id}`)).status, 404);
   const me = (await admin.get('/api/auth/me')).data;
   assert.equal((await admin.del(`/api/users/${me.user?.id ?? me.id}`)).status, 400, 'tidak bisa menghapus akun sendiri');
+});
+
+test('kategori temuan dan akar masalah, dengan filter', async () => {
+  const meta = (await auditor.get('/api/settings')).data.values;
+  assert.ok(meta.finding_categories.includes('Kepatuhan'));
+  assert.ok(meta.root_causes.includes('Manusia'));
+  const created = await auditor.post('/api/audits', { title: 'Audit Gudang', unit: 'Divisi Pengadaan', type: 'Keuangan' });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  const a = created.data;
+  const f = await auditor.post('/api/findings', { audit_id: a.id, title: 'Stok selisih', risk: 'Sedang', category: 'Kepatuhan', root_cause: 'Manusia' });
+  assert.equal(f.status, 201, JSON.stringify(f.data));
+  assert.equal(f.data.category, 'Kepatuhan');
+  assert.equal(f.data.root_cause, 'Manusia');
+  await auditor.post('/api/findings', { audit_id: a.id, title: 'Label rak hilang', risk: 'Rendah' });
+  const byCat = (await auditor.get('/api/findings?category=Kepatuhan')).data;
+  assert.deepEqual(byCat.map((x) => x.id), [f.data.id]);
+  assert.ok((await auditor.get('/api/findings?category=-')).data.some((x) => x.title === 'Label rak hilang'), 'filter tanpa kategori');
+  assert.equal((await auditor.get('/api/findings?root_cause=Manusia')).data.length, 1);
+  const p = await auditor.patch(`/api/findings/${f.data.id}`, { category: 'Keuangan', root_cause: '' });
+  assert.equal(p.status, 200, JSON.stringify(p.data));
+  assert.equal(p.data.category, 'Keuangan');
+  assert.equal(p.data.root_cause, null);
+  const detail = (await auditor.get(`/api/audits/${a.id}`)).data.findings.find((x) => x.id === f.data.id);
+  assert.equal(detail.category, 'Keuangan');
+  ctx.catFinding = f.data.id;
+});
+
+test('log aktivitas mencatat nilai sebelum dan sesudah', async () => {
+  await auditor.patch(`/api/findings/${ctx.catFinding}`, { risk: 'Tinggi', owner_id: ctx.auditeeId });
+  await admin.patch(`/api/users/${ctx.otherId}`, { unit: 'Divisi SDM', password: 'katasandibaru1' });
+  await admin.patch('/api/settings', { app_name: 'Audit OTI' });
+  const log = (await admin.get('/api/dashboard/activity')).data;
+  const f = log.find((l) => l.entity === 'finding' && l.action === 'update' && l.detail?.changes?.risk);
+  assert.deepEqual(f.detail.changes.risk, ['Sedang', 'Tinggi']);
+  assert.deepEqual(f.detail.changes.owner, [null, 'Budi']);
+  const prev = log.find((l) => l.entity === 'finding' && l.detail?.changes?.category);
+  assert.deepEqual(prev.detail.changes.category, ['Kepatuhan', 'Keuangan']);
+  assert.deepEqual(prev.detail.changes.root_cause, ['Manusia', null]);
+  const u = log.find((l) => l.entity === 'user' && l.action === 'update' && l.detail?.changes?.unit);
+  assert.deepEqual(u.detail.changes.unit, ['Divisi Keuangan', 'Divisi SDM']);
+  assert.deepEqual(u.detail.changes.password, [null, '***'], 'kata sandi tidak dicatat');
+  const st = log.find((l) => l.entity === 'setting' && l.detail?.changes?.app_name);
+  assert.equal(st.detail.changes.app_name[1], 'Audit OTI');
+  assert.ok(st.detail.labels.app_name);
+  await admin.patch('/api/settings', { app_name: '' });
+});
+
+test('backup database: hanya Infra Admin, bisa dibuat, diunduh, dan dihapus', async () => {
+  const infra = client('infra');
+  await infra.post('/api/auth/login', { username: 'infra', password: 'rahasia-infra-1' });
+  assert.equal((await admin.get('/api/admin/backups')).status, 403);
+  assert.equal((await admin.post('/api/admin/backups', {})).status, 403);
+  const empty = (await infra.get('/api/admin/backups')).data;
+  assert.equal(empty.files.length, 0);
+  const made = await infra.post('/api/admin/backups', {});
+  assert.equal(made.status, 201, JSON.stringify(made.data));
+  assert.equal(made.data.last.ok, true);
+  assert.equal(made.data.files.length, 1);
+  const name = made.data.files[0].name;
+  assert.match(name, /^backup-.+\.sql\.gz$/);
+
+  const res = await infra.get(`/api/admin/backups/${name}`, { raw: true });
+  assert.equal(res.status, 200);
+  const { gunzipSync } = await import('node:zlib');
+  const sql = gunzipSync(Buffer.from(await res.arrayBuffer())).toString('utf8');
+  assert.match(sql, /CREATE TABLE `findings`/);
+  assert.match(sql, /INSERT INTO `users`/);
+  assert.equal((await admin.get(`/api/admin/backups/${name}`, { raw: true })).status, 403);
+  assert.equal((await infra.get('/api/admin/backups/..%2F..%2Fetc%2Fpasswd', { raw: true })).status, 404);
+
+  const log = (await infra.get('/api/dashboard/activity')).status;
+  assert.ok([200, 403].includes(log));
+  const del = await infra.del(`/api/admin/backups/${name}`);
+  assert.equal(del.status, 200);
+  assert.equal(del.data.files.length, 0);
+  assert.equal((await infra.del(`/api/admin/backups/${name}`)).status, 404);
 });

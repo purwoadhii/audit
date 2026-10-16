@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { fmtDate } from '../util.js';
-import { ErrorBox, Loading, useLoad } from '../components/ui.jsx';
+import { BusyButton, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
+import { exportAuditDocx } from '../exporters.js';
 import { t } from '../i18n.jsx';
 
 export default function Report() {
@@ -18,6 +19,7 @@ export default function Report() {
       <div className="bar no-print">
         <Link className="btn ghost" to={`/audit/${a.id}`}>{t('← Kembali ke audit')}</Link>
         <span style={{ marginLeft: 'auto' }} />
+        <BusyButton onClick={() => exportAuditDocx(a)}>{t('Unduh Word')}</BusyButton>
         <button className="btn primary" onClick={() => window.print()}>{t('Cetak / simpan PDF')}</button>
       </div>
       <article className="report">
@@ -68,9 +70,10 @@ function Items({ list }) {
       <div className="code">{f.code}</div>
       <b>{i + 1}. {f.title}</b> <span className="t-sub">· {t('Risiko {risk}', { risk: t(f.risk) })} · {t(f.status)}</span>
       <dl>
+        <dt>{t('Kategori')}</dt><dd>{f.category ? t(f.category) : '—'}</dd>
         <dt>{t('Kondisi')}</dt><dd>{f.condition || '—'}</dd>
         <dt>{t('Kriteria')}</dt><dd>{f.criteria || '—'}</dd>
-        <dt>{t('Sebab')}</dt><dd>{f.cause || '—'}</dd>
+        <dt>{t('Sebab')}</dt><dd>{f.cause || '—'}{f.root_cause && <div className="t-sub">{t('Akar masalah: {v}', { v: t(f.root_cause) })}</div>}</dd>
         <dt>{t('Akibat')}</dt><dd>{f.effect || '—'}</dd>
         <dt>{t('Rekomendasi')}</dt><dd>{f.recommendation || '—'}</dd>
         <dt>{t('Tanggapan')}</dt><dd>{f.response || '—'}</dd>

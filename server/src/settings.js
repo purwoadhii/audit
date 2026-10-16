@@ -1,6 +1,6 @@
 import { query } from './db.js';
 import { badRequest } from './errors.js';
-import { AUDIT_TYPES } from './constants.js';
+import { AUDIT_TYPES, FINDING_CATEGORIES, ROOT_CAUSES } from './constants.js';
 
 // Tema warna yang bisa dipilih. Pasangan warna sudah diuji kontrasnya dengan teks putih.
 export const THEMES = ['teal', 'biru', 'hijau', 'ungu', 'merah', 'oranye'];
@@ -55,6 +55,8 @@ export const SETTINGS = {
   // Data master (System Admin)
   units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
   audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
+  finding_categories: { def: FINDING_CATEGORIES, who: 'admin', label: 'Kategori temuan', check: list },
+  root_causes: { def: ROOT_CAUSES, who: 'admin', label: 'Kategori akar masalah', check: list },
   // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
   unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
   // Dokumen (System Admin)
@@ -64,6 +66,10 @@ export const SETTINGS = {
   remember_max_days: { def: 7, who: 'admin', label: 'Batas Ingat saya', check: int(1, 30) },
   // Teknis (Infra Admin)
   max_login_attempts: { def: 10, who: 'infraadmin', label: 'Batas percobaan login', check: int(3, 100) },
+  backup_enabled: { def: true, who: 'infraadmin', label: 'Backup otomatis', check: bool },
+  backup_hour: { def: 2, who: 'infraadmin', label: 'Jam backup', check: int(0, 23) },
+  backup_keep: { def: 14, who: 'infraadmin', label: 'Jumlah backup disimpan', check: int(1, 365) },
+  backup_last: { def: null, who: 'internal', label: 'Backup terakhir', check: (v) => v },
   maintenance: { def: false, who: 'infraadmin', label: 'Mode perbaikan', check: bool, pub: true },
   maintenance_message: { def: 'Aplikasi sedang dalam perbaikan. Silakan coba beberapa saat lagi.', who: 'infraadmin', label: 'Pesan perbaikan', check: optText(200), pub: true },
 };

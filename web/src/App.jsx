@@ -26,6 +26,8 @@ import Version from './pages/Version.jsx';
 import { StorageSettings, StorageStatus } from './pages/Storage.jsx';
 import { AiSettings, AiStatus, AiChat, AiUnavailable } from './pages/Ai.jsx';
 import Ocr from './pages/Ocr.jsx';
+import Recap from './pages/Recap.jsx';
+import Backup from './pages/Backup.jsx';
 import LangMenu from './components/LangMenu.jsx';
 import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
@@ -77,6 +79,7 @@ function UserApp() {
     { to: '/audit', label: t('Audit'), icon: 'audit' },
     { to: '/temuan', label: t('Temuan'), icon: 'finding' },
     { to: '/tindak-lanjut', label: t('Tindak Lanjut'), icon: 'board' },
+    user.role !== 'auditee' && { to: '/rekap', label: t('Rekap'), icon: 'report' },
     has('ai') && { to: '/asisten', label: t('Asisten AI'), icon: 'ai' },
     has('ocr') && { to: '/ocr', label: t('OCR'), icon: 'ocr' },
     seesActivity && { to: '/aktivitas', label: t('Aktivitas'), icon: 'activity' },
@@ -114,6 +117,7 @@ function UserApp() {
           <Route path="/audit/:id/laporan" element={<Report />} />
           <Route path="/temuan" element={<Findings />} />
           <Route path="/tindak-lanjut" element={<Board />} />
+          {user.role !== 'auditee' && <Route path="/rekap" element={<Recap />} />}
           {has('ai') && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
           {has('ocr') && <Route path="/ocr" element={<Ocr />} />}
           <Route path="/akun" element={<Account />} />
@@ -164,6 +168,7 @@ const ADMIN_NAV = {
     ] },
     { title: N_('Sistem'), items: [
       { path: 'sistem', label: N_('Server dan database'), icon: 'server', el: <System /> },
+      { path: 'backup', label: N_('Backup database'), icon: 'backup', el: <Backup /> },
       { path: 'penyimpanan', label: N_('Penyimpanan file'), icon: 'storage', el: <StorageStatus /> },
       { path: 'ai', label: N_('Asisten AI'), icon: 'ai', el: <AiStatus /> },
       { path: 'versi', label: N_('Versi aplikasi'), icon: 'version', el: <Version /> },

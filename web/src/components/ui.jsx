@@ -185,3 +185,14 @@ export function RowActions({ onEdit, onDelete, question }) {
     </div>
   );
 }
+
+// Tombol untuk pekerjaan yang butuh waktu (ekspor file): menampilkan "Menyiapkan…" dan pesan bila gagal.
+export function BusyButton({ onClick, children, className = 'btn' }) {
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  async function run() {
+    setBusy(true);
+    try { await onClick(); } catch (err) { toast(err.message || t('Terjadi kesalahan.'), 'error'); } finally { setBusy(false); }
+  }
+  return <button type="button" className={className} disabled={busy} onClick={run}>{busy ? t('Menyiapkan…') : children}</button>;
+}

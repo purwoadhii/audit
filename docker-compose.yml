@@ -28,6 +28,7 @@ services:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - uploads:/data/uploads
+      - backups:/data/backups
 
   # phpMyAdmin opsional: docker compose --profile tools up -d, lalu buka http://IP-SERVER:8080
   phpmyadmin:
@@ -44,3 +45,4 @@ services:
 volumes:
   db-data:
   uploads:
+  backups:

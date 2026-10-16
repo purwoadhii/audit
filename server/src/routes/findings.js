@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query, tx, logActivity, bools } from '../db.js';
+import { query, tx, logActivity, bools, changesOf } from '../db.js';
 import { canEditAudit } from '../auth.js';
 import { badRequest, notFound, forbidden, requireText, oneOf, dateOrNull, intId } from '../errors.js';
 import { FINDING_STATUS, FINDING_KINDS, RISKS, AUDITEE_STATUS } from '../constants.js';
@@ -33,6 +33,11 @@ r.get('/', async (req, res) => {
   if (q.risk && RISKS.includes(q.risk)) add('f.risk = ?', q.risk);
   if (q.kind && FINDING_KINDS.includes(q.kind)) add('f.kind = ?', q.kind);
   if (q.audit_id) add('f.audit_id = ?', intId(q.audit_id));
+  // Nilai '-' berarti belum diberi kategori.
+  for (const col of ['category', 'root_cause']) {
+    if (q[col] === '-') where.push(`COALESCE(f.${col}, '') = ''`);
+    else if (q[col]) add(`f.${col} = ?`, String(q[col]));
+  }
   if (q.mine === '1') add('f.owner_id = ?', req.user.id);
   if (q.overdue === '1') where.push("f.status <> 'Selesai' AND f.due_date < CURRENT_DATE");
   if (q.q) add("CONCAT_WS(' ', f.title, f.code, f.`condition`, u.name) LIKE ?", `%${String(q.q).replace(/[%_\\]/g, '\\$&')}%`);
@@ -57,6 +62,13 @@ r.get('/:id', async (req, res) => {
   res.json({ ...finding, logs, attachments });
 });
 
+// Kategori dan akar masalah: teks pendek opsional, dipilih dari daftar di pengaturan.
+function optLabel(v, label) {
+  const s = String(v ?? '').trim();
+  if (s.length > 150) throw badRequest('{label} maksimal {max} karakter.', { label, max: 150 });
+  return s || null;
+}
+
 // Memeriksa isian satu temuan atau isu baru.
 function newFinding(b) {
   const kind = b.kind === undefined ? 'temuan' : oneOf(b.kind, FINDING_KINDS, 'Jenis');
@@ -68,6 +80,8 @@ function newFinding(b) {
     due: dateOrNull(b.due_date, 'Batas waktu'),
     ownerId: b.owner_id ? intId(b.owner_id) : null,
     stepId: b.step_id ? intId(b.step_id) : null,
+    category: optLabel(b.category, 'Kategori temuan'),
+    rootCause: optLabel(b.root_cause, 'Kategori akar masalah'),
     texts: TEXT_FIELDS.map((k) => String(b[k] || '').trim()),
   };
 }
@@ -85,10 +99,10 @@ async function insertFinding(c, user, auditId, n) {
   }
   const code = await nextCode(c, n.kind === 'isu' ? 'ISU' : 'TMN');
   const { insertId } = await c.query(
-    `INSERT INTO findings (code, kind, audit_id, step_id, title, risk, status, due_date, owner_id,
+    `INSERT INTO findings (code, kind, audit_id, step_id, title, risk, status, due_date, owner_id, category, root_cause,
        ${TEXT_FIELDS.map(col).join(', ')}, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [code, n.kind, auditId, n.stepId, n.title, n.risk, n.status, n.due, n.ownerId, ...n.texts, user.id],
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [code, n.kind, auditId, n.stepId, n.title, n.risk, n.status, n.due, n.ownerId, n.category, n.rootCause, ...n.texts, user.id],
   );
   await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
     [insertId, user.id, n.kind === 'isu' ? 'Isu dicatat' : 'Temuan dicatat', n.status]);
@@ -137,6 +151,8 @@ r.patch('/:id', async (req, res) => {
     if (b.due_date !== undefined) f.due_date = dateOrNull(b.due_date, 'Batas waktu');
     if (b.owner_id !== undefined) f.owner_id = b.owner_id ? intId(b.owner_id) : null;
     if (b.audit_id !== undefined) f.audit_id = intId(b.audit_id);
+    if (b.category !== undefined) f.category = optLabel(b.category, 'Kategori temuan');
+    if (b.root_cause !== undefined) f.root_cause = optLabel(b.root_cause, 'Kategori akar masalah');
     for (const k of TEXT_FIELDS) if (b[k] !== undefined) f[k] = String(b[k]).trim();
   } else if (req.user.role === 'auditee') {
     // Auditee hanya mengisi tanggapan dan melaporkan progres.
@@ -158,7 +174,24 @@ r.patch('/:id', async (req, res) => {
       await c.query('INSERT INTO finding_logs (finding_id, user_id, text, status) VALUES (?,?,?,?)',
         [id, req.user.id, `Status diubah dari ${current.status} ke ${f.status}`, f.status]);
     }
-    await logActivity(c, req.user.id, 'update', 'finding', id, { fields: keys });
+    const changes = changesOf(current, f, keys);
+    // PIC dicatat dengan nama, bukan id.
+    if (changes.owner_id) {
+      const names = await c.query('SELECT id, name FROM users WHERE id IN (?, ?)', [current.owner_id ?? 0, f.owner_id ?? 0]);
+      const nameOf = (uid) => names.rows.find((u) => u.id === uid)?.name ?? null;
+      delete changes.owner_id;
+      changes.owner = [nameOf(current.owner_id), nameOf(f.owner_id)];
+    }
+    if (changes.audit_id) {
+      const codes = await c.query('SELECT id, code FROM audits WHERE id IN (?, ?)', [current.audit_id, f.audit_id]);
+      const codeOf = (aid) => codes.rows.find((a) => a.id === aid)?.code ?? null;
+      delete changes.audit_id;
+      changes.audit = [codeOf(current.audit_id), codeOf(f.audit_id)];
+    }
+    // Simpan tanpa perubahan apa pun tidak dicatat.
+    if (Object.keys(changes).length) {
+      await logActivity(c, req.user.id, 'update', 'finding', id, { code: current.code, title: current.title, fields: Object.keys(changes), changes });
+    }
   });
   res.json(await loadFinding(req.user, id));
 });

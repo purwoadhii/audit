@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { FINDING_STATUS, RISKS } from '../util.js';
 import { Req, Sheet, useLoad, useToast } from './ui.jsx';
+import CategoryFields from './CategoryFields.jsx';
 import { N_, t } from '../i18n.jsx';
 
 const TEXTS = [
@@ -19,11 +20,11 @@ const LABEL = {
 
 let seq = 0;
 const blank = (kind) => ({
-  key: ++seq, kind, title: '', risk: 'Sedang', status: 'Terbuka', owner_id: '', due_date: '',
+  key: ++seq, kind, title: '', risk: 'Sedang', status: 'Terbuka', owner_id: '', due_date: '', category: '', root_cause: '',
   condition: '', criteria: '', cause: '', effect: '', recommendation: '', response: '',
 });
 // Blok yang belum disentuh sama sekali dilewati saat menyimpan.
-const touched = (x) => [x.title, x.owner_id, x.due_date, ...TEXTS.map(([k]) => x[k])].some((v) => String(v).trim());
+const touched = (x) => [x.title, x.owner_id, x.due_date, x.category, x.root_cause, ...TEXTS.map(([k]) => x[k])].some((v) => String(v).trim());
 
 // Menambah beberapa temuan dan isu sekaligus ke satu audit, dengan tab Temuan dan Isu.
 export default function FindingBatchSheet({ audit, initialKind = 'temuan', onClose, onSaved }) {
@@ -91,6 +92,8 @@ export default function FindingBatchSheet({ audit, initialKind = 'temuan', onClo
             <label><span>{t('Status tindak lanjut')} <Req /></span><select value={x.status} onChange={update(x.key, 'status')}>{FINDING_STATUS.map((s) => <option key={s} value={s}>{t(s)}</option>)}</select></label>
             <label>{t('Penanggung jawab (PIC)')}<select value={x.owner_id} onChange={update(x.key, 'owner_id')}><option value="">{t('Belum ditentukan')}</option>{owners.map((u) => <option key={u.id} value={u.id}>{u.name}{u.unit ? ` · ${u.unit}` : ''}</option>)}</select></label>
             <label>{t('Batas waktu')}<input type="date" value={x.due_date} onChange={update(x.key, 'due_date')} /></label>
+            <CategoryFields idPrefix={`b-${x.key}`} category={x.category} rootCause={x.root_cause}
+              onChange={(k, v) => setItems((all) => all.map((y) => (y.key === x.key ? { ...y, [k]: v } : y)))} />
             {TEXTS.map(([k, label, hint]) => (
               <label className="full" key={k}>{t(label)}{hint && <span className="hint">{t(hint)}</span>}<textarea value={x[k]} onChange={update(x.key, k)} /></label>
             ))}

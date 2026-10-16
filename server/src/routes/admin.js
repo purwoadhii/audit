@@ -12,6 +12,7 @@ import { extractionState, requeueAll } from '../extract.js';
 import { licenseStatus, parseLicense, clearLicenseCache, countedUsers } from '../license.js';
 import { APP_VERSION, changelog } from '../version.js';
 import { sampleStatus, createSample, removeSample } from '../sample.js';
+import { backupStatus, runBackup, backupPath } from '../backup.js';
 import { publicStorageConfig, buildStorageConfig, saveStorageConfig, testStorage, checkHealth, storageHealth } from '../storage.js';
 
 const r = Router();
@@ -219,6 +220,22 @@ r.get('/version', requireRole('admin'), (_req, res) => {
 
 r.get('/errors', requireRole('infraadmin'), (_req, res) => {
   res.json(recentErrors());
+});
+
+// ---- Backup database (Infra Admin) ----
+r.get('/backups', requireRole('infraadmin'), async (_req, res) => res.json(await backupStatus()));
+r.post('/backups', requireRole('infraadmin'), async (req, res) => {
+  const last = await runBackup(req.user);
+  await logActivity({ query }, req.user.id, 'create', 'backup', null, { filename: last.file });
+  res.status(201).json(await backupStatus());
+});
+r.get('/backups/:name', requireRole('infraadmin'), (req, res) => {
+  res.download(backupPath(req.params.name), req.params.name);
+});
+r.delete('/backups/:name', requireRole('infraadmin'), async (req, res) => {
+  await fs.rm(backupPath(req.params.name), { force: true });
+  await logActivity({ query }, req.user.id, 'delete', 'backup', null, { filename: req.params.name });
+  res.json(await backupStatus());
 });
 
 // Data awal yang realistis, bisa diisi dan dihapus lagi oleh System Admin.

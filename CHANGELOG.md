@@ -2,6 +2,13 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.12.0 - 2026-10-16
+- Temuan dan isu punya kategori temuan dan kategori akar masalah. Daftar pilihannya diatur di System Admin → Pengaturan → Data master, dan daftar temuan bisa difilter per kategori.
+- Daftar audit dan daftar temuan bisa diekspor ke Excel, dan laporan audit bisa diunduh sebagai dokumen Word.
+- Halaman Rekap baru merangkum semua audit dalam satu periode (tahun, semester, atau tanggal bebas): per unit, risiko dan status, kategori temuan, dan akar masalah. Rekap bisa dicetak ke PDF atau diekspor ke Excel.
+- Log aktivitas kini mencatat nilai sebelum dan sesudah setiap perubahan pada audit, temuan, akun, dan pengaturan.
+- Backup database otomatis setiap hari (bawaan jam 02.00, 14 file terakhir disimpan). Infra Admin → Backup database untuk mengatur jadwal, membuat backup sekarang, dan mengunduh atau menghapus file backup.
+
 ## 1.11.2 - 2026-10-15
 - Daftar pilihan unit (dan model di Asisten AI) kini selalu putih seperti dropdown lain. Sebelumnya daftar ini ikut tema gelap Windows sehingga tampil hitam.
 

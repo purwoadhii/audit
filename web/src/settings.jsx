@@ -20,6 +20,8 @@ const DEFAULTS = {
   units: [],
   unit_scope: false,
   audit_types: ['Keuangan', 'Operasional', 'Kepatuhan', 'Teknologi Informasi', 'Pengadaan', 'Investigasi'],
+  finding_categories: [],
+  root_causes: [],
 };
 
 const SettingsContext = createContext({ settings: DEFAULTS, reload: () => {} });

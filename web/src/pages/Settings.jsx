@@ -15,7 +15,7 @@ const THEME_COLOR = {
 
 const SECTIONS = [
   { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
-  { title: N_('Data master'), keys: ['units', 'audit_types', 'unit_scope'] },
+  { title: N_('Data master'), keys: ['units', 'audit_types', 'finding_categories', 'root_causes', 'unit_scope'] },
   { title: N_('Dokumen'), keys: ['ocr_enabled'] },
   { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
@@ -29,6 +29,10 @@ const INFRA_SECTIONS = [
 const HINT = {
   units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
   audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
+  finding_categories: N_('Satu kategori per baris. Dipilih saat mencatat temuan atau isu dan dipakai di rekap.'),
+  root_causes: N_('Satu kategori per baris. Dipakai untuk mengelompokkan sebab temuan di rekap.'),
+  backup_hour: N_('Jam server, 0 sampai 23. Backup berjalan sekali sehari pada jam ini.'),
+  backup_keep: N_('Backup yang lebih lama dihapus otomatis.'),
   unit_scope: N_('Saat aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya. Saat mati, semua auditor dan manajemen melihat audit semua unit. Auditee selalu hanya melihat temuan untuk unitnya.'),
   session_idle_minutes: N_('Tanpa "Ingat saya", pengguna otomatis keluar bila tidak aktif selama ini.'),
   remember_max_days: N_('Dengan "Ingat saya", sesi bertahan sampai browser ditutup, paling lama sekian hari.'),
@@ -91,7 +95,7 @@ function Field({ k, meta, value, onChange, themes, locked }) {
   );
 }
 
-function Section({ title, keys, data, onSaved }) {
+export function Section({ title, keys, data, onSaved }) {
   const { user } = useAuth();
   const toast = useToast();
   const pick = () => Object.fromEntries(keys.map((k) => [k, data.values[k]]));

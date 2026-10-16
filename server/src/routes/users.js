@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { query, logActivity, bools } from '../db.js';
+import { query, logActivity, bools, changesOf } from '../db.js';
 import { requireRole, isAdmin } from '../auth.js';
 import { badRequest, forbidden, notFound, requireText, oneOf, intId } from '../errors.js';
 import { ROLES } from '../constants.js';
@@ -107,8 +107,14 @@ r.patch('/:id', requireRole('admin'), async (req, res) => {
       [id, req.sessionId],
     );
   }
-  await logActivity({ query }, req.user.id, 'update', 'user', id, { fields: Object.keys(b).filter((k) => k !== 'password') });
-  res.json(await loadUser(id));
+  const after = await loadUser(id);
+  const changes = changesOf(target, after, ['name', 'username', 'email', 'role', 'unit', 'active'].filter((k) => b[k] !== undefined));
+  // Kata sandi tidak pernah dicatat, hanya tanda bahwa sudah diatur ulang.
+  if (b.password) changes.password = [null, '***'];
+  if (Object.keys(changes).length) {
+    await logActivity({ query }, req.user.id, 'update', 'user', id, { name: target.name, email: target.email, fields: Object.keys(changes), changes });
+  }
+  res.json(after);
 });
 
 // Menghapus akun. Riwayatnya (temuan, log, aktivitas) tetap ada tanpa nama pengguna; sesi dan keanggotaan tim ikut terhapus.

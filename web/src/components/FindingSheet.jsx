@@ -4,6 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { AUDITEE_STATUS, FINDING_KINDS, FINDING_STATUS, RISKS, canEdit, fmtDateTime } from '../util.js';
 import { ConfirmDelete, Req, ReqNote, ErrorBox, Loading, RiskPill, Sheet, StatusPill, useLoad, useToast } from './ui.jsx';
 import Attachments from './Attachments.jsx';
+import CategoryFields from './CategoryFields.jsx';
 import { N_, t } from '../i18n.jsx';
 
 const ELEMENTS = [
@@ -60,6 +61,8 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
     title: src.title ?? preset?.title ?? '',
     audit_id: src.audit_id ?? preset?.audit_id ?? '',
     risk: src.risk || 'Sedang',
+    category: src.category || '',
+    root_cause: src.root_cause || '',
     status: src.status || 'Terbuka',
     owner_id: src.owner_id ?? '',
     due_date: src.due_date || '',
@@ -107,6 +110,7 @@ function EditorForm({ finding, preset, audits, users, onSaved, onDeleted }) {
       <label className="full"><span>{f.kind === 'isu' ? t('Judul isu') : t('Judul temuan')} <Req /></span><input id="f-title" required value={f.title} onChange={set('title')} /></label>
       <label><span>{t('Audit')} <Req /></span><select id="f-audit" required value={auditId} onChange={set('audit_id')}>{audits.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.title}</option>)}</select></label>
       <label><span>{t('Tingkat risiko')} <Req /></span><select id="f-risk" value={f.risk} onChange={set('risk')}>{RISKS.map((r) => <option key={r} value={r}>{t(r)}</option>)}</select></label>
+      <CategoryFields category={f.category} rootCause={f.root_cause} onChange={(k, v) => setF({ ...f, [k]: v })} />
       <fieldset className="fs">
         <legend>{t('Unsur temuan')}</legend>
         {ELEMENTS.map(([k, label, hint]) => (
@@ -153,6 +157,9 @@ function ReadView({ finding, canRespond, onSaved }) {
         <div className="actions" style={{ marginBottom: 8 }}><RiskPill value={finding.risk} /><StatusPill value={finding.status} /><span className={`t-sub ${finding.overdue ? 'overdue' : ''}`}>{t('Batas {date}', { date: finding.due_date || '—' })}</span></div>
         <div className="t-title" style={{ fontSize: 16 }}>{finding.title}</div>
         <div className="t-sub">{finding.audit_code} · {finding.audit_title} · {t('PIC {name}', { name: finding.owner_name || '—' })}</div>
+        {(finding.category || finding.root_cause) && (
+          <div className="t-sub">{[finding.category && t('Kategori: {v}', { v: t(finding.category) }), finding.root_cause && t('Akar masalah: {v}', { v: t(finding.root_cause) })].filter(Boolean).join(' · ')}</div>
+        )}
         <div className="form" style={{ marginTop: 12 }}>
           {ELEMENTS.map(([k, label]) => (
             <div className="full" key={k}><div className="hint" style={{ fontWeight: 700, color: 'var(--muted)' }}>{t(label)}</div><div className="ro">{finding[k] || '—'}</div></div>

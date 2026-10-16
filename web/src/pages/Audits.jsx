@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { fmtDate, canEdit } from '../util.js';
-import { Empty, ErrorBox, Loading, Pager, RowActions, StatusPill, useLoad, usePaged, useToast } from '../components/ui.jsx';
+import { BusyButton, Empty, ErrorBox, Loading, Pager, RowActions, StatusPill, useLoad, usePaged, useToast } from '../components/ui.jsx';
 import AuditForm from '../components/AuditForm.jsx';
 import { t } from '../i18n.jsx';
+import { exportExcel, auditColumns, auditRow } from '../exporters.js';
 
 export default function Audits() {
   const { user } = useAuth();
@@ -39,7 +40,10 @@ export default function Audits() {
   const head = (
     <div className="bar">
       <h2>{t('Daftar audit')}</h2>
-      {editor && <button className="btn primary" onClick={() => setCreating(true)}>{t('Buat audit')}</button>}
+      <span className="bar-actions">
+        {data?.length > 0 && <BusyButton onClick={() => exportExcel('daftar-audit', [{ name: t('Audit'), columns: auditColumns(), rows: rows.map(auditRow) }])}>{t('Ekspor Excel')}</BusyButton>}
+        {editor && <button className="btn primary" onClick={() => setCreating(true)}>{t('Buat audit')}</button>}
+      </span>
     </div>
   );
   let body;

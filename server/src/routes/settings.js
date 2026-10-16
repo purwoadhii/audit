@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { badRequest } from '../errors.js';
 import { BACKGROUNDS, MAX_BACKGROUND_MB, saveBackground, removeBackground } from '../branding.js';
-import { logActivity, query } from '../db.js';
+import { logActivity, query, changesOf } from '../db.js';
 import { requireRole } from '../auth.js';
 import { SETTINGS, THEMES, getSettings, saveSettings, saveInternal, publicSettings } from '../settings.js';
 
@@ -12,7 +12,7 @@ const r = Router();
 r.get('/', async (req, res) => {
   const all = await getSettings();
   const admin = ['admin', 'infraadmin'].includes(req.user.role);
-  const keys = Object.entries(SETTINGS).filter(([k, s]) => admin || s.pub || ['units', 'audit_types', 'unit_scope'].includes(k)).map(([k]) => k);
+  const keys = Object.entries(SETTINGS).filter(([k, s]) => admin || s.pub || ['units', 'audit_types', 'unit_scope', 'finding_categories', 'root_causes'].includes(k)).map(([k]) => k);
   const values = Object.fromEntries(keys.map((k) => [k, all[k]]));
   if (!admin) return res.json({ values });
   const meta = Object.fromEntries(keys.map((k) => [k, { who: SETTINGS[k].who, label: SETTINGS[k].label, default: SETTINGS[k].def }]));
@@ -20,8 +20,15 @@ r.get('/', async (req, res) => {
 });
 
 r.patch('/', requireRole('admin'), async (req, res) => {
-  const changes = await saveSettings(req.user, req.body);
-  await logActivity({ query }, req.user.id, 'update', 'setting', null, { keys: Object.keys(changes) });
+  const before = structuredClone(await getSettings());
+  const saved = await saveSettings(req.user, req.body);
+  const changes = changesOf(before, saved);
+  if (Object.keys(changes).length) {
+    await logActivity({ query }, req.user.id, 'update', 'setting', null, {
+      keys: Object.keys(changes), changes,
+      labels: Object.fromEntries(Object.keys(changes).map((k) => [k, SETTINGS[k].label])),
+    });
+  }
   res.json({ values: await getSettings() });
 });
 

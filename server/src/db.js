@@ -45,6 +45,26 @@ export async function logActivity(db, userId, action, entity, entityId, detail) 
   );
 }
 
+// Nilai yang dicatat di log aktivitas: pendek, dan true/false dijadikan 1/0 supaya sebanding dengan isi database.
+function logValue(v) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v === 'boolean') return Number(v);
+  if (typeof v === 'number') return v;
+  const s = v instanceof Date ? v.toISOString() : typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : JSON.stringify(v);
+  return s.length > 300 ? `${s.slice(0, 300)}…` : s;
+}
+
+// Perubahan untuk audit trail: { kolom: [nilai lama, nilai baru] }, hanya kolom yang benar-benar berubah.
+export function changesOf(before, after, keys = Object.keys(after)) {
+  const out = {};
+  for (const k of keys) {
+    const a = logValue(before?.[k]);
+    const b = logValue(after[k]);
+    if (JSON.stringify(a) !== JSON.stringify(b)) out[k] = [a, b];
+  }
+  return out;
+}
+
 // MySQL mengembalikan BOOLEAN sebagai 0/1; ubah ke true/false untuk API.
 export function bools(row, ...keys) {
   if (!row) return row;

@@ -14,6 +14,7 @@ export const config = {
   databaseUrl: env.DATABASE_URL || 'mysql://root:@localhost:3306/jejak_audit',
   jwtSecret: env.JWT_SECRET || '',
   uploadDir: path.resolve(env.UPLOAD_DIR || './uploads'),
+  backupDir: path.resolve(env.BACKUP_DIR || './backups'),
   maxUploadMb: Number(env.MAX_UPLOAD_MB || 20),
   appUrl: env.APP_URL || 'http://localhost:3000',
   cookieSecure: env.COOKIE_SECURE === 'true',

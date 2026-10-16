@@ -17,7 +17,7 @@ COPY CHANGELOG.md /app/CHANGELOG.md
 COPY --from=web /app/web/dist /app/web/dist
 RUN mkdir -p /data/uploads && chown -R node:node /data
 USER node
-ENV UPLOAD_DIR=/data/uploads PORT=3000
+ENV UPLOAD_DIR=/data/uploads BACKUP_DIR=/data/backups PORT=3000
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3000/api/health || exit 1
 CMD ["node", "src/index.js"]

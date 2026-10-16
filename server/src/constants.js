@@ -11,3 +11,6 @@ export const STEP_RESULTS = ['Belum diuji', 'Sesuai', 'Tidak sesuai', 'Tidak ber
 export const AUDIT_TYPES = [N_('Keuangan'), N_('Operasional'), N_('Kepatuhan'), N_('Teknologi Informasi'), N_('Pengadaan'), N_('Investigasi')];
 // Status yang boleh dipilih auditee saat menindaklanjuti temuan.
 export const AUDITEE_STATUS = ['Dalam proses', 'Menunggu verifikasi'];
+// Pilihan bawaan kategori temuan dan kategori akar masalah; admin bisa mengubahnya.
+export const FINDING_CATEGORIES = [N_('Kepatuhan'), N_('Pengendalian internal'), N_('Keuangan'), N_('Operasional'), N_('Teknologi Informasi'), N_('Tata kelola')];
+export const ROOT_CAUSES = [N_('Manusia'), N_('Proses atau prosedur'), N_('Sistem atau teknologi'), N_('Kebijakan'), N_('Pihak eksternal')];

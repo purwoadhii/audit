@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query, tx, logActivity } from '../db.js';
+import { query, tx, logActivity, changesOf } from '../db.js';
 import { requireRole } from '../auth.js';
 import { badRequest, notFound, requireText, oneOf, dateOrNull, intId } from '../errors.js';
 import { AUDIT_STATUS, STEP_RESULTS } from '../constants.js';
@@ -129,7 +129,7 @@ r.get('/:id', async (req, res) => {
     (await query(`SELECT ${STEP_COLS} FROM audit_steps WHERE audit_id = ? ORDER BY position, id`, [id])).rows;
   const fs = findingScope(req.user, 'f', 'a');
   const findings = (await query(
-    `SELECT f.id, f.code, f.kind, f.title, f.risk, f.status, f.due_date, f.owner_id, u.name AS owner_name, f.step_id,
+    `SELECT f.id, f.code, f.kind, f.title, f.risk, f.status, f.due_date, f.owner_id, u.name AS owner_name, f.step_id, f.category, f.root_cause,
             f.\`condition\`, f.criteria, f.cause, f.effect, f.recommendation, f.response
      FROM findings f JOIN audits a ON a.id = f.audit_id LEFT JOIN users u ON u.id = f.owner_id
      WHERE f.audit_id = ? AND ${fs.sql} ORDER BY f.code`, [id, ...fs.params])).rows;
@@ -154,8 +154,17 @@ r.patch('/:id', editors, async (req, res) => {
     );
     if (members !== undefined) await saveMembers(c, id, members);
   });
-  await logActivity({ query }, req.user.id, 'update', 'audit', id, { fields: members !== undefined ? [...keys, 'member_ids'] : keys });
-  res.json(await loadAudit(req.user, id));
+  const after = await loadAudit(req.user, id);
+  const changes = changesOf(cur, after, keys.filter((k) => k !== 'lead_id'));
+  if (cur.lead_id !== after.lead_id) changes.lead = [cur.lead_name ?? null, after.lead_name ?? null];
+  if (members !== undefined) {
+    const names = (a) => a.members.map((m) => m.name).join(', ') || null;
+    if (names(cur) !== names(after)) changes.members = [names(cur), names(after)];
+  }
+  if (Object.keys(changes).length) {
+    await logActivity({ query }, req.user.id, 'update', 'audit', id, { code: cur.code, title: cur.title, fields: Object.keys(changes), changes });
+  }
+  res.json(after);
 });
 
 r.delete('/:id', editors, async (req, res) => {

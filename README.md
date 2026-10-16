@@ -136,8 +136,11 @@ Migrasi database berjalan otomatis saat aplikasi mulai.
 
 ### Backup
 
+Aplikasi membuat backup database otomatis setiap hari (bawaan pukul 02.00 waktu server) ke folder `BACKUP_DIR`, dalam bentuk file `.sql.gz`. Jadwal, jumlah file yang disimpan, tombol **Backup sekarang**, dan unduhan file ada di Infra Admin → **Backup database**. Untuk memulihkan, impor file itu lewat phpMyAdmin (tab Import menerima `.sql.gz`) atau `gunzip -c file.sql.gz | mysql nama_database`.
+
+File bukti di folder upload tidak ikut backup database. Salin folder itu terpisah, misalnya di Docker:
+
 ```bash
-docker compose exec db sh -c 'mariadb-dump -ujejak -p"$MARIADB_PASSWORD" jejak_audit' > backup-$(date +%F).sql
 docker run --rm -v jejak-audit_uploads:/data -v "$PWD":/out alpine tar czf /out/uploads-$(date +%F).tgz -C /data .
 ```
 
@@ -214,4 +217,5 @@ Semua pengaturan ada di `.env` (lihat `.env.example`):
 | `INFRA_USERNAME`, `INFRA_PASSWORD`, `INFRA_EMAIL` | Akun Infra Admin untuk developer, dibuat bila username itu belum ada |
 | `COOKIE_SECURE` | `true` bila diakses lewat HTTPS |
 | `MAX_UPLOAD_MB` | Ukuran maksimal file bukti (bawaan 20) |
+| `BACKUP_DIR` | Folder backup database otomatis (bawaan `./backups` di folder server) |
 | `SMTP_*`, `REMINDER_HOUR` | Email pengingat harian, nonaktif bila `SMTP_HOST` kosong |

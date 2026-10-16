@@ -441,7 +441,7 @@ async function detail(user, jenis, id) {
     if (!rows[0]) return { error: 'Temuan tidak ditemukan atau tidak boleh dilihat.' };
     const f = rows[0];
     const { rows: files } = await query('SELECT id, filename FROM attachments WHERE finding_id = ?', [id]);
-    return { kode: f.code, jenis: f.kind, judul: f.title, risiko: f.risk, status: f.status, pic: f.pic, jatuh_tempo: f.due_date, audit: `${f.audit_code} ${f.audit_title}`, unit: f.unit, kondisi: f.condition, kriteria: f.criteria, sebab: f.cause, akibat: f.effect, rekomendasi: f.recommendation, tanggapan: f.response, file: files, tautan: `/temuan?id=${f.id}` };
+    return { kode: f.code, jenis: f.kind, judul: f.title, risiko: f.risk, status: f.status, pic: f.pic, jatuh_tempo: f.due_date, audit: `${f.audit_code} ${f.audit_title}`, unit: f.unit, kategori: f.category, akar_masalah: f.root_cause, kondisi: f.condition, kriteria: f.criteria, sebab: f.cause, akibat: f.effect, rekomendasi: f.recommendation, tanggapan: f.response, file: files, tautan: `/temuan?id=${f.id}` };
   }
   if (jenis === 'file') {
     const s = fileScope(user);

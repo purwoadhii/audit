@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { ROLES, fmtDateTime } from '../util.js';
+import { ROLES, fmtDate, fmtDateTime } from '../util.js';
 import { Empty, ErrorBox, Loading, Pager, useLoad, usePaged } from '../components/ui.jsx';
 import { N_, t } from '../i18n.jsx';
 
@@ -8,7 +8,46 @@ const ACTION = {
   create: N_('membuat {entity} {what}'), update: N_('mengubah {entity} {what}'), delete: N_('menghapus {entity} {what}'),
   upload: N_('mengunggah {entity} {what}'), ocr: N_('membaca dengan OCR {entity} {what}'),
 };
-const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file') };
+const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database') };
+
+// Nama kolom untuk daftar perubahan (nilai sebelum dan sesudah).
+const FIELD = {
+  title: N_('Judul'), unit: N_('Unit'), type: N_('Jenis audit'), status: N_('Status'), lead: N_('Ketua tim'), members: N_('Anggota tim'),
+  team: N_('Anggota eksternal'), scope: N_('Ruang lingkup dan tujuan'), start_date: N_('Tanggal mulai'), end_date: N_('Tanggal selesai'),
+  risk: N_('Tingkat risiko'), due_date: N_('Batas waktu'), owner: N_('Penanggung jawab (PIC)'), audit: N_('Audit'),
+  category: N_('Kategori temuan'), root_cause: N_('Kategori akar masalah'), condition: N_('Kondisi'), criteria: N_('Kriteria'),
+  cause: N_('Sebab'), effect: N_('Akibat'), recommendation: N_('Rekomendasi'), response: N_('Tanggapan auditee'),
+  name: N_('Nama'), username: N_('Username'), email: N_('Email'), role: N_('Peran'), active: N_('Status akun'), password: N_('Kata sandi'),
+};
+// Nilai yang disimpan dalam bahasa Indonesia (status, risiko, jenis) diterjemahkan saat tampil.
+const TRANSLATED = ['status', 'risk', 'type', 'category', 'root_cause'];
+
+function showValue(k, v) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (k === 'password') return t('diubah');
+  if (k === 'active') return Number(v) ? t('Aktif') : t('Nonaktif');
+  if (k === 'role') return ROLES[v] || v;
+  if (k.endsWith('_date')) return fmtDate(v);
+  if (TRANSLATED.includes(k)) return t(v);
+  const s = String(v);
+  return s.length > 120 ? `${s.slice(0, 120)}…` : s;
+}
+
+// Daftar perubahan satu aktivitas: kolom, nilai lama, dan nilai baru.
+function Changes({ detail }) {
+  const entries = Object.entries(detail?.changes || {});
+  if (!entries.length) return null;
+  return (
+    <ul className="changes">
+      {entries.map(([k, [from, to]]) => (
+        <li key={k}>
+          <b>{FIELD[k] ? t(FIELD[k]) : detail.labels?.[k] ? t(detail.labels[k]) : k}</b>
+          {k === 'password' ? <span> {t('diubah')}</span> : <> <span className="from">{showValue(k, from)}</span> → <span className="to">{showValue(k, to)}</span></>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function describe(l) {
   const d = l.detail || {};
@@ -50,7 +89,7 @@ export default function Activity() {
           <div className="tablebox"><table>
             <thead><tr><th>{t('Waktu')}</th><th>{t('Pengguna')}</th><th>{t('Aktivitas')}</th></tr></thead>
             <tbody>
-              {paged.rows.map((l) => <tr key={l.id}><td className="num t-sub">{fmtDateTime(l.created_at)}</td><td>{l.user_name || '—'}{l.user_role && <div className="t-sub">{ROLES[l.user_role]}</div>}</td><td>{describe(l)}</td></tr>)}
+              {paged.rows.map((l) => <tr key={l.id}><td className="num t-sub">{fmtDateTime(l.created_at)}</td><td>{l.user_name || '—'}{l.user_role && <div className="t-sub">{ROLES[l.user_role]}</div>}</td><td>{describe(l)}<Changes detail={l.detail} /></td></tr>)}
               {!rows.length && <tr><td colSpan={3}><Empty small>{t('Tidak ada aktivitas yang cocok dengan filter.')}</Empty></td></tr>}
             </tbody>
           </table></div>
