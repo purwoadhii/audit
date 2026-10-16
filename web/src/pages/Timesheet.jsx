@@ -6,6 +6,7 @@ import { canEdit, fmtDate } from '../util.js';
 import { BusyButton, Empty, ErrorBox, Loading, Req, RowActions, Sheet, StatusPill, useLoad, useToast } from '../components/ui.jsx';
 import { exportExcel } from '../exporters.js';
 import { localeTag, t } from '../i18n.jsx';
+import { useMenu } from '../menus.js';
 
 const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const addDays = (s, n) => iso(new Date(new Date(`${s}T12:00:00`).getTime() + n * 86400000));
@@ -18,18 +19,19 @@ const thisYear = new Date().getFullYear();
 export default function Timesheet() {
   const { user } = useAuth();
   const logger = canEdit(user);
+  const on = useMenu();
+  const first = on('timesheet.jam') ? 'jam' : 'realisasi';
   return (
     <>
       <div className="bar"><h2>{t('Timesheet')}</h2></div>
       <nav className="subtabs" aria-label={t('Timesheet')}>
-        {logger && <NavLink to="/timesheet/jam">{t('Jam saya')}</NavLink>}
-        {!logger && <NavLink to="/timesheet/jam">{t('Jam auditor')}</NavLink>}
-        <NavLink to="/timesheet/realisasi">{t('Realisasi jam')}</NavLink>
+        {on('timesheet.jam') && <NavLink to="/timesheet/jam">{logger ? t('Jam saya') : t('Jam auditor')}</NavLink>}
+        {on('timesheet.realisasi') && <NavLink to="/timesheet/realisasi">{t('Realisasi jam')}</NavLink>}
       </nav>
       <Routes>
-        <Route path="jam" element={<Week />} />
-        <Route path="realisasi" element={<Summary />} />
-        <Route path="*" element={<Navigate to="/timesheet/jam" replace />} />
+        {on('timesheet.jam') && <Route path="jam" element={<Week />} />}
+        {on('timesheet.realisasi') && <Route path="realisasi" element={<Summary />} />}
+        <Route path="*" element={<Navigate to={`/timesheet/${first}`} replace />} />
       </Routes>
     </>
   );
@@ -279,12 +281,13 @@ function Summary() {
 // Panel jam kerja di halaman detail audit: realisasi dibanding anggaran di rencana, per orang dan per kegiatan.
 export function AuditHours({ auditId }) {
   const { data } = useLoad(() => api.get(`/timesheets/audit/${auditId}`), [auditId]);
+  const on = useMenu();
   if (!data || (!data.actual && !data.budget)) return null;
   return (
     <div className="panel">
       <div className="bar" style={{ marginBottom: 8 }}>
         <h3 style={{ margin: 0 }}>{t('Jam kerja')}</h3>
-        <Link to="/timesheet/realisasi">{t('Realisasi jam')}</Link>
+        {on('timesheet.realisasi') && <Link to="/timesheet/realisasi">{t('Realisasi jam')}</Link>}
       </div>
       <HoursBar actual={data.actual} budget={data.budget} />
       <p className="t-sub" style={{ margin: '6px 0 10px' }}>{data.budget ? t('Realisasi {a} dari anggaran {b} jam.', { a: fmtH(data.actual), b: fmtH(data.budget) }) : t('{h} jam tercatat. Audit ini tidak punya anggaran jam di rencana.', { h: fmtH(data.actual) })}</p>

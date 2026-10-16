@@ -2,6 +2,10 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.16.0 - 2026-10-16
+- Menu Pengaturan menu baru di System Admin: setiap menu aplikasi pengguna dan sub-menunya (Perencanaan dan Timesheet) bisa dinyalakan atau dimatikan dengan sakelar. Menu yang dimatikan tidak tampil dan halamannya tidak bisa dibuka, tetapi datanya tetap tersimpan.
+- Penilaian risiko di menu Perencanaan dan menu Analitik dimatikan untuk sementara. Keduanya bisa dinyalakan lagi di Pengaturan menu.
+
 ## 1.15.0 - 2026-10-16
 - Timesheet: auditor mencatat jam kerja harian per audit (perencanaan, pekerjaan lapangan, pelaporan, tindak lanjut) atau kegiatan lain seperti pelatihan dan rapat. Ringkasan per tahun menunjukkan realisasi jam dibanding anggaran di rencana audit, per auditor dan per audit, dan bisa diekspor ke Excel.
 - Rencana audit tahunan dan halaman audit kini menampilkan realisasi jam dari timesheet di samping anggaran jam.

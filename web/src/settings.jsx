@@ -29,6 +29,7 @@ const DEFAULTS = {
   esign_required: false,
   multi_entity: false,
   companies: [],
+  hidden_menus: ['perencanaan.risiko', 'analitik'],
 };
 
 const SettingsContext = createContext({ settings: DEFAULTS, reload: () => {} });

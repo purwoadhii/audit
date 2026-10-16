@@ -262,6 +262,12 @@ test('pengaturan tampilan dan data master', async () => {
   assert.equal((await auditor.patch('/api/settings', { app_name: 'X' })).status, 403);
   assert.equal((await admin.patch('/api/settings', { theme: 'pink' })).status, 400);
   assert.equal((await admin.patch('/api/settings', { maintenance: true })).status, 400, 'mode perbaikan khusus Infra Admin');
+  // Pengaturan menu: bawaan menyembunyikan penilaian risiko dan Analitik, kunci menu yang tidak dikenal ditolak.
+  assert.deepEqual(asAuditor.data.values.hidden_menus, ['perencanaan.risiko', 'analitik']);
+  assert.equal((await admin.patch('/api/settings', { hidden_menus: ['menu-lain'] })).status, 400);
+  assert.equal((await admin.patch('/api/settings', { hidden_menus: ['analitik', 'timesheet.jam', 'analitik'] })).status, 200);
+  assert.deepEqual((await auditor.get('/api/settings')).data.values.hidden_menus, ['timesheet.jam', 'analitik']);
+  assert.equal((await admin.patch('/api/settings', { hidden_menus: [] })).status, 200);
   // Jenis audit mengikuti pengaturan.
   assert.equal((await auditor.post('/api/audits', { title: 'Khusus', unit: 'Divisi Keuangan', type: 'Khusus' })).status, 201);
   assert.equal((await auditor.post('/api/audits', { title: 'Lama', unit: 'Divisi Keuangan', type: 'Investigasi' })).status, 400);

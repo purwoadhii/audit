@@ -1,6 +1,6 @@
 import { query } from './db.js';
 import { badRequest } from './errors.js';
-import { AUDIT_TYPES, FINDING_CATEGORIES, ROOT_CAUSES, UNIVERSE_KINDS } from './constants.js';
+import { AUDIT_TYPES, FINDING_CATEGORIES, MENU_KEYS, ROOT_CAUSES, UNIVERSE_KINDS } from './constants.js';
 
 // Tema warna yang bisa dipilih. Pasangan warna sudah diuji kontrasnya dengan teks putih.
 export const THEMES = ['teal', 'biru', 'hijau', 'ungu', 'merah', 'oranye'];
@@ -29,6 +29,12 @@ const int = (min, max) => (v, label) => {
   return n;
 };
 const bool = (v) => Boolean(v);
+const menuList = (v, label) => {
+  if (!Array.isArray(v)) throw badRequest('{label} harus berupa daftar.', { label });
+  const bad = v.find((k) => !MENU_KEYS.includes(k));
+  if (bad !== undefined) throw badRequest('Menu {k} tidak dikenal.', { k: String(bad) });
+  return MENU_KEYS.filter((k) => v.includes(k));
+};
 const oneOf = (opts) => (v, label) => {
   if (!opts.includes(v)) throw badRequest('{label} tidak valid.', { label });
   return v;
@@ -71,6 +77,8 @@ export const SETTINGS = {
   review_required: { def: true, who: 'admin', label: 'Wajib review ketua tim', check: bool },
   // Tanda tangan elektronik: ketua tim dan penyetuju wajib punya tanda tangan dan memasukkan kata sandi saat menandatangani.
   esign_required: { def: false, who: 'admin', label: 'Wajib tanda tangan elektronik', check: bool },
+  // Menu yang disembunyikan dari aplikasi pengguna. Bawaan: penilaian risiko dan Analitik (permintaan PT OTI, 16 Oktober 2026).
+  hidden_menus: { def: ['perencanaan.risiko', 'analitik'], who: 'admin', label: 'Menu yang disembunyikan', check: menuList },
   // Dokumen (System Admin)
   ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
   // Keamanan login (System Admin)

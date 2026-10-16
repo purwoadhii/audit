@@ -9,6 +9,7 @@ import ComboInput from '../components/ComboInput.jsx';
 import AuditForm from '../components/AuditForm.jsx';
 import CompanySelect from '../components/CompanySelect.jsx';
 import { companyMode } from '../company.js';
+import { useMenu } from '../menus.js';
 import { exportExcel } from '../exporters.js';
 import { N_, localeTag, t } from '../i18n.jsx';
 
@@ -38,19 +39,21 @@ const quarterDates = (year, q) => {
 
 export default function Planning() {
   const [year, setYear] = useState(thisYear);
+  const on = useMenu();
+  const first = ['rencana', 'risiko', 'universe'].find((k) => on(`perencanaan.${k}`)) || 'rencana';
   return (
     <>
       <div className="bar"><h2>{t('Perencanaan audit')}</h2></div>
       <nav className="subtabs" aria-label={t('Perencanaan audit')}>
-        <NavLink to="/perencanaan/rencana">{t('Rencana tahunan')}</NavLink>
-        <NavLink to="/perencanaan/risiko">{t('Penilaian risiko')}</NavLink>
-        <NavLink to="/perencanaan/universe">{t('Audit universe')}</NavLink>
+        {on('perencanaan.rencana') && <NavLink to="/perencanaan/rencana">{t('Rencana tahunan')}</NavLink>}
+        {on('perencanaan.risiko') && <NavLink to="/perencanaan/risiko">{t('Penilaian risiko')}</NavLink>}
+        {on('perencanaan.universe') && <NavLink to="/perencanaan/universe">{t('Audit universe')}</NavLink>}
       </nav>
       <Routes>
-        <Route path="rencana" element={<Plan year={year} setYear={setYear} />} />
-        <Route path="risiko" element={<Risks year={year} setYear={setYear} />} />
-        <Route path="universe" element={<Universe />} />
-        <Route path="*" element={<Navigate to="/perencanaan/rencana" replace />} />
+        {on('perencanaan.rencana') && <Route path="rencana" element={<Plan year={year} setYear={setYear} />} />}
+        {on('perencanaan.risiko') && <Route path="risiko" element={<Risks year={year} setYear={setYear} />} />}
+        {on('perencanaan.universe') && <Route path="universe" element={<Universe />} />}
+        <Route path="*" element={<Navigate to={`/perencanaan/${first}`} replace />} />
       </Routes>
     </>
   );
@@ -67,6 +70,7 @@ function YearSelect({ year, setYear }) {
 // ---------------- Audit universe ----------------
 function Universe() {
   const { user } = useAuth();
+  const showRisk = useMenu()('perencanaan.risiko');
   const { settings } = useSettings();
   const editor = canEdit(user);
   const toast = useToast();
@@ -92,7 +96,9 @@ function Universe() {
   if (error) return <ErrorBox error={error} retry={reload} />;
   return (
     <>
-      <p className="t-sub intro">{t('Audit universe adalah daftar semua area yang bisa diaudit: proses bisnis, sistem, vendor, lokasi, dan unit organisasi. Setiap area dinilai risikonya setiap tahun untuk menentukan prioritas audit.')}</p>
+      <p className="t-sub intro">{showRisk
+        ? t('Audit universe adalah daftar semua area yang bisa diaudit: proses bisnis, sistem, vendor, lokasi, dan unit organisasi. Setiap area dinilai risikonya setiap tahun untuk menentukan prioritas audit.')
+        : t('Audit universe adalah daftar semua area yang bisa diaudit: proses bisnis, sistem, vendor, lokasi, dan unit organisasi. Area di sini bisa dipilih saat menyusun rencana audit tahunan.')}</p>
       <div className="filters one-line">
         <input id="ent-q" placeholder={t('Cari nama area, pemilik, atau unit')} value={f.q} onChange={set('q')} />
         <select id="ent-kind" aria-label={t('Jenis area')} value={f.kind} onChange={set('kind')}><option value="">{t('Semua jenis')}</option>{kinds.map((k) => <option key={k} value={k}>{t(k)}</option>)}</select>
@@ -113,7 +119,7 @@ function Universe() {
                     <td>{e.owner || '—'}</td>
                     <td className="num">{fmtDate(e.last_audit)}</td>
                     <td className="num">{e.audits}</td>
-                    {editor && <td className="act-col"><RowActions onEdit={() => setSheet(e)} onDelete={() => remove(e)} question={t('Hapus area ini beserta penilaian risikonya? Audit dan rencana yang terkait tetap ada.')} /></td>}
+                    {editor && <td className="act-col"><RowActions onEdit={() => setSheet(e)} onDelete={() => remove(e)} question={showRisk ? t('Hapus area ini beserta penilaian risikonya? Audit dan rencana yang terkait tetap ada.') : t('Hapus area ini? Audit dan rencana yang terkait tetap ada.')} /></td>}
                   </tr>
                 ))}
                 {!rows.length && <tr><td colSpan={7}><Empty small>{t('Tidak ada area yang cocok.')}</Empty></td></tr>}
@@ -318,6 +324,7 @@ function RiskForm({ entity, year, onClose, onSaved }) {
 // ---------------- Rencana audit tahunan ----------------
 function Plan({ year, setYear }) {
   const { user } = useAuth();
+  const showRisk = useMenu()('perencanaan.risiko');
   const editor = canEdit(user);
   const toast = useToast();
   const nav = useNavigate();
@@ -347,7 +354,7 @@ function Plan({ year, setYear }) {
         { header: t('Area'), key: 'entity_name', width: 28, wrap: true },
         { header: t('Unit'), key: 'unit', width: 22 },
         { header: t('Jenis audit'), key: 'type', width: 18 },
-        { header: t('Skor risiko'), key: 'risk', width: 18 },
+        ...(showRisk ? [{ header: t('Skor risiko'), key: 'risk', width: 18 }] : []),
         { header: t('Ketua tim'), key: 'lead_name', width: 20 },
         { header: t('Tim dan jam'), key: 'team', width: 40, wrap: true },
         { header: t('Anggaran jam'), key: 'hours', width: 12 },
@@ -384,20 +391,20 @@ function Plan({ year, setYear }) {
         <div className="kpi tone-muted"><div className="lbl">{t('Anggaran jam')}</div><div className="val">{s.hours.toLocaleString(localeTag())}</div><div className="sub">{t('jam auditor')}</div></div>
       </div>
       {!data.items.length ? (
-        <Empty title={t('Belum ada rencana audit {year}', { year })} action={editor && <Link className="btn" to="/perencanaan/risiko">{t('Lihat penilaian risiko')}</Link>}>
-          {t('Mulai dari penilaian risiko: area dengan risiko tertinggi dimasukkan ke rencana lebih dulu.')}
+        <Empty title={t('Belum ada rencana audit {year}', { year })} action={editor && showRisk && <Link className="btn" to="/perencanaan/risiko">{t('Lihat penilaian risiko')}</Link>}>
+          {showRisk ? t('Mulai dari penilaian risiko: area dengan risiko tertinggi dimasukkan ke rencana lebih dulu.') : t('Tambahkan rencana audit untuk tahun ini, lalu buat auditnya langsung dari rencana.')}
         </Empty>
       ) : (
         <>
           <div className="tablebox">
             <table>
-              <thead><tr><th>{t('Triwulan')}</th><th>{t('Audit')}</th><th>{t('Skor risiko')}</th><th>{t('Ketua tim')}</th><th>{t('Tim dan jam')}</th><th className="num">{t('Jam (realisasi / anggaran)')}</th><th>{t('Status')}</th>{editor && <th className="act-col">{t('Aksi')}</th>}</tr></thead>
+              <thead><tr><th>{t('Triwulan')}</th><th>{t('Audit')}</th>{showRisk && <th>{t('Skor risiko')}</th>}<th>{t('Ketua tim')}</th><th>{t('Tim dan jam')}</th><th className="num">{t('Jam (realisasi / anggaran)')}</th><th>{t('Status')}</th>{editor && <th className="act-col">{t('Aksi')}</th>}</tr></thead>
               <tbody>
                 {paged.rows.map((i) => (
                   <tr key={i.id} className={i.cancelled ? 'muted-row' : ''}>
                     <td className="num">Q{i.quarter}</td>
                     <td><div className="t-title">{i.title}</div><div className="t-sub">{[i.entity_name, i.unit, t(i.type)].filter(Boolean).join(' · ')}</div></td>
-                    <td><LevelPill level={i.level} score={i.score} /></td>
+                    {showRisk && <td><LevelPill level={i.level} score={i.score} /></td>}
                     <td>{i.lead_name || '—'}</td>
                     <td className="t-sub">{i.members.map((m) => `${m.name} (${m.hours})`).join(', ') || '—'}</td>
                     <td className="num" title={t('Realisasi dari timesheet / anggaran')}>{i.audit_id ? `${Number(i.actual).toLocaleString(localeTag())} / ${i.hours}` : i.hours}</td>
@@ -409,7 +416,7 @@ function Plan({ year, setYear }) {
                     {editor && <td className="act-col"><RowActions onEdit={() => setSheet(i)} onDelete={() => remove(i)} question={t('Hapus rencana ini? Audit yang sudah dibuat dari rencana ini tetap ada.')} /></td>}
                   </tr>
                 ))}
-                {!rows.length && <tr><td colSpan={8}><Empty small>{t('Tidak ada rencana yang cocok.')}</Empty></td></tr>}
+                {!rows.length && <tr><td colSpan={showRisk ? 8 : 7}><Empty small>{t('Tidak ada rencana yang cocok.')}</Empty></td></tr>}
               </tbody>
             </table>
           </div>

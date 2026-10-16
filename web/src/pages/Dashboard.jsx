@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading, useLoad } from '../components/ui.jsx';
 import FindingSheet from '../components/FindingSheet.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { t } from '../i18n.jsx';
+import { useMenu } from '../menus.js';
 
 function Kpi({ tone, icon, label, value, sub }) {
   return (
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const nav = useNavigate();
   const { data, error, loading, reload } = useLoad(() => api.get('/dashboard'), []);
   const [openId, setOpenId] = useState(null);
+  const on = useMenu();
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} retry={reload} />;
 
@@ -74,7 +76,7 @@ export default function Dashboard() {
           ))}
         </div>
         <div className="stack">
-          {data.plan && (
+          {data.plan && on('perencanaan.rencana') && (
             <div className="panel">
               <div className="bar" style={{ marginBottom: 8 }}>
                 <h3 style={{ margin: 0 }}>{t('Rencana audit {year}', { year: data.plan.year })}</h3>

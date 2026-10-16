@@ -31,3 +31,12 @@ export const AUDIT_CYCLE = { 'Sangat tinggi': 1, Tinggi: 1, Sedang: 2, Rendah: 3
 // Kegiatan di timesheet: tahapan audit (dengan audit) dan kegiatan di luar audit (tanpa audit).
 export const AUDIT_ACTIVITIES = [N_('Perencanaan'), N_('Pekerjaan lapangan'), N_('Pelaporan'), N_('Tindak lanjut')];
 export const OTHER_ACTIVITIES = [N_('Pelatihan'), N_('Administrasi'), N_('Rapat internal'), N_('Lainnya')];
+
+// Menu aplikasi pengguna yang bisa disembunyikan System Admin (Pengaturan menu).
+// Kunci bertitik adalah sub-menu; urutan dan nama tampilan ada di web/src/menus.js.
+export const MENU_KEYS = [
+  'ringkasan', 'audit', 'temuan', 'tindak_lanjut',
+  'perencanaan', 'perencanaan.rencana', 'perencanaan.risiko', 'perencanaan.universe',
+  'timesheet', 'timesheet.jam', 'timesheet.realisasi',
+  'rekap', 'analitik', 'asisten', 'ocr', 'aktivitas',
+];

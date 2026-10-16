@@ -34,6 +34,8 @@ import Verify from './pages/Verify.jsx';
 import SsoSettings from './pages/Sso.jsx';
 import { companyMode, setCompany } from './company.js';
 import { OfflineBanner } from './components/Offline.jsx';
+import { useMenu } from './menus.js';
+import MenuSettings from './pages/Menus.jsx';
 import Backup from './pages/Backup.jsx';
 import LangMenu from './components/LangMenu.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
@@ -85,25 +87,35 @@ function UserApp() {
   const ai = useAiAvailable(user);
   // OCR dan Asisten AI hanya untuk lisensi Pro.
   const has = (f) => (user.features || []).includes(f);
-  const seesActivity = ['superadmin', 'auditor', 'manajemen'].includes(user.role);
+  const on = useMenu();
+  const staff = user.role !== 'auditee';
+  const seesActivity = ['superadmin', 'auditor', 'manajemen'].includes(user.role) && on('aktivitas');
   const appBg = settings.app_background_url;
   const cm = companyMode(settings, user);
   // Mengganti perusahaan yang dilihat memuat ulang halaman yang sedang terbuka.
   const [view, setView] = useState(cm.view);
   const pickCompany = (c) => { setCompany(c); setView(c); };
+  // Menu yang dimatikan di System Admin → Pengaturan menu tidak tampil dan halamannya tidak bisa dibuka.
+  const show = {
+    home: on('ringkasan'), audit: on('audit'), temuan: on('temuan'), board: on('tindak_lanjut'),
+    plan: staff && on('perencanaan'), time: staff && on('timesheet'), recap: staff && on('rekap'), analytics: staff && on('analitik'),
+    ai: has('ai') && on('asisten'), ocr: has('ocr') && on('ocr'),
+  };
   const tabs = [
-    { to: '/', label: t('Ringkasan'), icon: 'home', end: true },
-    { to: '/audit', label: t('Audit'), icon: 'audit' },
-    { to: '/temuan', label: t('Temuan'), icon: 'finding' },
-    { to: '/tindak-lanjut', label: t('Tindak Lanjut'), icon: 'board' },
-    user.role !== 'auditee' && { to: '/perencanaan', label: t('Perencanaan'), icon: 'plan' },
-    user.role !== 'auditee' && { to: '/timesheet', label: t('Timesheet'), icon: 'clock' },
-    user.role !== 'auditee' && { to: '/rekap', label: t('Rekap'), icon: 'report' },
-    user.role !== 'auditee' && { to: '/analitik', label: t('Analitik'), icon: 'chart' },
-    has('ai') && { to: '/asisten', label: t('Asisten AI'), icon: 'ai' },
-    has('ocr') && { to: '/ocr', label: t('OCR'), icon: 'ocr' },
+    show.home && { to: '/', label: t('Ringkasan'), icon: 'home', end: true },
+    show.audit && { to: '/audit', label: t('Audit'), icon: 'audit' },
+    show.temuan && { to: '/temuan', label: t('Temuan'), icon: 'finding' },
+    show.board && { to: '/tindak-lanjut', label: t('Tindak Lanjut'), icon: 'board' },
+    show.plan && { to: '/perencanaan', label: t('Perencanaan'), icon: 'plan' },
+    show.time && { to: '/timesheet', label: t('Timesheet'), icon: 'clock' },
+    show.recap && { to: '/rekap', label: t('Rekap'), icon: 'report' },
+    show.analytics && { to: '/analitik', label: t('Analitik'), icon: 'chart' },
+    show.ai && { to: '/asisten', label: t('Asisten AI'), icon: 'ai' },
+    show.ocr && { to: '/ocr', label: t('OCR'), icon: 'ocr' },
     seesActivity && { to: '/aktivitas', label: t('Aktivitas'), icon: 'activity' },
   ].filter(Boolean);
+  // Bila Ringkasan dimatikan, halaman awal adalah menu pertama yang tampil.
+  const home = tabs[0]?.to || '/akun';
   return (
     <div className="user-shell">
       {appBg && <div className="app-bg" style={{ backgroundImage: `url("${appBg}")` }} aria-hidden="true" />}
@@ -142,21 +154,21 @@ function UserApp() {
       </div>
       <main className="wrap" key={view}>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/audit" element={<Audits />} />
+          <Route path="/" element={show.home ? <Dashboard /> : <Navigate to={home} replace />} />
+          {show.audit && <Route path="/audit" element={<Audits />} />}
           <Route path="/audit/:id" element={<AuditDetail />} />
           <Route path="/audit/:id/laporan" element={<Report />} />
-          <Route path="/temuan" element={<Findings />} />
-          <Route path="/tindak-lanjut" element={<Board />} />
-          {user.role !== 'auditee' && <Route path="/perencanaan/*" element={<Planning />} />}
-          {user.role !== 'auditee' && <Route path="/timesheet/*" element={<Timesheet />} />}
-          {user.role !== 'auditee' && <Route path="/rekap" element={<Recap />} />}
-          {user.role !== 'auditee' && <Route path="/analitik" element={<Analytics />} />}
-          {has('ai') && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
-          {has('ocr') && <Route path="/ocr" element={<Ocr />} />}
+          {show.temuan && <Route path="/temuan" element={<Findings />} />}
+          {show.board && <Route path="/tindak-lanjut" element={<Board />} />}
+          {show.plan && <Route path="/perencanaan/*" element={<Planning />} />}
+          {show.time && <Route path="/timesheet/*" element={<Timesheet />} />}
+          {show.recap && <Route path="/rekap" element={<Recap />} />}
+          {show.analytics && <Route path="/analitik" element={<Analytics />} />}
+          {show.ai && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
+          {show.ocr && <Route path="/ocr" element={<Ocr />} />}
           <Route path="/akun" element={<Account />} />
           {seesActivity && <Route path="/aktivitas/*" element={<Activity />} />}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
       </main>
       <div className="wrap"><AppFooter /></div>
@@ -176,6 +188,7 @@ const ADMIN_NAV = {
     ] },
     { title: N_('Pengaturan'), items: [
       { path: 'pengaturan', label: N_('Pengaturan'), icon: 'settings', el: <Settings /> },
+      { path: 'menu', label: N_('Pengaturan menu'), icon: 'menu', el: <MenuSettings /> },
       { path: 'penyimpanan', label: N_('Penyimpanan file'), icon: 'storage', el: <StorageSettings /> },
       { path: 'sso', label: N_('Login SSO'), icon: 'key', el: <SsoSettings /> },
       { path: 'ai', label: N_('Asisten AI'), icon: 'ai', el: <AiSettings /> },
