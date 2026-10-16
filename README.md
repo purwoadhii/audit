@@ -1,2 +1,231 @@
-# audit
-audit management
+# Audit Management
+
+Aplikasi web manajemen audit internal: perencanaan audit, program kerja, temuan, tindak lanjut rekomendasi, bukti, dan laporan.
+
+## Fitur
+
+- **Ringkasan:** audit berjalan, temuan terbuka, tindak lanjut terlambat, dan grafik temuan per risiko dan per unit.
+- **Audit:** audit dibuat dari template program kerja, lalu hasil tiap langkah dicatat (Sesuai, Tidak sesuai, Tidak berlaku) beserta catatan dan kertas kerja.
+- **Temuan:** isian kondisi, kriteria, sebab, akibat, dan rekomendasi, ditambah tingkat risiko, PIC, dan batas waktu. Langkah yang "Tidak sesuai" bisa langsung dijadikan temuan. Selain temuan, auditor bisa mencatat **isu** (nomor ISU-…) dengan isian dan tindak lanjut yang sama. Di halaman audit, beberapa temuan dan isu bisa ditambahkan sekaligus lewat form bertab Temuan/Isu, dan jumlah keduanya tampil di daftar audit.
+- **Tindak lanjut:** papan status (Terbuka, Dalam proses, Menunggu verifikasi, Selesai), riwayat progres, dan unggahan bukti.
+- **Laporan:** laporan hasil audit yang siap dicetak atau disimpan sebagai PDF dari browser.
+- **Persetujuan laporan berjenjang:** anggota tim mengajukan laporan, ketua tim mereview (sign-off) setiap langkah program kerja dan temuan lalu meneruskannya, kemudian penyetuju menyetujui. Penyetuju dipilih di setiap audit: akun Manajemen (Manager) atau auditee di unit yang diaudit (Kepala unit). Ketua tim atau penyetuju bisa mengembalikan laporan dengan alasan. Audit baru bisa Selesai setelah disetujui, dan selama menunggu persetujuan atau sesudahnya isi audit terkunci (tindak lanjut tetap berjalan). Kedua aturan bisa dimatikan di System Admin → Pengaturan → Persetujuan laporan.
+- **Perencanaan audit berbasis risiko** (menu Perencanaan): audit universe berisi semua area yang bisa diaudit, penilaian risiko tahunan dengan matriks 5×5 kemungkinan × dampak (praktik umum IIA dan COSO), dan rencana audit tahunan per triwulan dengan alokasi auditor, anggaran jam, dan beban kerja per auditor. Audit bisa dibuat langsung dari rencana, dan Ringkasan menampilkan progres rencana tahun ini.
+- **Timesheet**: jam kerja harian auditor per audit dan kegiatan lain, dengan realisasi dibanding anggaran jam di rencana audit.
+- **Analitik temuan**: tren, umur temuan terlambat, lama penyelesaian per risiko, temuan berulang, dan perbandingan antarunit.
+- **Tanda tangan elektronik** pada laporan, dengan kode verifikasi dan QR yang bisa dicek di halaman verifikasi publik.
+- **Login SSO** (Google Workspace, Microsoft Entra ID, atau OpenID Connect) untuk halaman pengguna.
+- **Multi-entitas**: satu aplikasi untuk perusahaan induk dan anak usaha.
+- **Mode offline**: aplikasi bisa dipasang, dan halaman yang pernah dibuka tetap tampil tanpa koneksi (perlu HTTPS atau localhost).
+- **Versi file bukti:** file bisa diganti dengan versi baru tanpa menghapus versi lama; riwayat versinya bisa dibuka dan diunduh.
+- **Notifikasi:** ikon lonceng di bilah atas untuk pengajuan, persetujuan, dan pengembalian laporan, penunjukan PIC, dan tanggapan auditee.
+- **Masuk:** dengan username atau email. Sesi selalu berakhir saat browser ditutup. Tanpa "Ingat saya", pengguna juga otomatis keluar setelah tidak aktif (bawaan 120 menit). Dengan "Ingat saya", sesi bertahan selama browser terbuka, paling lama 7 hari.
+- **Tiga pintu masuk**, masing-masing dengan halaman login dan sesi sendiri (bisa masuk bersamaan di browser yang sama):
+
+  | Alamat | Untuk | Isi |
+  | --- | --- | --- |
+  | `http://localhost:3000` | Auditor, auditee, manajemen | Ringkasan, audit, temuan, tindak lanjut, Asisten AI, OCR |
+  | `http://localhost:3000/sysAdmin` | System Admin (admin dari pihak klien) | Mengatur akun pengguna dan pengaturan aplikasi |
+  | `http://localhost:3000/infraAdmin` | Infra Admin (developer) | Mengatur lisensi, akun System Admin, dan keamanan |
+
+  Setiap akun hanya bisa masuk lewat pintunya sendiri. Infra Admin mengawasi System Admin, dan System Admin mengawasi pengguna.
+- **Peran pengguna:**
+
+  | Peran | Hak akses |
+  | --- | --- |
+  | Auditor | Membuat audit, mengisi program kerja, mencatat dan menutup temuan |
+  | Auditee | Melihat temuan untuk dirinya atau unitnya, memberi tanggapan, mengunggah bukti |
+  | Manajemen | Melihat audit, temuan, laporan, dan log aktivitas tanpa mengubah |
+  | Super User | Seperti auditor, tetapi melihat dan mengerjakan audit semua unit walaupun akunnya punya unit |
+
+  **Batas unit** (bisa dinyalakan di System Admin → Pengaturan → Data master, bawaan mati): auditor dan manajemen yang punya unit hanya melihat audit untuk unitnya, audit yang ia pimpin atau ikuti sebagai anggota tim, dan temuan di audit itu. Mereka hanya bisa membuat audit untuk unitnya sendiri, dan log aktivitas yang terlihat hanya dari pengguna di unitnya. Auditor dan manajemen tanpa unit (misalnya tim audit internal pusat) dan Super User melihat audit semua unit. Unit diatur di System Admin → Pengguna.
+
+- **System Admin** (`/sysAdmin`):
+  - Data awal (menu Data awal): sekali klik mengisi 12 akun dengan nama realistis (Kepala SPI sebagai Super User, 3 auditor, 2 direksi, dan kepala 6 divisi sebagai auditee), 7 audit di 6 divisi lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut. Semua akun memakai satu kata sandi awal acak yang tampil di halaman itu; email akun memakai alias + dari email admin. Semuanya bisa dihapus lagi sekaligus tanpa menyentuh data lain.
+  - Akun pengguna (super user, auditor, auditee, manajemen) dan template audit.
+  - Pengaturan tampilan: nama aplikasi, tema warna, teks dan gambar latar halaman login, serta gambar latar halaman setelah login.
+  - Data master (daftar unit, jenis audit) dan batas waktu sesi login.
+  - Penyimpanan file bukti: di server aplikasi (lokal/on-premise; foldernya bisa diganti dari halaman ini, misalnya `D:/AuditManagement/files` atau folder NAS yang di-mapping) atau object storage S3 (AWS S3, MinIO di server sendiri, Google Cloud Storage, Cloudflare R2, dan penyedia lain yang kompatibel S3). Ada tombol tes koneksi; pengaturan hanya disimpan bila tes berhasil.
+  - Asisten AI dan OCR.
+  - Log aktivitas, riwayat login, dan sesi aktif pengguna dan admin, dengan tombol paksa keluar untuk sesi pengguna.
+  - Status lisensi (hanya melihat).
+- **Infra Admin** (`/infraAdmin`):
+  - Lisensi: pasang, ganti, atau lepas kunci lisensi.
+  - Akun System Admin dan Infra Admin.
+  - Keamanan: batas percobaan login dan mode perbaikan.
+  - Log aktivitas, riwayat login, dan sesi aktif akun admin.
+  - Kondisi server dan database, kesalahan server terakhir, status penyimpanan file, pemakaian Asisten AI, dan riwayat versi.
+- Supaya pemilik akun admin tetap bisa mengerjakan audit, saat aplikasi jalan dibuat juga akun user terpisah (peran dari `ADMIN_USER_ROLE`, bawaan auditor) dengan password yang sama, username `<ADMIN_USERNAME>.user`, dan email alias `+user`, misalnya `oti.twingate+user@gmail.com`. Akun ini masuk lewat `http://localhost:3000`.
+- **Lisensi:** kunci lisensi berisi nama pelanggan, paket (Standar atau Pro), batas jumlah pengguna aktif, dan tanggal berakhir. Paket Pro membuka OCR dan Asisten AI; paket Standar berisi semua fitur audit tanpa keduanya. Batas pengguna menghitung semua akun aktif kecuali Infra Admin dan satu System Admin (System Admin kedua dan seterusnya ikut dihitung, begitu juga akun kembar admin seperti `admin.user`). Masa uji coba membuka semua fitur Pro. Kunci ditandatangani dengan kunci privat penyedia, jadi isinya tidak bisa diubah. Tanpa lisensi, aplikasi berjalan 30 hari masa uji coba sejak pertama dijalankan. Bila lisensi atau masa uji coba habis, pengguna dan System Admin tidak bisa masuk, sedangkan Infra Admin tetap bisa masuk untuk memasang lisensi baru. Admin melihat peringatan 30 hari sebelum lisensi habis.
+- **Bahasa:** setiap pengguna memilih bahasanya sendiri lewat tombol bahasa di bilah atas atau di halaman login: English (bawaan), Bahasa Indonesia, Bahasa Melayu, 简体中文, 日本語, dan 한국어. Pilihan disimpan di akun. Asisten AI menjawab dalam bahasa pengguna. Data yang diketik pengguna (judul audit, temuan, nama) tidak diterjemahkan.
+- **Versi:** nomor versi tampil di halaman login dan di bawah setiap halaman. Riwayat versi ada di [CHANGELOG.md](CHANGELOG.md) dan di Infra Admin → Versi aplikasi.
+- **Pembacaan dokumen dan OCR:** teks PDF, Word, Excel, dan PowerPoint (.docx, .xlsx, .pptx) dibaca otomatis saat diunggah. Gambar dan PDF hasil scan dibaca dengan OCR (bahasa Indonesia dan Inggris, tanpa internet). Teks bisa dilihat dari tombol "Lihat teks" di daftar file dan dipakai untuk pencarian. OCR bisa dimatikan di Pengaturan. Ada juga menu **OCR** untuk user: unggah foto, scan, atau dokumen, lalu teksnya bisa disalin atau diunduh tanpa file itu disimpan.
+- **Asisten AI** (menu untuk auditor, auditee, dan manajemen): mencari audit, temuan, tindak lanjut, dan isi file atas permintaan, dengan tautan ke datanya. AI hanya melihat data yang boleh dilihat penanya. Penyedia AI yang dipakai adalah Cohere. Bila Cohere kena batas pemakaian gratis atau error, asisten tidak bisa menjawab sampai batasnya pulih. API key, model, urutan, dan peran yang boleh memakai diatur di System Admin (API key disimpan terenkripsi). Pemakaian per penyedia, batas yang tercapai, dan antrian OCR dipantau di Infra Admin.
+- **Aktivitas:** auditor dan manajemen melihat log aktivitas pengguna. Riwayat login (berhasil dan gagal, dengan IP dan perangkat) ada di System Admin dan Infra Admin.
+- **Log aktivitas:** setiap pembuatan, perubahan, penghapusan, dan unggahan tercatat.
+- **Pengingat email (opsional):** setiap hari, PIC menerima daftar temuan yang terlambat atau jatuh tempo dalam 7 hari.
+
+## Teknologi
+
+- Frontend: React + Vite (`web/`)
+- Backend: Node.js + Express (`server/`)
+- Database: MySQL 8 atau MariaDB 10.4+ (bisa dikelola lewat phpMyAdmin)
+- File bukti disimpan di disk server (`UPLOAD_DIR`, atau folder yang dipilih System Admin)
+
+## Mencoba di komputer sendiri (XAMPP + phpMyAdmin)
+
+Cocok untuk Windows. Yang perlu dipasang:
+
+- [XAMPP](https://www.apachefriends.org/) (berisi MySQL/MariaDB dan phpMyAdmin)
+- [Node.js](https://nodejs.org/) versi 22 LTS
+- [Git](https://git-scm.com/)
+
+Langkah:
+
+1. Buka **XAMPP Control Panel**, klik **Start** pada **Apache** dan **MySQL**.
+2. (Opsional) Buka http://localhost/phpmyadmin, klik **New** (Baru), isi nama database `jejak_audit`, pilih collation `utf8mb4_unicode_ci`, lalu klik **Create**. Bila database belum ada, aplikasi membuatnya sendiri saat pertama dijalankan. Tabelnya juga tidak perlu dibuat manual.
+3. Buka Command Prompt atau PowerShell, lalu ambil kodenya:
+
+   ```bash
+   git clone https://github.com/purwoadhii/audit.git jejak-audit
+   cd jejak-audit
+   ```
+
+4. Salin `.env.example` menjadi `.env` (`copy .env.example .env` di Command Prompt, atau `cp .env.example .env` di Git Bash). Isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` untuk akun admin pertama. `DATABASE_URL` sudah cocok untuk XAMPP bawaan (user `root` tanpa kata sandi). Kalau user root MySQL Anda memakai kata sandi, tulis sebagai `mysql://root:KATASANDI@localhost:3306/jejak_audit`.
+5. Pasang dan jalankan:
+
+   ```bash
+   npm run setup
+   npm start
+   ```
+
+6. Buka http://localhost:3000 dan masuk dengan username `admin` (atau `ADMIN_EMAIL`) dan `ADMIN_PASSWORD` dari `.env`.
+
+Setelah aplikasi jalan, semua tabel (antara lain `users`, `audits`, `findings`, `settings`, `login_history`, dan `sessions`) bisa dilihat di phpMyAdmin pada database `jejak_audit`. File bukti yang diunggah disimpan di folder `server/uploads`.
+
+Untuk memperbarui ke versi terbaru: `git pull`, lalu `npm run setup` dan `npm start` lagi.
+
+## Menjalankan di server (Docker)
+
+Butuh server Linux dengan Docker dan Docker Compose.
+
+```bash
+git clone https://github.com/purwoadhii/audit.git jejak-audit
+cd jejak-audit
+cp .env.example .env
+# Edit .env: isi DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET (openssl rand -hex 32), ADMIN_EMAIL, ADMIN_PASSWORD
+docker compose up -d --build
+```
+
+Aplikasi berjalan di `http://IP-SERVER:3000`. Masuk dengan username `admin` (atau `ADMIN_EMAIL`) dan `ADMIN_PASSWORD`, lalu segera ganti kata sandi lewat menu **Akun**.
+
+Data database dan file bukti disimpan di volume Docker `db-data` dan `uploads`, jadi tetap ada saat aplikasi diperbarui.
+
+Untuk membuka phpMyAdmin di server: `docker compose --profile tools up -d`, lalu buka `http://IP-SERVER:8080` dan masuk dengan user `jejak` dan `DB_PASSWORD`. Sebaiknya port 8080 tidak dibuka ke internet.
+
+### Domain dan HTTPS
+
+Pasang reverse proxy (misalnya Caddy atau Nginx) di depan port 3000. Contoh Caddy yang mengurus sertifikat HTTPS otomatis:
+
+```
+audit.perusahaan.co.id {
+    reverse_proxy localhost:3000
+}
+```
+
+Setelah HTTPS aktif, pastikan `COOKIE_SECURE=true` di `.env`.
+
+### Memperbarui aplikasi
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Migrasi database berjalan otomatis saat aplikasi mulai.
+
+### Backup
+
+Aplikasi membuat backup database otomatis setiap hari (bawaan pukul 02.00 waktu server) ke folder `BACKUP_DIR`, dalam bentuk file `.sql.gz`. Jadwal, jumlah file yang disimpan, tombol **Backup sekarang**, dan unduhan file ada di Infra Admin → **Backup database**. Untuk memulihkan, impor file itu lewat phpMyAdmin (tab Import menerima `.sql.gz`) atau `gunzip -c file.sql.gz | mysql nama_database`.
+
+File bukti di folder upload tidak ikut backup database. Salin folder itu terpisah, misalnya di Docker:
+
+```bash
+docker run --rm -v jejak-audit_uploads:/data -v "$PWD":/out alpine tar czf /out/uploads-$(date +%F).tgz -C /data .
+```
+
+## Pengembangan
+
+Untuk mengubah tampilan dengan hot reload, jalankan backend dan frontend terpisah:
+
+```bash
+npm --prefix server run dev   # API di http://localhost:3000
+npm --prefix web run dev      # buka http://localhost:5173
+```
+
+### Tes
+
+Untuk ikut menguji penyimpanan S3, tambahkan `TEST_S3_ENDPOINT` yang menunjuk ke server S3 uji (misalnya MinIO).
+
+Tes API berjalan terhadap database MySQL/MariaDB sungguhan dan **menghapus semua tabelnya** setiap kali jalan. Buat database terpisah bernama `jejak_audit_test` di phpMyAdmin, lalu:
+
+```bash
+cd server
+TEST_DATABASE_URL=mysql://root:@localhost:3306/jejak_audit_test npm test
+```
+
+### Terjemahan
+
+Teks di kode ditulis dalam bahasa Indonesia dan dibungkus `t('...')` (lihat `web/src/i18n.jsx`). Teks itu sekaligus menjadi kunci kamus di `web/src/locales/<bahasa>.json`. Setelah menambah atau mengubah teks, jalankan:
+
+```bash
+cd web
+node scripts/i18n-keys.mjs              # jumlah teks yang belum diterjemahkan per bahasa
+node scripts/i18n-keys.mjs --missing en # daftar teks yang belum ada di en.json
+```
+
+Teks yang belum diterjemahkan tampil dalam bahasa Indonesia. Untuk menambah bahasa: buat file kamus baru, lalu daftarkan di `LANGS` dan `LOADERS` (`web/src/i18n.jsx`) serta `LANGUAGES` (`server/src/routes/auth.js`).
+
+### Membuat kunci lisensi (khusus penyedia aplikasi)
+
+Kunci lisensi dibuat dengan kunci privat penyedia. Kunci privat **tidak** disimpan di repository; simpan baik-baik dan jangan dibagikan ke pelanggan.
+
+Cara termudah: buka `server/scripts/pembuat-lisensi.html` di Chrome atau Edge (klik dua kali), pilih file kunci privat, isi nama pelanggan, paket, batas pengguna, dan tanggal berakhir, lalu klik **Buat kunci lisensi**. Semua proses berjalan di browser; kunci privat tidak dikirim ke mana pun.
+
+Lewat perintah:
+
+```bash
+cd server
+npm run lisensi -- --kunci /lokasi/kunci-privat-lisensi.pem --pelanggan "PT Contoh" --paket pro --pengguna 50 --sampai 2027-12-31
+```
+
+| Pilihan | Isi |
+|---|---|
+| `--pelanggan` | Nama pelanggan, tampil di aplikasi pelanggan |
+| `--paket` | `standar` (bawaan) atau `pro` (dengan OCR dan Asisten AI) |
+| `--pengguna` | Batas pengguna aktif. `0` berarti tanpa batas |
+| `--sampai` | Tanggal berakhir `YYYY-MM-DD`. Tanpa pilihan ini, lisensi berlaku selamanya |
+
+Hasilnya satu baris kunci (`AM1.…`) yang dipasang di Infra Admin → Lisensi. Kunci lama tanpa paket dianggap Pro.
+
+Kalau kunci privat hilang, buat pasangan kunci baru dengan `node scripts/buat-lisensi.mjs --kunci-baru kunci-privat-lisensi.pem`, lalu ganti kunci publik di `server/src/license.js`. Lisensi lama tidak berlaku lagi setelah itu.
+
+### Versi
+
+Setiap rilis: naikkan `version` di `server/package.json` dan `web/package.json`, lalu tambahkan bagian baru di atas [CHANGELOG.md](CHANGELOG.md).
+
+## Konfigurasi
+
+Semua pengaturan ada di `.env` (lihat `.env.example`):
+
+| Variabel | Keterangan |
+| --- | --- |
+| `DATABASE_URL` | Koneksi MySQL/MariaDB, misalnya `mysql://root:@localhost:3306/jejak_audit` (diisi otomatis oleh docker-compose) |
+| `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Kata sandi database untuk docker-compose |
+| `JWT_SECRET` | Rahasia sesi login, minimal 32 karakter, wajib di production |
+| `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Akun System Admin pertama, dibuat hanya bila belum ada pengguna. Username bawaan `admin` |
+| `INFRA_USERNAME`, `INFRA_PASSWORD`, `INFRA_EMAIL` | Akun Infra Admin untuk developer, dibuat bila username itu belum ada |
+| `COOKIE_SECURE` | `true` bila diakses lewat HTTPS |
+| `MAX_UPLOAD_MB` | Ukuran maksimal file bukti (bawaan 20) |
+| `BACKUP_DIR` | Folder backup database otomatis (bawaan `./backups` di folder server) |
+| `SMTP_*`, `REMINDER_HOUR` | Email pengingat harian, nonaktif bila `SMTP_HOST` kosong |

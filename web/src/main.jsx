@@ -1,0 +1,37 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider, useAuth } from './auth.jsx';
+import { I18nProvider, LangBoundary } from './i18n.jsx';
+import { SettingsProvider } from './settings.jsx';
+import { ToastProvider } from './components/ui.jsx';
+import App from './App.jsx';
+import './styles.css';
+
+function WithSettings({ children }) {
+  const { user } = useAuth();
+  return <SettingsProvider signedIn={Boolean(user)}>{children}</SettingsProvider>;
+}
+
+// Mode offline dan aplikasi yang bisa dipasang. Service worker hanya berjalan di HTTPS atau localhost.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <I18nProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <LangBoundary>
+            <WithSettings>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </WithSettings>
+          </LangBoundary>
+        </AuthProvider>
+      </BrowserRouter>
+    </I18nProvider>
+  </StrictMode>,
+);

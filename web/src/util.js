@@ -1,0 +1,100 @@
+import { N_, t, localeTag, currentLang } from './i18n.jsx';
+
+// Nilai status dan risiko disimpan dalam bahasa Indonesia di database. Tampilkan dengan t(nilai).
+export const AUDIT_STATUS = [N_('Perencanaan'), N_('Pelaksanaan'), N_('Pelaporan'), N_('Selesai')];
+export const FINDING_STATUS = [N_('Terbuka'), N_('Dalam proses'), N_('Menunggu verifikasi'), N_('Selesai')];
+export const AUDITEE_STATUS = ['Dalam proses', 'Menunggu verifikasi'];
+export const RISKS = [N_('Tinggi'), N_('Sedang'), N_('Rendah')];
+export const STEP_RESULTS = [N_('Belum diuji'), N_('Sesuai'), N_('Tidak sesuai'), N_('Tidak berlaku')];
+
+// Label diterjemahkan saat dibaca, jadi ROLES[x] dan Object.entries(ROLES) selalu dalam bahasa pengguna.
+const translated = (o) => new Proxy(o, { get: (obj, k) => (typeof obj[k] === 'string' ? t(obj[k]) : obj[k]) });
+export const ROLES = translated({
+  infraadmin: N_('Infra Admin'),
+  admin: N_('System Admin'),
+  auditor: N_('Auditor'),
+  auditee: N_('Auditee'),
+  manajemen: N_('Manajemen'),
+  superadmin: N_('Super User'),
+});
+// Posisi laporan audit di alur persetujuan (audits.approval). null berarti belum diajukan.
+export const APPROVAL_LABEL = {
+  review: N_('Menunggu review ketua tim'), persetujuan: N_('Menunggu persetujuan'), disetujui: N_('Disetujui'), dikembalikan: N_('Dikembalikan'),
+};
+// Tanda tangan laporan dari riwayat persetujuan: kapan ketua tim mereview dan kapan penyetuju menyetujui.
+// entry berisi baris riwayatnya, termasuk gambar tanda tangan dan kode verifikasi bila ada.
+export function approvalSigns(a) {
+  const log = a.approvals || [];
+  const last = (pred) => [...log].reverse().find(pred);
+  const reviewed = a.approval && a.approval !== 'dikembalikan' && a.approval !== 'review'
+    ? last((p) => p.action === 'teruskan' || (p.action === 'ajukan' && p.user_name === a.lead_name)) : null;
+  const approved = a.approval === 'disetujui' ? last((p) => p.action === 'setujui') : null;
+  return {
+    status: a.approval ? APPROVAL_LABEL[a.approval] : N_('Belum diajukan'),
+    lead: { title: N_('Ketua Tim Audit'), name: a.lead_name, note: reviewed && t('Direview {date}', { date: fmtDate(reviewed.created_at) }), entry: reviewed },
+    approver: a.approver_name
+      ? { title: N_('Penyetuju'), name: a.approver_name, note: approved && t('Disetujui {date}', { date: fmtDate(approved.created_at) }), entry: approved }
+      : { title: t('Pimpinan {unit}', { unit: a.unit }), name: '', note: null },
+  };
+}
+
+// Penyetuju laporan: akun Manajemen (Manager), atau auditee di unit yang diaudit (Kepala unit).
+// Dengan multi-entitas (company terisi), penyetuju yang terikat perusahaan harus dari perusahaan audit itu.
+export const canApproveFor = (u, unit, company = null) => (u.role === 'manajemen'
+  || (u.role === 'auditee' && String(u.unit || '').trim().toLowerCase() === String(unit || '').trim().toLowerCase()))
+  && (!company || !u.company || u.company === company);
+
+// Jenis catatan audit: temuan atau isu.
+export const FINDING_KINDS = translated({ temuan: N_('Temuan'), isu: N_('Isu') });
+
+export function fmtDate(s) {
+  if (!s) return '—';
+  const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
+  return new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
+}
+
+export function fmtDateTime(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  const pad = (n) => String(n).padStart(2, '0');
+  const sep = currentLang() === 'id' ? '.' : ':';
+  return `${new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short', year: 'numeric' }).format(d)}, ${pad(d.getHours())}${sep}${pad(d.getMinutes())}`;
+}
+
+// Anggota tim untuk ditampilkan: pengguna terdaftar lalu anggota eksternal.
+export function teamText(a) {
+  const names = [...(a.members || []).map((m) => m.name), ...(a.team ? [a.team] : [])];
+  return names.length ? names.join(', ') : '—';
+}
+
+export function fmtSize(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export const slug = (v) => String(v ?? '').replace(/\s+/g, '-');
+export const isAdmin = (user) => user?.role === 'admin' || user?.role === 'infraadmin';
+export const canEdit = (user) => isAdmin(user) || ['superadmin', 'auditor'].includes(user?.role);
+
+// Ringkas user agent menjadi "Chrome · Windows" untuk riwayat login dan sesi.
+export function device(ua) {
+  if (!ua) return '—';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : t('Lainnya');
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS'
+    : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return os ? `${browser} · ${os}` : browser;
+}
+
+export const LOGIN_REASON = translated({
+  password_salah: N_('Password salah'),
+  akun_tidak_ada: N_('Akun tidak ditemukan'),
+  akun_nonaktif: N_('Akun nonaktif'),
+  terlalu_banyak: N_('Terlalu banyak percobaan'),
+  perbaikan: N_('Mode perbaikan'),
+  pintu_salah: N_('Salah pintu masuk'),
+  lisensi: N_('Lisensi tidak berlaku'),
+  sso: N_('Login SSO'),
+  sso_wajib: N_('Wajib login SSO'),
+});

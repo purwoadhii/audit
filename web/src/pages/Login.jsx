@@ -1,0 +1,196 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth.jsx';
+import { useSettings } from '../settings.jsx';
+import LoginArt from '../components/LoginArt.jsx';
+import { Logo } from '../components/Icons.jsx';
+import { PORTAL, portalInfo } from '../portal.js';
+import { api } from '../api.js';
+import { N_, t, tServer } from '../i18n.jsx';
+import LangMenu from '../components/LangMenu.jsx';
+
+const SAVED_KEY = PORTAL === 'user' ? 'am_username' : `am_username_${PORTAL}`;
+
+// Teks halaman login untuk System Admin dan Infra Admin. Halaman login pengguna memakai teks dari Pengaturan.
+const ADMIN_TEXT = {
+  sys: {
+    title: N_('Masuk System Admin'),
+    lead: N_('Kelola akun pengguna, template audit, dan pengaturan aplikasi.'),
+    hero: N_('Atur pengguna dan aplikasi dari satu tempat'),
+    heroText: N_('System Admin mengatur akun auditor, auditee, dan manajemen, beserta tampilan, data master, penyimpanan, dan Asisten AI.'),
+    pills: [N_('Pengguna'), N_('Template'), N_('Pengaturan')],
+  },
+  infra: {
+    title: N_('Masuk Infra Admin'),
+    lead: N_('Kelola lisensi, akun System Admin, dan keamanan aplikasi.'),
+    hero: N_('Pusat kendali aplikasi'),
+    heroText: N_('Infra Admin menjaga lisensi, akun System Admin, keamanan login, dan kondisi server.'),
+    pills: [N_('Lisensi'), N_('Akun Admin'), N_('Keamanan')],
+  },
+};
+
+function readSaved() {
+  try { return localStorage.getItem(SAVED_KEY) || ''; } catch { return ''; }
+}
+
+function Icon({ children }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
+export default function Login() {
+  const { login, notice } = useAuth();
+  const admin = ADMIN_TEXT[PORTAL];
+  const navigate = useNavigate();
+  const { settings, reload } = useSettings();
+  // Ambil ulang pengaturan saat halaman login dibuka, misalnya setelah mode perbaikan dinyalakan.
+  useEffect(() => { reload(); }, [reload]);
+  // Gambar latar dari System Admin menggantikan ilustrasi bawaan.
+  const bg = settings.login_background_url;
+  const [username, setUsername] = useState(readSaved);
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(() => Boolean(readSaved()));
+  const [showPw, setShowPw] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Login SSO (pintu pengguna saja) dan pesan gagal yang dibawa kembali dari penyedia SSO.
+  const [sso, setSso] = useState(null);
+  useEffect(() => {
+    if (PORTAL !== 'user') return;
+    api.get('/auth/sso').then(setSso).catch(() => setSso(null));
+    const q = new URLSearchParams(window.location.search);
+    const key = q.get('sso_error');
+    if (key) {
+      let vars;
+      try { vars = JSON.parse(q.get('sso_vars') || 'null') || undefined; } catch { vars = undefined; }
+      setError(tServer(key, vars));
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+  const passwordLogin = !sso?.enabled || sso.password_login !== false;
+
+  async function submit(e) {
+    e.preventDefault();
+    const u = username.trim();
+    if (!u || !password) { setError(t('Username dan password wajib diisi.')); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await login(u, password, remember);
+      // Setelah masuk selalu mulai dari halaman utama pintu ini (Ringkasan untuk pengguna).
+      navigate(portalInfo.home, { replace: true });
+      try {
+        if (remember) localStorage.setItem(SAVED_KEY, u);
+        else localStorage.removeItem(SAVED_KEY);
+      } catch { /* penyimpanan browser tidak tersedia */ }
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+      if (err.status === 503) reload();
+    }
+  }
+
+  return (
+    <div className={`lp portal-${PORTAL}`}>
+      <section
+        className={`lp-hero${bg ? ' has-photo' : ''}`}
+        aria-hidden="true"
+        style={bg ? { backgroundImage: `url("${bg}")` } : undefined}
+      >
+        {!bg && <div className="lp-art"><LoginArt /></div>}
+        <div className="lp-hero-text">
+          {admin ? <h2>{t(admin.hero)}</h2> : settings.login_hero_title && <h2>{t(settings.login_hero_title)}</h2>}
+          {admin ? <p>{t(admin.heroText)}</p> : settings.login_hero_text && <p>{t(settings.login_hero_text)}</p>}
+          <div className="lp-pills">
+            {(admin?.pills || [N_('Perencanaan Audit'), N_('Kertas Kerja'), N_('Temuan & Tindak Lanjut')]).map((x) => <span key={x}>{t(x)}</span>)}
+          </div>
+        </div>
+      </section>
+
+      <main className="lp-side">
+        <div className="lp-card">
+          <div className="lp-lang"><LangMenu /></div>
+          <div className="lp-inner">
+            <div className="lp-brand">
+              <div className="lp-brand-icon"><Logo size={52} /></div>
+              <div className="lp-brand-name">{t(settings.app_name)}{admin && <span className={`portal-badge ${PORTAL}`}>{t(portalInfo.label)}</span>}</div>
+            </div>
+
+            <h1>{admin ? t(admin.title) : t(settings.login_title)}</h1>
+            {admin ? <p className="lp-lead">{t(admin.lead)}</p> : settings.login_subtitle && <p className="lp-lead">{t(settings.login_subtitle)}</p>}
+            {settings.maintenance && PORTAL !== 'infra' && <div className="lp-maint" role="status">{t(settings.maintenance_message)}</div>}
+            {notice && <div className="lp-maint" role="status">{notice}</div>}
+
+            {sso?.enabled && (
+              <>
+                <a className={`lp-btn lp-sso sso-${sso.provider}`} href={`/api/auth/sso/start?remember=${remember ? 1 : 0}`}>
+                  <SsoLogo provider={sso.provider} />{t('Masuk dengan {name}', { name: sso.label })}
+                </a>
+                {passwordLogin ? <div className="lp-or"><span>{t('atau dengan username')}</span></div> : error && <div className="lp-error" role="alert">{error}</div>}
+              </>
+            )}
+            {passwordLogin && <form onSubmit={submit} noValidate>
+              <label className="lp-label" htmlFor="username">{t('Username')}</label>
+              <div className="lp-field">
+                <span className="lp-ico"><Icon><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></Icon></span>
+                <input id="username" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={t('contoh: budi.santoso')} value={username} onChange={(e) => setUsername(e.target.value)} />
+              </div>
+
+              <label className="lp-label" htmlFor="password">{t('Password')}</label>
+              <div className="lp-field">
+                <span className="lp-ico"><Icon><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon></span>
+                <input id="password" type={showPw ? 'text' : 'password'} autoComplete="current-password" placeholder={t('Masukkan password')} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="button" className="lp-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t('Sembunyikan password') : t('Tampilkan password')} aria-pressed={showPw}>
+                  {showPw
+                    ? <Icon><path d="M3 3l18 18" /><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></Icon>
+                    : <Icon><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></Icon>}
+                </button>
+              </div>
+
+              {error && <div className="lp-error" role="alert">{error}</div>}
+
+              <div className="lp-row">
+                <label className="lp-remember"><input id="remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> {t('Ingat saya')}</label>
+                <button type="button" className="lp-link" onClick={() => setForgot(!forgot)} aria-expanded={forgot}>{t('Forgot password?')}</button>
+              </div>
+              {forgot && <div className="lp-note" role="status">{t(settings.forgot_password_text)}</div>}
+
+              <button type="submit" className="lp-btn" disabled={busy}>{busy ? t('Memeriksa…') : t('Sign In')}</button>
+            </form>}
+
+            <hr />
+            <p className="lp-foot">{t(settings.app_tagline || settings.app_name)}{settings.version && <> · {t('Versi {version}', { version: settings.version })}</>}</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// Logo kecil penyedia SSO di tombol login.
+function SsoLogo({ provider }) {
+  if (provider === 'google') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+      </svg>
+    );
+  }
+  if (provider === 'microsoft') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022" /><rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF" /><rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+      </svg>
+    );
+  }
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>;
+}
+

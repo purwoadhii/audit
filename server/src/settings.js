@@ -1,0 +1,150 @@
+import { query } from './db.js';
+import { badRequest } from './errors.js';
+import { AUDIT_TYPES, FINDING_CATEGORIES, MENU_KEYS, ROOT_CAUSES, UNIVERSE_KINDS } from './constants.js';
+
+// Tema warna yang bisa dipilih. Pasangan warna sudah diuji kontrasnya dengan teks putih.
+export const THEMES = ['teal', 'biru', 'hijau', 'ungu', 'merah', 'oranye'];
+
+// Setiap pengaturan: nilai bawaan, siapa yang boleh mengubah, dan cara memeriksanya.
+const text = (max) => (v, label) => {
+  if (typeof v !== 'string' || !v.trim()) throw badRequest('{label} wajib diisi.', { label });
+  if (v.trim().length > max) throw badRequest('{label} maksimal {max} karakter.', { label, max });
+  return v.trim();
+};
+const optText = (max) => (v, label) => {
+  const s = String(v ?? '').trim();
+  if (s.length > max) throw badRequest('{label} maksimal {max} karakter.', { label, max });
+  return s;
+};
+const list = (v, label) => {
+  if (!Array.isArray(v)) throw badRequest('{label} harus berupa daftar.', { label });
+  const out = [...new Set(v.map((x) => String(x ?? '').trim()).filter(Boolean))];
+  if (out.some((x) => x.length > 150)) throw badRequest('Isi {label} maksimal 150 karakter.', { label });
+  if (out.length > 200) throw badRequest('{label} maksimal 200 baris.', { label });
+  return out;
+};
+const int = (min, max) => (v, label) => {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min || n > max) throw badRequest('{label} harus angka {min} sampai {max}.', { label, min, max });
+  return n;
+};
+const bool = (v) => Boolean(v);
+const menuList = (v, label) => {
+  if (!Array.isArray(v)) throw badRequest('{label} harus berupa daftar.', { label });
+  const bad = v.find((k) => !MENU_KEYS.includes(k));
+  if (bad !== undefined) throw badRequest('Menu {k} tidak dikenal.', { k: String(bad) });
+  return MENU_KEYS.filter((k) => v.includes(k));
+};
+const oneOf = (opts) => (v, label) => {
+  if (!opts.includes(v)) throw badRequest('{label} tidak valid.', { label });
+  return v;
+};
+
+export const SETTINGS = {
+  // Tampilan (System Admin)
+  app_name: { def: 'Audit Management', who: 'admin', label: 'Nama aplikasi', check: text(60), pub: true },
+  app_tagline: { def: 'Manajemen audit internal', who: 'admin', label: 'Keterangan aplikasi', check: optText(80), pub: true },
+  theme: { def: 'teal', who: 'admin', label: 'Tema warna', check: oneOf(THEMES), pub: true },
+  login_title: { def: 'Selamat datang', who: 'admin', label: 'Judul login', check: text(60), pub: true },
+  login_subtitle: { def: 'Masukkan username dan password akun Anda.', who: 'admin', label: 'Keterangan login', check: optText(160), pub: true },
+  login_hero_title: { def: 'Audit lebih rapi, temuan lebih terkendali', who: 'admin', label: 'Judul panel kiri', check: optText(80), pub: true },
+  login_hero_text: { def: 'Rencanakan audit, kelola kertas kerja, catat temuan, dan pantau tindak lanjut dalam satu tempat.', who: 'admin', label: 'Teks panel kiri', check: optText(200), pub: true },
+  forgot_password_text: { def: 'Hubungi admin aplikasi untuk mengatur ulang password Anda.', who: 'admin', label: 'Pesan lupa password', check: optText(200), pub: true },
+  // Gambar latar login: nama file di folder branding. Diatur lewat endpoint unggah, bukan PATCH.
+  login_background: { def: '', who: 'internal', label: 'Gambar latar login', check: optText(100) },
+  app_background: { def: '', who: 'internal', label: 'Gambar latar halaman aplikasi', check: optText(100) },
+  // Lisensi: kunci dipasang Infra Admin lewat /api/admin/license. Tanggal pasang menentukan masa uji coba.
+  license_key: { def: '', who: 'internal', label: 'Kunci lisensi', check: optText(4000) },
+  install_date: { def: '', who: 'internal', label: 'Tanggal pemasangan', check: optText(10) },
+  // Id pengguna dan audit dari tombol Isi data contoh, supaya bisa dihapus lagi sekaligus.
+  sample_data: { def: null, who: 'internal', label: 'Data contoh', check: (v) => v },
+  // Data master (System Admin)
+  units: { def: [], who: 'admin', label: 'Daftar unit', check: list },
+  audit_types: { def: AUDIT_TYPES, who: 'admin', label: 'Jenis audit', check: list },
+  finding_categories: { def: FINDING_CATEGORIES, who: 'admin', label: 'Kategori temuan', check: list },
+  root_causes: { def: ROOT_CAUSES, who: 'admin', label: 'Kategori akar masalah', check: list },
+  // Multi-entitas: audit, pengguna, dan area audit bisa dikaitkan ke salah satu perusahaan di daftar.
+  multi_entity: { def: false, who: 'admin', label: 'Multi-entitas', check: bool },
+  companies: { def: [], who: 'admin', label: 'Daftar perusahaan', check: list },
+  // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
+  unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
+  // Perencanaan audit (System Admin)
+  universe_kinds: { def: UNIVERSE_KINDS, who: 'admin', label: 'Jenis area audit', check: list },
+  auditor_hours: { def: 1200, who: 'admin', label: 'Jam kerja auditor per tahun', check: int(100, 3000) },
+  // Persetujuan berjenjang: audit baru bisa Selesai setelah laporannya disetujui Manager atau Kepala unit.
+  approval_required: { def: true, who: 'admin', label: 'Wajib persetujuan laporan', check: bool },
+  // Ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.
+  review_required: { def: true, who: 'admin', label: 'Wajib review ketua tim', check: bool },
+  // Tanda tangan elektronik: ketua tim dan penyetuju wajib punya tanda tangan dan memasukkan kata sandi saat menandatangani.
+  esign_required: { def: false, who: 'admin', label: 'Wajib tanda tangan elektronik', check: bool },
+  // Menu yang disembunyikan dari aplikasi pengguna. Bawaan: penilaian risiko dan Analitik (permintaan PT OTI, 16 Oktober 2026).
+  hidden_menus: { def: ['perencanaan.risiko', 'analitik'], who: 'admin', label: 'Menu yang disembunyikan', check: menuList },
+  // Dokumen (System Admin)
+  ocr_enabled: { def: true, who: 'admin', label: 'OCR gambar dan PDF hasil scan', check: bool },
+  // Keamanan login (System Admin)
+  session_idle_minutes: { def: 120, who: 'admin', label: 'Batas tidak aktif', check: int(5, 1440) },
+  remember_max_days: { def: 7, who: 'admin', label: 'Batas Ingat saya', check: int(1, 30) },
+  // Teknis (Infra Admin)
+  max_login_attempts: { def: 10, who: 'infraadmin', label: 'Batas percobaan login', check: int(3, 100) },
+  backup_enabled: { def: true, who: 'infraadmin', label: 'Backup otomatis', check: bool },
+  backup_hour: { def: 2, who: 'infraadmin', label: 'Jam backup', check: int(0, 23) },
+  backup_keep: { def: 14, who: 'infraadmin', label: 'Jumlah backup disimpan', check: int(1, 365) },
+  backup_last: { def: null, who: 'internal', label: 'Backup terakhir', check: (v) => v },
+  maintenance: { def: false, who: 'infraadmin', label: 'Mode perbaikan', check: bool, pub: true },
+  maintenance_message: { def: 'Aplikasi sedang dalam perbaikan. Silakan coba beberapa saat lagi.', who: 'infraadmin', label: 'Pesan perbaikan', check: optText(200), pub: true },
+};
+
+let cache = null;
+
+export async function getSettings() {
+  if (cache) return cache;
+  const { rows } = await query('SELECT k, v FROM settings');
+  const out = {};
+  for (const [k, s] of Object.entries(SETTINGS)) out[k] = structuredClone(s.def);
+  for (const r of rows) {
+    if (!(r.k in SETTINGS)) continue;
+    try { out[r.k] = JSON.parse(r.v); } catch { /* nilai rusak, pakai bawaan */ }
+  }
+  cache = out;
+  return out;
+}
+
+export const clearSettingsCache = () => { cache = null; };
+
+export async function publicSettings() {
+  const all = await getSettings();
+  const out = Object.fromEntries(Object.entries(SETTINGS).filter(([, s]) => s.pub).map(([k]) => [k, all[k]]));
+  // Nama file berubah setiap unggah, jadi bisa dipakai sebagai penanda versi untuk cache browser.
+  out.login_background_url = all.login_background ? `/api/auth/login-background?v=${encodeURIComponent(all.login_background)}` : '';
+  out.app_background_url = all.app_background ? `/api/auth/app-background?v=${encodeURIComponent(all.app_background)}` : '';
+  return out;
+}
+
+// Menyimpan pengaturan internal tanpa pemeriksaan hak (dipanggil dari route yang sudah memeriksa).
+export async function saveInternal(user, k, v) {
+  await query(
+    'INSERT INTO settings (k, v, updated_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = VALUES(v), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP(3)',
+    [k, JSON.stringify(v), user.id],
+  );
+  clearSettingsCache();
+}
+
+// Memeriksa dan menyimpan perubahan. Kunci yang tidak dikenal atau di luar hak peran ditolak.
+export async function saveSettings(user, body) {
+  const changes = {};
+  for (const [k, v] of Object.entries(body || {})) {
+    const s = SETTINGS[k];
+    if (!s || s.who === 'internal') throw badRequest('Pengaturan {k} tidak dikenal.', { k });
+    if (s.who === 'infraadmin' && user.role !== 'infraadmin') throw badRequest('{label} hanya bisa diubah Infra Admin.', { label: s.label });
+    changes[k] = s.check(v, s.label);
+  }
+  if (!Object.keys(changes).length) throw badRequest('Tidak ada perubahan.');
+  for (const [k, v] of Object.entries(changes)) {
+    await query(
+      'INSERT INTO settings (k, v, updated_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = VALUES(v), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP(3)',
+      [k, JSON.stringify(v), user.id],
+    );
+  }
+  clearSettingsCache();
+  return changes;
+}
