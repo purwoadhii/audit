@@ -2,6 +2,9 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.16.1 - 2026-10-16
+- Penanda sub-menu di Pengaturan menu diganti dengan ikon panah yang lebih jelas terlihat.
+
 ## 1.16.0 - 2026-10-16
 - Menu Pengaturan menu baru di System Admin: setiap menu aplikasi pengguna dan sub-menunya (Perencanaan dan Timesheet) bisa dinyalakan atau dimatikan dengan sakelar. Menu yang dimatikan tidak tampil dan halamannya tidak bisa dibuka, tetapi datanya tetap tersimpan.
 - Penilaian risiko di menu Perencanaan dan menu Analitik dimatikan untuk sementara. Keduanya bisa dinyalakan lagi di Pengaturan menu.

@@ -66,7 +66,7 @@ export default function MenuSettings() {
                 const cOn = isOn(c.key);
                 return (
                   <div key={c.key} className={`menu-row sub${on ? '' : ' muted'}`}>
-                    <span className="menu-name">{t(c.label)}</span>
+                    <span className="menu-name"><Icon name="subitem" size={18} />{t(c.label)}</span>
                     <span className={`menu-state${on && cOn ? ' on' : ''}`}>{on && cOn ? t('Tampil') : t('Disembunyikan')}</span>
                     <Switch id={`menu-${c.key.replace('.', '-')}`} on={cOn} disabled={!on} label={`${t(m.label)}: ${t(c.label)}`} onChange={(v) => set(c.key, v)} />
                   </div>
