@@ -10,8 +10,10 @@ const ACTION = {
   review: N_('mereview kertas kerja dan temuan audit {what}'),
   ajukan: N_('mengajukan laporan audit {what}'), teruskan: N_('meneruskan laporan audit {what} ke penyetuju'),
   setujui: N_('menyetujui laporan audit {what}'), kembalikan: N_('mengembalikan laporan audit {what}'), tarik: N_('menarik pengajuan laporan audit {what}'),
+  assess: N_('menilai risiko {what}'),
 };
-const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database'), approval: N_('persetujuan') };
+const ENTITY = { audit: N_('audit'), finding: N_('temuan'), user: N_('pengguna'), attachment: N_('file bukti'), setting: N_('pengaturan'), file: N_('file'), backup: N_('backup database'), approval: N_('persetujuan'),
+  entity: N_('area audit'), risk: N_('penilaian risiko'), plan: N_('rencana audit') };
 
 // Nama kolom untuk daftar perubahan (nilai sebelum dan sesudah).
 const FIELD = {
@@ -21,15 +23,20 @@ const FIELD = {
   category: N_('Kategori temuan'), root_cause: N_('Kategori akar masalah'), condition: N_('Kondisi'), criteria: N_('Kriteria'),
   cause: N_('Sebab'), effect: N_('Akibat'), recommendation: N_('Rekomendasi'), response: N_('Tanggapan auditee'),
   approver: N_('Penyetuju'), approval: N_('Persetujuan'),
+  entity: N_('Area audit'), kind: N_('Jenis area'), description: N_('Keterangan'), year: N_('Tahun'), quarter: N_('Triwulan'),
+  hours: N_('Anggaran jam'), notes: N_('Catatan'), cancelled: N_('Dibatalkan'), score: N_('Skor risiko'),
   name: N_('Nama'), username: N_('Username'), email: N_('Email'), role: N_('Peran'), active: N_('Status akun'), password: N_('Kata sandi'),
 };
 // Nilai yang disimpan dalam bahasa Indonesia (status, risiko, jenis) diterjemahkan saat tampil.
-const TRANSLATED = ['status', 'risk', 'type', 'category', 'root_cause'];
+const TRANSLATED = ['status', 'risk', 'type', 'category', 'root_cause', 'kind'];
 
 function showValue(k, v) {
   if (v === null || v === undefined || v === '') return '—';
   if (k === 'password') return t('diubah');
   if (k === 'active') return Number(v) ? t('Aktif') : t('Nonaktif');
+  if (k === 'cancelled') return Number(v) ? t('Ya') : t('Tidak');
+  if (k === 'quarter') return `Q${v}`;
+  if (k === 'score') return String(v).replace(/ · (.+)$/, (_, l) => ` · ${t(l)}`);
   if (k === 'role') return ROLES[v] || v;
   if (k.endsWith('_date')) return fmtDate(v);
   if (TRANSLATED.includes(k)) return t(v);
@@ -65,6 +72,7 @@ function describe(l) {
 const ACTION_FILTER = {
   create: N_('Membuat'), update: N_('Mengubah'), delete: N_('Menghapus'), upload: N_('Mengunggah'), ocr: N_('OCR'),
   review: N_('Mereview'), ajukan: N_('Mengajukan'), setujui: N_('Menyetujui'), kembalikan: N_('Mengembalikan'),
+  assess: N_('Menilai risiko'),
 };
 
 export default function Activity() {

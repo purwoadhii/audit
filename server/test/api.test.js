@@ -840,6 +840,15 @@ test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async 
   assert.equal(audits[0].issues_total, 1);
   assert.equal(made.data.audits, 7);
 
+  // Audit universe, penilaian risiko, dan rencana tahun ini ikut terisi dan terhubung ke audit.
+  const year = new Date().getFullYear();
+  const risks = (await c.get(`/api/planning/risks?year=${year}`)).data.filter((e) => e.name === 'Sistem ERP dan keamanan jaringan');
+  assert.equal(risks[0]?.score, 20);
+  assert.equal(risks[0].level, 'Sangat tinggi');
+  assert.ok(audits[0].entity_name === 'Proses pengadaan barang dan jasa' && audits[0].plan_item_id, 'audit terhubung ke area dan rencana');
+  const plan = (await c.get(`/api/planning/plan?year=${year}`)).data;
+  assert.ok(plan.items.some((i) => i.title === 'Audit Vendor jasa logistik dan ekspedisi' && !i.audit_id && i.hours === 280));
+
   const gone = await admin.del('/api/admin/sample-data');
   assert.equal(gone.status, 200);
   assert.equal(gone.data.exists, false);
@@ -847,6 +856,8 @@ test('data awal bisa diisi dan dihapus lagi; akun pengguna bisa dihapus', async 
   assert.ok(!users.some((u) => u.username === 'rina.wulandari'), 'akun data awal terhapus');
   assert.ok(!(await admin.get('/api/settings')).data.values.units.includes('Divisi SDM'), 'unit tambahan ikut dihapus');
   assert.ok(!(await auditor.get('/api/audits')).data.some((a) => a.title.startsWith('Audit Pengadaan Barang')), 'audit contoh terhapus');
+  assert.ok(!(await auditor.get('/api/planning/entities')).data.some((e) => e.name === 'Gudang pusat'), 'audit universe data awal terhapus');
+  assert.ok(!(await auditor.get(`/api/planning/plan?year=${year}`)).data.items.some((i) => i.title.startsWith('Audit Vendor jasa logistik')), 'rencana data awal terhapus');
   assert.equal((await c.get('/api/audits')).status, 401, 'sesi akun contoh ikut berakhir');
 
   // Hapus akun satu per satu.
@@ -1045,4 +1056,93 @@ test('versi file bukti: versi baru menggantikan, versi lama tetap tersimpan', as
   assert.equal((await client().post(`/api/attachments/${v2.data.id}/versions`, form('x', 'x.txt'))).status, 401);
   assert.equal((await auditor.del(`/api/attachments/${v2.data.id}`)).status, 200);
   assert.equal((await auditor.get(`/api/attachments/${v1.id}`, { raw: true })).status, 404, 'semua versi ikut terhapus');
+});
+
+// Akun manajemen untuk uji hak baca saja.
+let managerClient;
+function manager() { return managerClient; }
+
+test('perencanaan: audit universe, penilaian risiko 5×5, dan rencana tahunan', async () => {
+  const year = new Date().getFullYear();
+  await admin.post('/api/users', { name: 'Direksi', username: 'direksi', email: 'direksi@contoh.id', role: 'manajemen', password: 'katasandi123' });
+  managerClient = client();
+  await managerClient.post('/api/auth/login', { username: 'direksi', password: 'katasandi123' });
+  assert.equal((await auditee.get('/api/planning/entities')).status, 403);
+  const settings = (await auditor.get('/api/settings')).data.values;
+  assert.ok(settings.universe_kinds.includes('Proses bisnis'));
+  assert.equal(settings.auditor_hours, 1200);
+
+  const mk = async (b) => {
+    const r = await auditor.post('/api/planning/entities', b);
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    return r.data;
+  };
+  assert.equal((await auditor.post('/api/planning/entities', { kind: 'Vendor' })).status, 400);
+  const kas = await mk({ name: 'Pengelolaan kas', kind: 'Proses bisnis', unit: 'Divisi Keuangan', owner: 'Kepala Divisi Keuangan' });
+  const erp = await mk({ name: 'Sistem ERP', kind: 'Sistem informasi', unit: 'Divisi TI' });
+  const vendor = await mk({ name: 'Vendor kebersihan', kind: 'Vendor' });
+  assert.equal(kas.audits, 0);
+
+  // Penilaian risiko: skor = kemungkinan × dampak, tingkat dan siklus audit.
+  assert.equal((await auditor.put(`/api/planning/risks/${kas.id}/${year}`, { likelihood: 6, impact: 2 })).status, 400);
+  assert.equal((await auditor.put(`/api/planning/risks/${kas.id}/${year}`, { likelihood: 4, impact: 5, notes: 'Volume transaksi tinggi' })).data.level, 'Sangat tinggi');
+  assert.equal((await auditor.put(`/api/planning/risks/${erp.id}/${year}`, { likelihood: 3, impact: 3 })).data.level, 'Sedang');
+  assert.equal((await auditor.put(`/api/planning/risks/${vendor.id}/${year}`, { likelihood: 1, impact: 2 })).data.level, 'Rendah');
+  assert.equal((await auditor.put(`/api/planning/risks/${erp.id}/${year}`, { likelihood: 3, impact: 4 })).data.score, 12, 'penilaian ulang menimpa');
+  const risks = (await auditor.get(`/api/planning/risks?year=${year}`)).data;
+  assert.deepEqual(risks.filter((x) => [kas.id, erp.id, vendor.id].includes(x.id)).map((x) => [x.name, x.score, x.level]),
+    [['Pengelolaan kas', 20, 'Sangat tinggi'], ['Sistem ERP', 12, 'Tinggi'], ['Vendor kebersihan', 2, 'Rendah']]);
+  assert.ok(risks.find((x) => x.id === kas.id).due, 'belum pernah diaudit: disarankan tahun ini');
+  assert.equal(risks.find((x) => x.id === kas.id).assessed_by_name, 'Radipta');
+
+  // Rencana tahunan dengan alokasi jam auditor.
+  const bad = await auditor.post('/api/planning/plan', { year, title: 'X', unit: 'U', type: 'Keuangan', quarter: 5 });
+  assert.equal(bad.status, 400);
+  assert.equal((await auditor.post('/api/planning/plan', { year, title: 'X', unit: 'U', type: 'Keuangan', quarter: 1, members: [{ id: ctx.auditeeId, hours: 10 }] })).status, 400, 'hanya auditor');
+  const item = await auditor.post('/api/planning/plan', {
+    year, entity_id: kas.id, title: 'Audit Pengelolaan Kas', unit: 'Divisi Keuangan', type: 'Keuangan', quarter: 2,
+    lead_id: ctx.auditorId, members: [{ id: ctx.auditorId, hours: 120 }],
+  });
+  assert.equal(item.status, 201, JSON.stringify(item.data));
+  assert.equal(item.data.hours, 120);
+  assert.equal(item.data.level, 'Sangat tinggi');
+  const second = (await auditor.post('/api/planning/plan', { year, entity_id: erp.id, title: 'Audit ERP', unit: 'Divisi TI', type: 'Teknologi Informasi', quarter: 3, members: [{ id: ctx.auditorId, hours: 1200 }] })).data;
+  let plan = (await auditor.get(`/api/planning/plan?year=${year}`)).data;
+  assert.equal(plan.summary.planned, 2);
+  assert.equal(plan.summary.hours, 1320);
+  assert.equal(plan.auditors[0].hours, 1320);
+  assert.equal(plan.capacity, 1200);
+  assert.equal((await manager().get(`/api/planning/plan?year=${year}`)).status, 200);
+  assert.equal((await manager().post('/api/planning/plan', {})).status, 403, 'manajemen hanya melihat');
+
+  // Membatalkan mengeluarkan penugasan dari ringkasan dan beban jam.
+  await auditor.patch(`/api/planning/plan/${second.id}`, { cancelled: true });
+  plan = (await auditor.get(`/api/planning/plan?year=${year}`)).data;
+  assert.equal(plan.summary.planned, 1);
+  assert.equal(plan.summary.cancelled, 1);
+  assert.equal(plan.auditors[0].hours, 120);
+
+  // Audit dibuat dari rencana: rencana tertaut dan area audit terisi.
+  const audit = await auditor.post('/api/audits', { title: 'Audit Pengelolaan Kas', unit: 'Divisi Keuangan', type: 'Keuangan', plan_item_id: item.data.id });
+  assert.equal(audit.status, 201, JSON.stringify(audit.data));
+  assert.equal(audit.data.entity_name, 'Pengelolaan kas');
+  assert.equal(audit.data.plan_item_id, item.data.id);
+  assert.equal((await auditor.post('/api/audits', { title: 'Lagi', unit: 'Divisi Keuangan', type: 'Keuangan', plan_item_id: item.data.id })).status, 400);
+  plan = (await auditor.get(`/api/planning/plan?year=${year}`)).data;
+  assert.equal(plan.summary.started, 1);
+  assert.equal(plan.items.find((x) => x.id === item.data.id).audit_status, 'Perencanaan');
+  assert.equal((await auditor.get('/api/dashboard')).data.plan.started, 1);
+  assert.equal((await auditee.get('/api/dashboard')).data.plan, null);
+
+  // Audit terakhir: tanggal mulai audit tertaut yang sudah dimulai (audit yang baru dijadwalkan belum dihitung).
+  await auditor.patch(`/api/audits/${audit.data.id}`, { start_date: `${year + 1}-02-01`, end_date: `${year + 1}-03-15` });
+  assert.equal((await auditor.get(`/api/planning/risks?year=${year + 1}`)).data.find((x) => x.id === kas.id).last_audit, null);
+  await auditor.patch(`/api/audits/${audit.data.id}`, { start_date: `${year - 1}-04-01`, end_date: `${year - 1}-05-15` });
+  const kasRisk = (await auditor.get(`/api/planning/risks?year=${year + 1}`)).data.find((x) => x.id === kas.id);
+  assert.equal(kasRisk.last_audit, `${year - 1}-04-01`);
+
+  // Menghapus area tidak menghapus audit maupun rencananya.
+  assert.equal((await auditor.del(`/api/planning/entities/${kas.id}`)).status, 200);
+  assert.equal((await auditor.get(`/api/audits/${audit.data.id}`)).data.entity_id, null);
+  assert.equal((await auditor.get(`/api/planning/plan?year=${year}`)).data.items.find((x) => x.id === item.data.id).entity_id, null);
 });

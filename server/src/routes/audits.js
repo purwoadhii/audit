@@ -17,13 +17,15 @@ const LIST_SQL = `
   SELECT a.id, a.code, a.title, a.unit, a.type, a.lead_id, u.name AS lead_name, a.team,
          a.start_date, a.end_date, a.status, a.scope, a.created_by, a.created_at, a.updated_at,
          a.approver_id, ap.name AS approver_name, ap.role AS approver_role, a.approval,
+         a.entity_id, en.name AS entity_name, (SELECT p.id FROM plan_items p WHERE p.audit_id = a.id LIMIT 1) AS plan_item_id,
          (SELECT COUNT(*) FROM audit_steps s WHERE s.audit_id = a.id) AS steps_total,
          (SELECT COUNT(*) FROM audit_steps s WHERE s.audit_id = a.id AND s.result <> 'Belum diuji') AS steps_done,
          (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'temuan') AS findings_total,
          (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'temuan' AND f.status <> 'Selesai') AS findings_open,
          (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'isu') AS issues_total,
          (SELECT COUNT(*) FROM findings f WHERE f.audit_id = a.id AND f.kind = 'isu' AND f.status <> 'Selesai') AS issues_open
-  FROM audits a LEFT JOIN users u ON u.id = a.lead_id LEFT JOIN users ap ON ap.id = a.approver_id`;
+  FROM audits a LEFT JOIN users u ON u.id = a.lead_id LEFT JOIN users ap ON ap.id = a.approver_id
+  LEFT JOIN auditable_entities en ON en.id = a.entity_id`;
 
 const STEP_COLS = 's.id, s.position, s.text, s.result, s.note, s.updated_at, s.reviewed_by, s.reviewed_at, rv.name AS reviewer_name';
 const STEP_FROM = 'FROM audit_steps s LEFT JOIN users rv ON rv.id = s.reviewed_by';
@@ -46,6 +48,7 @@ function auditFields(b, partial, types) {
   if (has('status')) out.status = oneOf(b.status, AUDIT_STATUS, 'Status');
   if (has('lead_id')) out.lead_id = b.lead_id ? intId(b.lead_id) : null;
   if (has('approver_id')) out.approver_id = b.approver_id ? intId(b.approver_id) : null;
+  if (has('entity_id')) out.entity_id = b.entity_id ? intId(b.entity_id) : null;
   if (has('team')) out.team = String(b.team || '').trim() || null;
   if (has('scope')) out.scope = String(b.scope || '').trim() || null;
   if (has('start_date')) out.start_date = dateOrNull(b.start_date, 'Tanggal mulai');
@@ -86,6 +89,12 @@ async function checkApprover(id, unit) {
   }
 }
 
+async function checkEntity(id) {
+  if (!id) return;
+  const { rowCount } = await query('SELECT 1 FROM auditable_entities WHERE id = ?', [id]);
+  if (!rowCount) throw badRequest('Area audit tidak ditemukan.');
+}
+
 async function saveMembers(db, auditId, ids) {
   await db.query('DELETE FROM audit_members WHERE audit_id = ?', [auditId]);
   for (const uid of ids) await db.query('INSERT INTO audit_members (audit_id, user_id) VALUES (?,?)', [auditId, uid]);
@@ -119,17 +128,28 @@ r.post('/', editors, async (req, res) => {
   const f = auditFields(req.body || {}, false, (await getSettings()).audit_types);
   assertOwnUnit(req.user, f.unit);
   await checkApprover(f.approver_id, f.unit);
+  await checkEntity(f.entity_id);
   if (f.status === 'Selesai' && (await getSettings()).approval_required) throw badRequest('Audit baru bisa Selesai setelah laporannya disetujui.');
   const templateId = req.body?.template_id ? intId(req.body.template_id) : null;
+  // Audit yang dibuat dari rencana tahunan: rencana itu dikaitkan ke audit baru, dan area audit ikut terisi.
+  const planItemId = req.body?.plan_item_id ? intId(req.body.plan_item_id) : null;
+  if (planItemId) {
+    const { rows: [item] } = await query('SELECT entity_id, audit_id, cancelled FROM plan_items WHERE id = ?', [planItemId]);
+    if (!item) throw badRequest('Rencana audit tidak ditemukan.');
+    if (item.audit_id) throw badRequest('Rencana ini sudah punya audit.');
+    if (Number(item.cancelled)) throw badRequest('Rencana ini sudah dibatalkan.');
+    if (f.entity_id === undefined) f.entity_id = item.entity_id;
+  }
   const members = await memberIds(req.body?.member_ids);
   const id = await tx(async (c) => {
     const code = await nextCode(c, 'AUD');
     const { insertId } = await c.query(
-      `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, team, scope, start_date, end_date, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [code, f.title, f.unit, f.type, f.status || 'Perencanaan', f.lead_id ?? null, f.approver_id ?? null, f.team ?? null, f.scope ?? null,
+      `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, entity_id, team, scope, start_date, end_date, created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [code, f.title, f.unit, f.type, f.status || 'Perencanaan', f.lead_id ?? null, f.approver_id ?? null, f.entity_id ?? null, f.team ?? null, f.scope ?? null,
         f.start_date ?? null, f.end_date ?? null, req.user.id],
     );
+    if (planItemId) await c.query('UPDATE plan_items SET audit_id = ? WHERE id = ? AND audit_id IS NULL', [insertId, planItemId]);
     if (members?.length) await saveMembers(c, insertId, members);
     if (templateId) {
       const t = await c.query('SELECT steps FROM templates WHERE id = ?', [templateId]);
@@ -178,6 +198,7 @@ r.patch('/:id', editors, async (req, res) => {
     const approver = f.approver_id !== undefined ? f.approver_id : cur.approver_id;
     if (approver !== cur.approver_id || !sameUnit({ unit: cur.unit }, f.unit ?? cur.unit)) await checkApprover(approver, f.unit ?? cur.unit);
   }
+  await checkEntity(f.entity_id);
   const settings = await getSettings();
   if (f.status === 'Selesai' && cur.status !== 'Selesai' && settings.approval_required && cur.approval !== 'disetujui') {
     throw badRequest('Audit baru bisa Selesai setelah laporannya disetujui.');
@@ -195,7 +216,8 @@ r.patch('/:id', editors, async (req, res) => {
     if (members !== undefined) await saveMembers(c, id, members);
   });
   const after = await loadAudit(req.user, id);
-  const changes = changesOf(cur, after, keys.filter((k) => !['lead_id', 'approver_id'].includes(k)));
+  const changes = changesOf(cur, after, keys.filter((k) => !['lead_id', 'approver_id', 'entity_id'].includes(k)));
+  if (cur.entity_id !== after.entity_id) changes.entity = [cur.entity_name ?? null, after.entity_name ?? null];
   if (cur.lead_id !== after.lead_id) changes.lead = [cur.lead_name ?? null, after.lead_name ?? null];
   if (cur.approver_id !== after.approver_id) changes.approver = [cur.approver_name ?? null, after.approver_name ?? null];
   if (members !== undefined) {

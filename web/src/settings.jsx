@@ -24,6 +24,8 @@ const DEFAULTS = {
   root_causes: [],
   approval_required: true,
   review_required: true,
+  universe_kinds: ['Proses bisnis', 'Sistem informasi', 'Vendor', 'Lokasi', 'Unit organisasi'],
+  auditor_hours: 1200,
 };
 
 const SettingsContext = createContext({ settings: DEFAULTS, reload: () => {} });

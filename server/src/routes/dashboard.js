@@ -24,7 +24,15 @@ r.get('/', async (req, res) => {
     `SELECT a.unit, COUNT(*) AS total, ${countIf("f.status <> 'Selesai'")} AS open
      FROM findings f JOIN audits a ON a.id = f.audit_id WHERE ${fs.sql}
      GROUP BY a.unit ORDER BY open DESC, total DESC LIMIT 8`, fs.params)).rows;
-  res.json({ audits, findings, upcoming, byUnit });
+  // Progres rencana audit tahun ini (tidak untuk auditee).
+  let plan = null;
+  if (req.user.role !== 'auditee') {
+    const { rows: [p] } = await query(
+      `SELECT COUNT(*) AS planned, ${countIf('p.audit_id IS NOT NULL')} AS started, ${countIf("a.status = 'Selesai'")} AS done
+       FROM plan_items p LEFT JOIN audits a ON a.id = p.audit_id WHERE p.year = ? AND p.cancelled = FALSE`, [new Date().getFullYear()]);
+    plan = { year: new Date().getFullYear(), planned: Number(p.planned), started: Number(p.started || 0), done: Number(p.done || 0) };
+  }
+  res.json({ audits, findings, upcoming, byUnit, plan });
 });
 
 // Log aktivitas. Admin melihat aktivitas akun yang diawasinya: System Admin melihat pengguna dan admin,

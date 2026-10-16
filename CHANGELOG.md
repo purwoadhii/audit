@@ -2,6 +2,15 @@
 
 Nomor versi: MAYOR.MINOR.PERBAIKAN. Versi minor naik saat ada fitur baru, versi perbaikan naik saat ada perbaikan tanpa fitur baru.
 
+## 1.14.0 - 2026-10-16
+- Menu Perencanaan baru untuk auditor, Super User, dan manajemen, berisi audit universe, penilaian risiko, dan rencana audit tahunan.
+- Audit universe: daftar semua area yang bisa diaudit (proses bisnis, sistem informasi, vendor, lokasi, unit organisasi) dengan unit, pemilik proses, dan tanggal audit terakhirnya. Jenis area diatur di System Admin → Pengaturan → Perencanaan audit.
+- Penilaian risiko tahunan dengan matriks 5×5 (kemungkinan × dampak) sesuai praktik umum IIA dan COSO. Skor 1 sampai 25 dibagi menjadi Rendah, Sedang, Tinggi, dan Sangat tinggi, dan aplikasi menyarankan kapan area perlu diaudit lagi: risiko Tinggi ke atas setiap tahun, Sedang setiap 2 tahun, Rendah setiap 3 tahun.
+- Rencana audit tahunan per triwulan dengan ketua tim, alokasi auditor, dan anggaran jam. Beban kerja setiap auditor dibandingkan dengan kapasitas jam per tahun, dan rencana bisa diekspor ke Excel.
+- Audit bisa dibuat langsung dari rencana, dan audit bisa dihubungkan ke area di audit universe.
+- Ringkasan menampilkan progres rencana audit tahun ini.
+- Data awal kini berisi audit universe, penilaian risiko, dan rencana audit tahun ini.
+
 ## 1.13.0 - 2026-10-16
 - Persetujuan laporan berjenjang: tim audit mengajukan, ketua tim mereview, lalu penyetuju menyetujui. Penyetuju dipilih di setiap audit dari akun Manajemen (Manager) atau auditee di unit yang diaudit (Kepala unit). Ketua tim atau penyetuju bisa mengembalikan laporan dengan alasan.
 - Audit baru bisa berstatus Selesai setelah laporannya disetujui. Selama menunggu persetujuan atau sesudah disetujui, isi audit dan temuan terkunci, tetapi tindak lanjut tetap berjalan. Aturan ini bisa dimatikan di System Admin → Pengaturan → Persetujuan laporan.

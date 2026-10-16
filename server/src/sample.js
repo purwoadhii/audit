@@ -8,7 +8,8 @@ import { nextCode } from './codes.js';
 import { removeFilesOf } from './files.js';
 
 // Data awal yang realistis untuk mulai memakai aplikasi: tim Satuan Pengawasan Intern (SPI), direksi,
-// PIC di enam divisi, dan tujuh audit lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut.
+// PIC di enam divisi, tujuh audit lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut,
+// serta audit universe, penilaian risiko, dan rencana audit tahunan.
 // Id yang dibuat disimpan di pengaturan sample_data, jadi semuanya bisa dihapus lagi sekaligus.
 
 const USERS = [
@@ -182,6 +183,39 @@ const AUDITS = [
   },
 ];
 
+// Audit universe dengan penilaian risiko tahun ini (kemungkinan × dampak). Area yang punya audit di atas
+// terhubung ke audit itu lewat judulnya dan masuk rencana tahunan; dua area lain direncanakan tapi belum dimulai.
+const ENTITIES = [
+  { name: 'Proses pengadaan barang dan jasa', kind: 'Proses bisnis', unit: 'Divisi Pengadaan', owner: 'Kepala Divisi Pengadaan', risk: [4, 4],
+    notes: 'Nilai transaksi besar dan temuan berulang soal pemilihan vendor.', audit: 'Audit Pengadaan Barang dan Jasa Semester II',
+    description: 'Permintaan pembelian, pemilihan vendor, PO, penerimaan barang, sampai pembayaran.' },
+  { name: 'Pengelolaan kas dan bank', kind: 'Proses bisnis', unit: 'Divisi Keuangan', owner: 'Kepala Divisi Keuangan', risk: [3, 5],
+    notes: 'Risiko penyalahgunaan dana dan selisih rekonsiliasi berdampak langsung ke laporan keuangan.', audit: 'Audit Kas dan Bank Triwulan III',
+    description: 'Kas kecil, rekening operasional, rekonsiliasi bank, dan otorisasi pembayaran.' },
+  { name: 'Sistem ERP dan keamanan jaringan', kind: 'Sistem informasi', unit: 'Divisi Teknologi Informasi', owner: 'Kepala Divisi TI', risk: [4, 5],
+    notes: 'Serangan siber meningkat dan hak akses belum pernah ditinjau menyeluruh.', audit: 'Audit Keamanan Sistem Informasi',
+    description: 'Hak akses pengguna, backup, perubahan sistem, dan perlindungan jaringan.' },
+  { name: 'Penggajian dan tunjangan', kind: 'Proses bisnis', unit: 'Divisi SDM', owner: 'Kepala Divisi SDM', risk: [3, 3],
+    notes: 'Perhitungan otomatis, tetapi masih ada penyesuaian manual setiap bulan.', audit: 'Audit Penggajian dan Tunjangan Karyawan' },
+  { name: 'Gudang pusat', kind: 'Lokasi', unit: 'Divisi Operasional', owner: 'Kepala Gudang Pusat', risk: [3, 4],
+    notes: 'Nilai persediaan tinggi dan ada selisih stok opname tahun lalu.', audit: 'Audit Persediaan Gudang Pusat' },
+  { name: 'Perjalanan dinas', kind: 'Proses bisnis', unit: 'Divisi Keuangan', owner: 'Kepala Divisi Keuangan', risk: [2, 2],
+    notes: 'Nilai kecil dan kebijakan sudah jelas.', audit: 'Audit Kepatuhan Perjalanan Dinas' },
+  { name: 'Promosi dan event', kind: 'Proses bisnis', unit: 'Divisi Pemasaran', owner: 'Kepala Divisi Pemasaran', risk: [3, 3],
+    notes: 'Anggaran promosi naik dan efektivitasnya belum diukur.', audit: 'Audit Biaya Promosi dan Event' },
+  { name: 'Vendor jasa logistik dan ekspedisi', kind: 'Vendor', unit: 'Divisi Operasional', owner: 'Kepala Divisi Operasional', risk: [3, 4],
+    notes: 'Kontrak besar dan keluhan keterlambatan pengiriman.', plan: { quarter: 4, lead: 'fajar', members: ['dewi'] },
+    description: 'Kontrak, tarif, dan kinerja vendor pengiriman barang ke cabang.' },
+  { name: 'Rekrutmen dan pelatihan karyawan', kind: 'Proses bisnis', unit: 'Divisi SDM', owner: 'Kepala Divisi SDM', risk: [2, 3],
+    notes: 'Belum pernah diaudit.', plan: { quarter: 4, lead: 'rina', members: [] } },
+  { name: 'Aplikasi penjualan dan CRM', kind: 'Sistem informasi', unit: 'Divisi Pemasaran', owner: 'Kepala Divisi Pemasaran', risk: [2, 3],
+    notes: 'Aplikasi baru dipakai sejak awal tahun.' },
+  { name: 'Kantor cabang Surabaya', kind: 'Lokasi', unit: 'Divisi Operasional', owner: 'Kepala Cabang Surabaya' },
+];
+// Anggaran jam per penugasan di rencana tahunan.
+const LEAD_HOURS = 160;
+const MEMBER_HOURS = 120;
+
 // Penyetuju laporan: Direktur Keuangan untuk audit Divisi Keuangan, Direktur Utama untuk yang lain,
 // kecuali audit yang menyebut penyetuju sendiri (misalnya kepala divisi yang diaudit).
 const approverOf = (a) => a.approver || (a.unit === 'Divisi Keuangan' ? 'sri' : 'bambang');
@@ -210,7 +244,7 @@ export async function sampleStatus() {
     audits: s?.audits?.length || 0,
     password: s?.password || null,
     created_at: s?.created_at || null,
-    planned: { users: USERS.length, audits: AUDITS.length, units: UNITS.length },
+    planned: { users: USERS.length, audits: AUDITS.length, units: UNITS.length, entities: ENTITIES.length },
   };
 }
 
@@ -222,7 +256,7 @@ export async function createSample(admin) {
   const password = crypto.randomBytes(8).toString('base64url').slice(0, 10);
   const settings = await getSettings();
   const addedUnits = UNITS.filter((u) => !settings.units.some((x) => x.toLowerCase() === u.toLowerCase()));
-  const created = { users: [], audits: [], units: addedUnits };
+  const created = { users: [], audits: [], units: addedUnits, entities: [], plan: [] };
   try {
     const ids = {};
     const hash = await bcrypt.hash(password, 10);
@@ -235,14 +269,32 @@ export async function createSample(admin) {
       ids[u.key] = insertId;
       created.users.push(insertId);
     }
+    const year = new Date().getFullYear();
+    const entityOf = {};
+    for (const e of ENTITIES) {
+      const { insertId } = await query(
+        'INSERT INTO auditable_entities (name, kind, unit, owner, description, created_by) VALUES (?,?,?,?,?,?)',
+        [e.name, e.kind, e.unit, e.owner, e.description || null, ids.hendra]);
+      created.entities.push(insertId);
+      if (e.audit) entityOf[e.audit] = insertId;
+      if (e.risk) {
+        await query('INSERT INTO risk_assessments (entity_id, year, likelihood, impact, notes, assessed_by) VALUES (?,?,?,?,?,?)',
+          [insertId, year, e.risk[0], e.risk[1], e.notes, ids.hendra]);
+      }
+      if (e.plan) {
+        created.plan.push(await samplePlan({ year, quarter: e.plan.quarter, entity: insertId, title: `Audit ${e.name}`, unit: e.unit,
+          type: pickType(settings.audit_types, e.kind === 'Vendor' ? 'Operasional' : 'Kepatuhan'), lead: ids[e.plan.lead],
+          members: e.plan.members.map((m) => ids[m]), by: ids.hendra }));
+      }
+    }
     for (const a of AUDITS) {
       const auditId = await tx(async (c) => {
         const code = await nextCode(c, 'AUD');
         const { insertId } = await c.query(
-          `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, approval, team, scope, start_date, end_date, created_by)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [code, a.title, a.unit, pickType(settings.audit_types, a.type), a.status, ids[a.lead], ids[approverOf(a)], approvalOf(a), null, a.scope,
-            day(a.start), day(a.end), ids.hendra],
+          `INSERT INTO audits (code, title, unit, type, status, lead_id, approver_id, approval, entity_id, team, scope, start_date, end_date, created_by)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [code, a.title, a.unit, pickType(settings.audit_types, a.type), a.status, ids[a.lead], ids[approverOf(a)], approvalOf(a), entityOf[a.title] ?? null,
+            null, a.scope, day(a.start), day(a.end), ids.hendra],
         );
         for (const m of [a.lead, ...a.members]) await c.query('INSERT INTO audit_members (audit_id, user_id) VALUES (?,?)', [insertId, ids[m]]);
         const stepIds = [];
@@ -270,6 +322,11 @@ export async function createSample(admin) {
         return insertId;
       });
       created.audits.push(auditId);
+      // Audit ini juga tercatat di rencana tahunan, pada triwulan tanggal mulainya.
+      const start = new Date(`${day(a.start)}T00:00:00Z`);
+      created.plan.push(await samplePlan({ year: start.getUTCFullYear(), quarter: Math.floor(start.getUTCMonth() / 3) + 1, entity: entityOf[a.title] ?? null,
+        title: a.title, unit: a.unit, type: pickType(settings.audit_types, a.type), lead: ids[a.lead], members: a.members.map((m) => ids[m]),
+        by: ids.hendra, audit: auditId }));
     }
   } catch (err) {
     await removeIds(created);
@@ -279,6 +336,17 @@ export async function createSample(admin) {
   await saveInternal(admin, 'sample_data', { ...created, password, created_at: new Date().toISOString() });
   await logActivity({ query }, admin.id, 'create', 'sample_data', null, { users: created.users.length, audits: created.audits.length });
   return sampleStatus();
+}
+
+// Satu penugasan di rencana audit tahunan beserta alokasi jam timnya.
+async function samplePlan({ year, quarter, entity, title, unit, type, lead, members, by, audit = null }) {
+  const { insertId } = await query(
+    'INSERT INTO plan_items (year, entity_id, title, unit, type, quarter, lead_id, audit_id, created_by) VALUES (?,?,?,?,?,?,?,?,?)',
+    [year, entity, title, unit, type, quarter, lead, audit, by]);
+  for (const [user, hours] of [[lead, LEAD_HOURS], ...members.filter((m) => m !== lead).map((m) => [m, MEMBER_HOURS])]) {
+    await query('INSERT INTO plan_item_members (plan_item_id, user_id, hours) VALUES (?,?,?)', [insertId, user, hours]);
+  }
+  return insertId;
 }
 
 // Riwayat persetujuan dan tanda review yang sesuai dengan posisi audit di alur persetujuan.
@@ -307,7 +375,9 @@ async function sampleApproval(c, auditId, code, a, ids) {
   }
 }
 
-async function removeIds({ users = [], audits = [] }) {
+async function removeIds({ users = [], audits = [], entities = [], plan = [] }) {
+  if (plan.length) await query(`DELETE FROM plan_items WHERE id IN (${plan.map(() => '?').join(',')})`, plan);
+  if (entities.length) await query(`DELETE FROM auditable_entities WHERE id IN (${entities.map(() => '?').join(',')})`, entities);
   if (audits.length) {
     const marks = audits.map(() => '?').join(',');
     await removeFilesOf(`t.audit_id IN (${marks}) OR t.finding_id IN (SELECT id FROM findings WHERE audit_id IN (${marks}))`, [...audits, ...audits]);

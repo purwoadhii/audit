@@ -17,6 +17,7 @@ import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import ocrRoutes from './routes/ocr.js';
 import notificationRoutes from './routes/notifications.js';
+import planningRoutes from './routes/planning.js';
 import { recordError } from './errorlog.js';
 import { APP_VERSION } from './version.js';
 
@@ -62,6 +63,7 @@ export function createApp() {
   app.use('/api/ai', aiRoutes);
   app.use('/api/ocr', ocrRoutes);
   app.use('/api/notifications', notificationRoutes);
+  app.use('/api/planning', planningRoutes);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Alamat API tidak ditemukan.')));
 
   if (fs.existsSync(webDist)) {

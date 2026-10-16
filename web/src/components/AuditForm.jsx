@@ -9,7 +9,8 @@ import { t } from '../i18n.jsx';
 
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
-export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
+// preset: isian awal untuk audit baru, misalnya dari rencana audit tahunan (berisi plan_item_id).
+export default function AuditForm({ audit, preset, onClose, onSaved, onDeleted }) {
   const isNew = !audit;
   const toast = useToast();
   const { settings } = useSettings();
@@ -20,10 +21,12 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
   const types = audit?.type && !settings.audit_types.includes(audit.type) ? [audit.type, ...settings.audit_types] : settings.audit_types;
   const users = useLoad(() => api.get('/users'), []);
   const templates = useLoad(() => (isNew ? api.get('/templates') : Promise.resolve([])), [isNew]);
+  const entities = useLoad(() => api.get('/planning/entities').catch(() => []), []);
   const [f, setF] = useState(() => ({
     title: audit?.title || '', unit: audit?.unit || myUnit, type: audit?.type || settings.audit_types[0] || '',
     lead_id: audit?.lead_id || '', approver_id: audit?.approver_id || '', team: audit?.team || '', member_ids: (audit?.members || []).map((m) => m.id), start_date: audit?.start_date || today(),
-    end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '',
+    end_date: audit?.end_date || '', status: audit?.status || 'Perencanaan', scope: audit?.scope || '', template_id: '', entity_id: audit?.entity_id || '',
+    ...preset,
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +37,7 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
     setBusy(true);
     setError('');
     try {
-      const body = { ...f, lead_id: f.lead_id ? Number(f.lead_id) : null, approver_id: f.approver_id ? Number(f.approver_id) : null, template_id: f.template_id ? Number(f.template_id) : undefined };
+      const body = { ...f, lead_id: f.lead_id ? Number(f.lead_id) : null, approver_id: f.approver_id ? Number(f.approver_id) : null, template_id: f.template_id ? Number(f.template_id) : undefined, entity_id: f.entity_id ? Number(f.entity_id) : null };
       if (!isNew) delete body.template_id;
       const saved = isNew ? await api.post('/audits', body) : await api.patch(`/audits/${audit.id}`, body);
       toast(isNew ? t('Audit dibuat') : t('Audit disimpan'));
@@ -106,6 +109,15 @@ export default function AuditForm({ audit, onClose, onSaved, onDeleted }) {
         {isNew ? (
           <label>{t('Template program kerja')}<select id="a-tpl" value={f.template_id} onChange={set('template_id')}><option value="">{t('Tanpa template')}</option>{(templates.data || []).map((tp) => <option key={tp.id} value={tp.id}>{t('{name} ({n} langkah)', { name: tp.name, n: tp.steps.length })}</option>)}</select><span className="hint">{t('Langkah bisa ditambah atau dihapus nanti.')}</span></label>
         ) : <span />}
+        {(entities.data || []).length > 0 && (
+          <label className="full">{t('Area di audit universe')}
+            <select id="a-entity" value={f.entity_id || ''} onChange={set('entity_id')} disabled={Boolean(preset?.plan_item_id)}>
+              <option value="">{t('Tanpa area')}</option>
+              {entities.data.filter((x) => x.active || x.id === Number(f.entity_id)).map((x) => <option key={x.id} value={x.id}>{x.name} · {t(x.kind)}</option>)}
+            </select>
+            <span className="hint">{preset?.plan_item_id ? t('Audit ini dibuat dari rencana audit tahunan.') : t('Menghubungkan audit ke area agar tanggal audit terakhirnya tercatat untuk penilaian risiko.')}</span>
+          </label>
+        )}
         <label className="full">{t('Ruang lingkup dan tujuan')}<textarea id="a-scope" value={f.scope} onChange={set('scope')} /></label>
         {locked && <div className="notice full">{t('Laporan audit ini sedang menunggu persetujuan atau sudah disetujui, jadi isinya tidak bisa diubah. Yang masih bisa diubah hanya status.')}</div>}
         {error && <div className="error-text full" role="alert">{error}</div>}

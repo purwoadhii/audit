@@ -27,6 +27,7 @@ import { StorageSettings, StorageStatus } from './pages/Storage.jsx';
 import { AiSettings, AiStatus, AiChat, AiUnavailable } from './pages/Ai.jsx';
 import Ocr from './pages/Ocr.jsx';
 import Recap from './pages/Recap.jsx';
+import Planning from './pages/Planning.jsx';
 import Backup from './pages/Backup.jsx';
 import LangMenu from './components/LangMenu.jsx';
 import NotificationBell from './components/NotificationBell.jsx';
@@ -80,6 +81,7 @@ function UserApp() {
     { to: '/audit', label: t('Audit'), icon: 'audit' },
     { to: '/temuan', label: t('Temuan'), icon: 'finding' },
     { to: '/tindak-lanjut', label: t('Tindak Lanjut'), icon: 'board' },
+    user.role !== 'auditee' && { to: '/perencanaan', label: t('Perencanaan'), icon: 'plan' },
     user.role !== 'auditee' && { to: '/rekap', label: t('Rekap'), icon: 'report' },
     has('ai') && { to: '/asisten', label: t('Asisten AI'), icon: 'ai' },
     has('ocr') && { to: '/ocr', label: t('OCR'), icon: 'ocr' },
@@ -119,6 +121,7 @@ function UserApp() {
           <Route path="/audit/:id/laporan" element={<Report />} />
           <Route path="/temuan" element={<Findings />} />
           <Route path="/tindak-lanjut" element={<Board />} />
+          {user.role !== 'auditee' && <Route path="/perencanaan/*" element={<Planning />} />}
           {user.role !== 'auditee' && <Route path="/rekap" element={<Recap />} />}
           {has('ai') && <Route path="/asisten" element={!ai ? <Loading /> : ai.available ? <AiChat /> : <AiUnavailable reason={ai.reason} />} />}
           {has('ocr') && <Route path="/ocr" element={<Ocr />} />}

@@ -1,6 +1,6 @@
 import { query } from './db.js';
 import { badRequest } from './errors.js';
-import { AUDIT_TYPES, FINDING_CATEGORIES, ROOT_CAUSES } from './constants.js';
+import { AUDIT_TYPES, FINDING_CATEGORIES, ROOT_CAUSES, UNIVERSE_KINDS } from './constants.js';
 
 // Tema warna yang bisa dipilih. Pasangan warna sudah diuji kontrasnya dengan teks putih.
 export const THEMES = ['teal', 'biru', 'hijau', 'ungu', 'merah', 'oranye'];
@@ -59,6 +59,9 @@ export const SETTINGS = {
   root_causes: { def: ROOT_CAUSES, who: 'admin', label: 'Kategori akar masalah', check: list },
   // Bila aktif, auditor dan manajemen yang punya unit hanya melihat audit unitnya.
   unit_scope: { def: false, who: 'admin', label: 'Batasi audit per unit', check: bool },
+  // Perencanaan audit (System Admin)
+  universe_kinds: { def: UNIVERSE_KINDS, who: 'admin', label: 'Jenis area audit', check: list },
+  auditor_hours: { def: 1200, who: 'admin', label: 'Jam kerja auditor per tahun', check: int(100, 3000) },
   // Persetujuan berjenjang: audit baru bisa Selesai setelah laporannya disetujui Manager atau Kepala unit.
   approval_required: { def: true, who: 'admin', label: 'Wajib persetujuan laporan', check: bool },
   // Ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.

@@ -12,7 +12,7 @@ const r = Router();
 r.get('/', async (req, res) => {
   const all = await getSettings();
   const admin = ['admin', 'infraadmin'].includes(req.user.role);
-  const keys = Object.entries(SETTINGS).filter(([k, s]) => admin || s.pub || ['units', 'audit_types', 'unit_scope', 'finding_categories', 'root_causes', 'approval_required', 'review_required'].includes(k)).map(([k]) => k);
+  const keys = Object.entries(SETTINGS).filter(([k, s]) => admin || s.pub || ['units', 'audit_types', 'unit_scope', 'finding_categories', 'root_causes', 'approval_required', 'review_required', 'universe_kinds', 'auditor_hours'].includes(k)).map(([k]) => k);
   const values = Object.fromEntries(keys.map((k) => [k, all[k]]));
   if (!admin) return res.json({ values });
   const meta = Object.fromEntries(keys.map((k) => [k, { who: SETTINGS[k].who, label: SETTINGS[k].label, default: SETTINGS[k].def }]));

@@ -17,6 +17,7 @@ const SECTIONS = [
   { title: N_('Tampilan'), keys: ['app_name', 'app_tagline', 'theme', 'login_title', 'login_subtitle', 'login_hero_title', 'login_hero_text', 'forgot_password_text'] },
   { title: N_('Data master'), keys: ['units', 'audit_types', 'finding_categories', 'root_causes', 'unit_scope'] },
   { title: N_('Persetujuan laporan'), keys: ['approval_required', 'review_required'] },
+  { title: N_('Perencanaan audit'), keys: ['universe_kinds', 'auditor_hours'] },
   { title: N_('Dokumen'), keys: ['ocr_enabled'] },
   { title: N_('Keamanan login'), keys: ['session_idle_minutes', 'remember_max_days'] },
 ];
@@ -30,6 +31,8 @@ const INFRA_SECTIONS = [
 const HINT = {
   approval_required: N_('Saat aktif, audit baru bisa berstatus Selesai setelah laporannya disetujui penyetuju (Manager atau Kepala unit) yang dipilih di setiap audit.'),
   review_required: N_('Saat aktif, ketua tim harus mereview semua langkah yang sudah diuji dan semua temuan sebelum laporan diteruskan ke penyetuju.'),
+  universe_kinds: N_('Satu jenis per baris. Dipakai untuk mengelompokkan area di audit universe.'),
+  auditor_hours: N_('Kapasitas jam satu auditor dalam setahun. Dipakai untuk menghitung beban kerja di rencana audit tahunan.'),
   units: N_('Satu unit per baris. Muncul sebagai pilihan saat mengisi unit audit dan unit pengguna.'),
   audit_types: N_('Satu jenis per baris. Audit lama dengan jenis yang dihapus tetap tersimpan.'),
   finding_categories: N_('Satu kategori per baris. Dipilih saat mencatat temuan atau isu dan dipakai di rekap.'),
@@ -265,7 +268,7 @@ export function SampleData() {
     <div className="settings-grid">
       <section className="panel form" aria-label={t('Data awal')}>
         <h3 className="full" style={{ margin: 0 }}>{t('Data awal')}</h3>
-        <p className="full form-note">{t('Isi aplikasi dengan data awal yang siap dipakai: {users} akun (tim audit internal, direksi, dan kepala divisi), {audits} audit di {units} divisi lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut. Semua data awal bisa dihapus lagi sekaligus tanpa menyentuh data lain.', data.planned)}</p>
+        <p className="full form-note">{t('Isi aplikasi dengan data awal yang siap dipakai: {users} akun (tim audit internal, direksi, dan kepala divisi), {audits} audit di {units} divisi lengkap dengan program kerja, temuan, isu, dan riwayat tindak lanjut, serta {entities} area audit universe dengan penilaian risiko dan rencana audit tahun ini. Semua data awal bisa dihapus lagi sekaligus tanpa menyentuh data lain.', data.planned)}</p>
         {data.exists && (
           <p className="full form-note"><T k="Semua akun di bawah memakai kata sandi awal {password}. Masuk di halaman pengguna, lalu minta setiap pengguna mengganti kata sandinya di menu Akun saya." password={<b className="code">{data.password || '—'}</b>} /></p>
         )}

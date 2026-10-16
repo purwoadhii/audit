@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { AUDIT_STATUS, RISKS, fmtDate, canEdit } from '../util.js';
@@ -74,6 +74,21 @@ export default function Dashboard() {
           ))}
         </div>
         <div className="stack">
+          {data.plan && (
+            <div className="panel">
+              <div className="bar" style={{ marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>{t('Rencana audit {year}', { year: data.plan.year })}</h3>
+                <Link to="/perencanaan/rencana">{t('Buka rencana')}</Link>
+              </div>
+              {data.plan.planned ? (
+                <>
+                  <div className="riskbar"><span>{t('Selesai')}</span><div className="track"><div className="fill" style={{ width: `${(data.plan.done / data.plan.planned) * 100}%`, background: 'var(--ok)' }} /></div><span className="n">{data.plan.done}</span></div>
+                  <div className="riskbar"><span>{t('Sudah dimulai')}</span><div className="track"><div className="fill" style={{ width: `${(data.plan.started / data.plan.planned) * 100}%`, background: 'var(--accent)' }} /></div><span className="n">{data.plan.started}</span></div>
+                  <p className="t-sub" style={{ margin: '4px 0 0' }}>{t('{done} dari {n} penugasan selesai ({p}%).', { done: data.plan.done, n: data.plan.planned, p: Math.round((data.plan.done / data.plan.planned) * 100) })}</p>
+                </>
+              ) : <Empty small>{t('Belum ada rencana audit tahun ini.')}</Empty>}
+            </div>
+          )}
           <div className="panel">
             <h3>{t('Tindak lanjut terdekat')}</h3>
             {data.upcoming.length ? (
